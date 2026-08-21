@@ -14,7 +14,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm ci || npm install
       - run: npm run lint
       - run: npm run build
@@ -27,7 +27,32 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: cd backend && pip install -r requirements.txt && (uvicorn main:app --port 8000 &) && sleep 3
-      - run: curl -s http://localhost:8000/openapi.json > openapi.json
-      - run: npx openapi-typescript openapi.json -o shared/contracts.generated.ts
-      - run: git diff --exit-code shared/contracts.generated.ts || echo "Contracts verified"
+      - name: Install backend dependencies
+        run: cd backend && pip install -r requirements.txt
+      - name: Start backend
+        run: |
+          cd backend
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/archos-backend.log 2>&1 &
+          echo $! > /tmp/archos-backend.pid
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/ > /tmp/archos-root.json; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/archos-backend.log
+          exit 1
+      - name: Validate OpenAPI
+        run: curl --fail --silent --show-error http://127.0.0.1:8000/openapi.json > openapi.json
+      - name: Generate TypeScript contracts
+        run: npx --yes openapi-typescript openapi.json -o shared/contracts.generated.ts
+      - name: Verify generated contracts
+        run: git diff --exit-code -- shared/contracts.generated.ts
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/archos-backend.pid ]; then
+            kill "$(cat /tmp/archos-backend.pid)" 2>/dev/null || true
+          fi
