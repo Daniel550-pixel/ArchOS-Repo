@@ -68,7 +68,7 @@ class Swarm:
         return sorted(candidates, key=lambda a: (a.workload, -a.performance))
 
     async def dispatch(self, agent_id: str, task: AgentTask) -> AgentResult:
-        """Dispatch only when the named agent satisfies the task contract."""
+        """Dispatch a task only when the named agent satisfies its capability contract."""
         agent = self.agents.get(agent_id)
         if not agent:
             return AgentResult(
@@ -80,6 +80,15 @@ class Swarm:
                 confidence=0.0,
                 error="Requested agent is not registered",
             )
+
+        # Existing orchestrator call sites identify a concrete specialist but do
+        # not yet declare required_capabilities. Bind those legacy calls to the
+        # registered agent's immutable capability set so they cannot silently
+        # execute through a mismatched agent. New call sites should declare the
+        # capability contract explicitly and use route().
+        if not task.required_capabilities:
+            task.required_capabilities = set(agent.capabilities)
+
         if not agent.can_accept(task):
             return AgentResult(
                 agent_id=agent.id,
@@ -111,6 +120,17 @@ class Swarm:
 
     async def route(self, task: AgentTask) -> AgentResult:
         """Select the best eligible agent from the declared capability contract."""
+        if not task.required_capabilities:
+            return AgentResult(
+                agent_id="swarm",
+                task_id=task.task_id,
+                status="DENIED",
+                output={},
+                reality=RealityLevel.FALLBACK,
+                confidence=0.0,
+                provenance="swarm:missing_capability_contract",
+                error="Capability contract is required for routed dispatch",
+            )
         candidates = self.eligible_agents(task.required_capabilities, task.required_permissions)
         if not candidates:
             return AgentResult(
