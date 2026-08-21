@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from app.services.world_model_runtime import query_authoritative_state
 
 from .base import Agent, AgentCapability, AgentTask, AgentResult, RealityLevel
-from app.core.database import AsyncSessionLocal
-from app.services.world_model_runtime import WorldModelRuntime
 
 
 class AuthoritativeWorldModelAgent(Agent):
@@ -19,12 +17,10 @@ class AuthoritativeWorldModelAgent(Agent):
             supported_tools=["temporal_wm", "entity_state", "provenance"],
             reality_default=RealityLevel.OBSERVED,
         )
-        self.runtime = WorldModelRuntime()
 
     async def _run(self, task: AgentTask) -> AgentResult:
         entities = task.payload.get("detected_entities", [])
-        async with AsyncSessionLocal() as session:
-            data = await self.runtime.query(session, entities)
+        data = await query_authoritative_state(entities)
 
         return AgentResult(
             agent_id=self.id,
