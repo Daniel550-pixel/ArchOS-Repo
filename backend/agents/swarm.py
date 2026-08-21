@@ -68,7 +68,7 @@ class Swarm:
         return sorted(candidates, key=lambda a: (a.workload, -a.performance))
 
     async def dispatch(self, agent_id: str, task: AgentTask) -> AgentResult:
-        """Dispatch a task only when the named agent satisfies its capability contract."""
+        """Dispatch only through the agent's declared contract and hard execution gates."""
         agent = self.agents.get(agent_id)
         if not agent:
             return AgentResult(
@@ -81,11 +81,61 @@ class Swarm:
                 error="Requested agent is not registered",
             )
 
-        # Existing orchestrator call sites identify a concrete specialist but do
-        # not yet declare required_capabilities. Bind those legacy calls to the
-        # registered agent's immutable capability set so they cannot silently
-        # execute through a mismatched agent. New call sites should declare the
-        # capability contract explicitly and use route().
+        # Execution is a privileged capability. The orchestrator may construct
+        # a response task for every request, but the execution agent must never
+        # be invoked for a non-action intent and must never execute an action
+        # whose verification certificate is not VERIFIED.
+        if agent_id == "execution":
+            is_action = bool(task.payload.get("is_action_intent", False))
+            verification_status = str(task.payload.get("verification_status", "UNVERIFIED"))
+
+            if not is_action:
+                await fabric.publish("EXECUTION_SKIPPED", {
+                    "task_id": task.task_id,
+                    "reason": "NON_ACTION_INTENT",
+                    "correlation_id": task.correlation_id,
+                })
+                return AgentResult(
+                    agent_id=agent.id,
+                    task_id=task.task_id,
+                    status="SKIPPED",
+                    output={
+                        "action_state": "RESPONSE_ONLY",
+                        "governance_decision": "NOT_APPLICABLE",
+                    },
+                    reality=RealityLevel.OBSERVED,
+                    confidence=1.0,
+                    provenance="swarm:execution_gate:non_action_intent",
+                )
+
+            if verification_status != "VERIFIED":
+                await fabric.publish("EXECUTION_BLOCKED", {
+                    "task_id": task.task_id,
+                    "reason": "VERIFICATION_REQUIRED",
+                    "verification_status": verification_status,
+                    "correlation_id": task.correlation_id,
+                })
+                return AgentResult(
+                    agent_id=agent.id,
+                    task_id=task.task_id,
+                    status="DENIED",
+                    output={
+                        "action_state": "BLOCKED",
+                        "governance_decision": "DENIED",
+                        "reason": "Execution requires a VERIFIED certificate",
+                    },
+                    reality=RealityLevel.FALLBACK,
+                    confidence=0.0,
+                    provenance="swarm:execution_gate:verification_required",
+                    error="Execution blocked because verification is not VERIFIED",
+                )
+
+            task.required_capabilities = task.required_capabilities or {AgentCapability.EXECUTION}
+
+        # Existing named dispatches identify a concrete specialist. Bind legacy
+        # calls to that agent's immutable capability set so they cannot execute
+        # through a mismatched agent. New call sites should declare capabilities
+        # explicitly and use route().
         if not task.required_capabilities:
             task.required_capabilities = set(agent.capabilities)
 
