@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.core.config import settings
 from app.api.endpoints import router as api_router
@@ -16,6 +17,7 @@ from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
 from app.services.finops_service import FinOpsService, TenantUsageRepository
+from app.services.jarvis_runtime_bridge import jarvis_runtime_bridge
 from app.core.database import close_database
 
 usage_repo = TenantUsageRepository()
@@ -69,6 +71,20 @@ app.include_router(scenario_planner_router)
 app.include_router(scenario_orchestrator_router)
 
 
+class JarvisRequest(BaseModel):
+    query: str
+    actor: str = "operator"
+    tenant_id: str = "uae-sovereign"
+
+
+@app.post("/api/v1/jarvis/ask")
+async def jarvis_ask(request: JarvisRequest):
+    try:
+        return await jarvis_runtime_bridge.run(request.model_dump())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="JARVIS runtime execution failed") from exc
+
+
 @app.get("/")
 async def root():
     return {
@@ -84,6 +100,7 @@ async def root():
         "scenario_execution": "AUDITABLE_END_TO_END",
         "scenario_planner": "JARVIS_INTENT_TO_PLAN",
         "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED",
+        "jarvis_runtime": "BRIDGED",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
