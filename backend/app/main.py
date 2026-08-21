@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.api.endpoints import router as api_router
 from app.api.world_model import router as world_model_router
 from app.api.simulation import router as simulation_router
+from app.api.scenario_intelligence import router as scenario_intelligence_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
@@ -57,6 +58,7 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_PREFIX)
 app.include_router(world_model_router, prefix=settings.API_PREFIX)
 app.include_router(simulation_router)
+app.include_router(scenario_intelligence_router)
 
 
 @app.get("/")
@@ -69,6 +71,7 @@ async def root():
         "identity_boundary": "ACTIVE",
         "world_model": "PERSISTENT_POSTGRESQL",
         "simulation_engine": "ISOLATED_BRANCHES",
+        "scenario_intelligence": "CAUSAL_PROPAGATION",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
