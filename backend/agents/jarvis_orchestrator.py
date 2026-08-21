@@ -1,16 +1,24 @@
-"""ArchOS Authoritative J.A.R.V.I.S. Cognitive Orchestrator.
-Executes the canonical 10-stage reasoning, verification, and governed action lifecycle.
-Emits real-time Event Fabric lifecycle events and enforces hard zero-trust boundaries.
+"""ArchOS authoritative J.A.R.V.I.S. cognitive orchestrator.
+
+Executes the canonical reasoning/verification lifecycle while enforcing
+capability-based agent routing and a hard governed execution boundary.
 """
 from typing import Dict, Any, List, Optional
 import uuid
 import time
 from datetime import datetime, timezone
 
-from .base import AgentTask, AgentResult, RealityLevel, RiskLevel, VerificationStatus, InterAgentMessage
+from .base import (
+    AgentTask,
+    AgentResult,
+    AgentCapability,
+    RealityLevel,
+    RiskLevel,
+    InterAgentMessage,
+)
 from .swarm import swarm
-from .action_gate import action_gate
 from ..core.event_fabric import fabric
+
 
 class JarvisOrchestrator:
     def __init__(self):
@@ -21,11 +29,12 @@ class JarvisOrchestrator:
         query: str,
         actor: str = "operator",
         tenant_id: str = "uae-sovereign",
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         task_id = f"task-{uuid.uuid4().hex[:12]}"
         correlation_id = f"corr-{uuid.uuid4().hex[:8]}"
         start_time = time.time()
+        context = context or {}
 
         session_record: Dict[str, Any] = {
             "task_id": task_id,
@@ -37,26 +46,68 @@ class JarvisOrchestrator:
             "stages": [],
             "inter_agent_messages": [],
             "verification_status": "UNVERIFIED",
-            "action_decision": "ALLOWED",
+            "action_decision": "NOT_APPLICABLE",
             "final_answer": "",
             "reality": "OBSERVED",
             "confidence": 1.0,
-            "execution_time_ms": 0.0
+            "execution_time_ms": 0.0,
         }
 
-        # 0. Publish TASK_CREATED
-        try:
-            await fabric.publish("TASK_CREATED", {
-                "task_id": task_id,
-                "correlation_id": correlation_id,
-                "query": query,
-                "actor": actor
-            })
-        except Exception:
-            pass
+        async def publish(event: str, payload: Dict[str, Any]) -> None:
+            """Publish observability events without turning telemetry into control flow."""
+            try:
+                await fabric.publish(event, payload)
+            except Exception:
+                # Realtime telemetry is non-authoritative. Durable governance and
+                # execution decisions must not depend on WebSocket availability.
+                pass
 
-        # Helper to log inter-agent communication
-        async def send_msg(sender: str, receiver: str, m_type: str, payload: dict, reality: RealityLevel = RealityLevel.INFERRED, conf: float = 1.0):
+        async def dispatch(
+            agent_id: str,
+            capability: AgentCapability,
+            intent: str,
+            payload: Dict[str, Any],
+            *,
+            risk_level: RiskLevel = RiskLevel.READ_ONLY,
+            verification_required: bool = True,
+        ) -> AgentResult:
+            """Create an explicit capability contract and route through the Swarm."""
+            task = AgentTask(
+                task_id=task_id,
+                intent=intent,
+                payload=payload,
+                actor=actor,
+                tenant_id=tenant_id,
+                correlation_id=correlation_id,
+                required_capabilities={capability},
+                risk_level=risk_level,
+                verification_required=verification_required,
+            )
+            # Route by capability. The canonical agent id is retained as an
+            # invariant check so a future duplicate-capability registration cannot
+            # silently redirect a J.A.R.V.I.S. stage to an unintended specialist.
+            candidates = swarm.eligible_agents({capability})
+            if not candidates or candidates[0].id != agent_id:
+                return AgentResult(
+                    agent_id=agent_id,
+                    task_id=task_id,
+                    status="DENIED",
+                    output={},
+                    reality=RealityLevel.FALLBACK,
+                    confidence=0.0,
+                    provenance="jarvis:capability_route_mismatch",
+                    error=f"No canonical agent satisfies capability {capability.value}",
+                )
+            return await swarm.route(task)
+
+        async def send_msg(
+            sender: str,
+            receiver: str,
+            m_type: str,
+            payload: dict,
+            reality: RealityLevel = RealityLevel.INFERRED,
+            conf: float = 1.0,
+        ):
             msg = InterAgentMessage(
                 task_id=task_id,
                 sender=sender,
@@ -65,7 +116,7 @@ class JarvisOrchestrator:
                 payload=payload,
                 reality=reality,
                 confidence=conf,
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
             )
             session_record["inter_agent_messages"].append({
                 "message_id": msg.message_id,
@@ -75,295 +126,256 @@ class JarvisOrchestrator:
                 "payload": msg.payload,
                 "reality": msg.reality.value if hasattr(msg.reality, "value") else str(msg.reality),
                 "confidence": msg.confidence,
-                "timestamp": msg.timestamp
+                "timestamp": msg.timestamp,
             })
             await swarm.log_message(msg)
 
-        # --------------------------------------------------------------------
-        # STAGE 1: UNDERSTAND (Perception Agent)
-        # --------------------------------------------------------------------
-        t1 = AgentTask(task_id=task_id, intent=query, payload={"query": query}, actor=actor, tenant_id=tenant_id, correlation_id=correlation_id)
-        res_perception = await swarm.dispatch("perception", t1)
-        
+        await publish("TASK_CREATED", {
+            "task_id": task_id,
+            "correlation_id": correlation_id,
+            "query": query,
+            "actor": actor,
+            "tenant_id": tenant_id,
+        })
+
+        # STAGE 1: UNDERSTAND
+        res_perception = await dispatch(
+            "perception", AgentCapability.PERCEPTION, "UNDERSTAND", {
+                "query": query,
+                "context": context,
+            }
+        )
         session_record["stages"].append({
             "stage": "1_UNDERSTAND",
             "stage_name": "Intent & Entity Disambiguation",
-            "agent": "perception",
+            "agent": res_perception.agent_id,
             "execution_time_ms": res_perception.execution_time_ms,
             "status": res_perception.status,
             "output": res_perception.output,
-            "reality": res_perception.reality.value if hasattr(res_perception.reality, "value") else str(res_perception.reality)
+            "reality": res_perception.reality.value,
         })
-
         normalized_query = res_perception.output.get("normalized_query", query)
         domain = res_perception.output.get("domain", "GENERAL_INTELLIGENCE")
         detected_entities = res_perception.output.get("detected_entities", [])
-        is_action_intent = res_perception.output.get("is_action_intent", False)
-
+        is_action_intent = bool(res_perception.output.get("is_action_intent", False))
         await send_msg("perception", "jarvis_orchestrator", "INTENT_VECTOR", res_perception.output, res_perception.reality, res_perception.confidence)
 
-        # --------------------------------------------------------------------
-        # STAGE 2: CONTEXTUALIZE (Research / Open Data Agent)
-        # --------------------------------------------------------------------
-        t2 = AgentTask(task_id=task_id, intent="GATHER_CONTEXT", payload={"normalized_query": normalized_query, "domain": domain}, actor=actor, tenant_id=tenant_id, correlation_id=correlation_id)
-        res_research = await swarm.dispatch("research", t2)
-
+        # STAGE 2: CONTEXTUALIZE
+        res_research = await dispatch(
+            "research", AgentCapability.RESEARCH, "GATHER_CONTEXT", {
+                "normalized_query": normalized_query,
+                "domain": domain,
+            }
+        )
         session_record["stages"].append({
             "stage": "2_CONTEXTUALIZE",
             "stage_name": "Multi-Scale Telemetry Grounding",
-            "agent": "research",
+            "agent": res_research.agent_id,
             "execution_time_ms": res_research.execution_time_ms,
             "status": res_research.status,
             "output": res_research.output,
-            "reality": res_research.reality.value if hasattr(res_research.reality, "value") else str(res_research.reality)
+            "reality": res_research.reality.value,
         })
-
         research_findings = res_research.output.get("findings", {})
         await send_msg("research", "world_model", "CONTEXT_ENVELOPE", research_findings, res_research.reality, res_research.confidence)
 
-        # --------------------------------------------------------------------
-        # STAGE 3: QUERY WORLD MODEL (World Model Agent)
-        # --------------------------------------------------------------------
-        try:
-            await fabric.publish("WORLD_MODEL_QUERY", {
-                "task_id": task_id,
-                "entities": [e.get("urn") for e in detected_entities]
-            })
-        except Exception:
-            pass
-
-        t3 = AgentTask(task_id=task_id, intent="QUERY_STATE", payload={"detected_entities": detected_entities}, actor=actor, tenant_id=tenant_id, correlation_id=correlation_id)
-        res_wm = await swarm.dispatch("world_model", t3)
-
+        # STAGE 3: QUERY WORLD MODEL
+        await publish("WORLD_MODEL_QUERY", {
+            "task_id": task_id,
+            "entities": [e.get("urn") for e in detected_entities],
+        })
+        res_wm = await dispatch(
+            "world_model", AgentCapability.WORLD_MODEL, "QUERY_STATE", {
+                "detected_entities": detected_entities,
+            }
+        )
         session_record["stages"].append({
             "stage": "3_QUERY_WORLD_MODEL",
             "stage_name": "Canonical Graph & State Query",
-            "agent": "world_model",
+            "agent": res_wm.agent_id,
             "execution_time_ms": res_wm.execution_time_ms,
             "status": res_wm.status,
             "output": res_wm.output,
-            "reality": res_wm.reality.value if hasattr(res_wm.reality, "value") else str(res_wm.reality)
+            "reality": res_wm.reality.value,
         })
-
         wm_state = res_wm.output
         await send_msg("world_model", "reasoning", "CANONICAL_STATE", wm_state, res_wm.reality, res_wm.confidence)
 
-        # --------------------------------------------------------------------
-        # STAGE 4: SELECT AGENTS (Dynamic Capability Routing)
-        # --------------------------------------------------------------------
-        selected_agents = ["reasoning", "planning", "risk", "verification"]
+        # STAGE 4: SELECT AGENTS — capability contract, not decorative IDs.
+        selected_capabilities = [
+            AgentCapability.REASONING.value,
+            AgentCapability.PLANNING.value,
+            AgentCapability.RISK_ASSESSMENT.value,
+            AgentCapability.VERIFICATION.value,
+        ]
         if is_action_intent:
-            selected_agents.append("execution")
-
-        try:
-            await fabric.publish("AGENT_SELECTED", {
-                "task_id": task_id,
-                "selected_agents": selected_agents,
-                "domain": domain
-            })
-        except Exception:
-            pass
-
+            selected_capabilities.append(AgentCapability.EXECUTION.value)
+        await publish("AGENT_SELECTED", {
+            "task_id": task_id,
+            "selected_capabilities": selected_capabilities,
+            "domain": domain,
+            "action_intent": is_action_intent,
+        })
         session_record["stages"].append({
             "stage": "4_SELECT_AGENTS",
             "stage_name": "Dynamic Capability Dispatch",
             "agent": "jarvis_orchestrator",
-            "execution_time_ms": 5.0,
+            "execution_time_ms": 1.0,
             "status": "SUCCESS",
-            "output": {"selected_agents": selected_agents, "domain": domain},
-            "reality": "OBSERVED"
+            "output": {
+                "selected_capabilities": selected_capabilities,
+                "domain": domain,
+                "action_intent": is_action_intent,
+            },
+            "reality": "OBSERVED",
         })
 
-        # --------------------------------------------------------------------
-        # STAGE 5: REASON (Reasoning Agent)
-        # --------------------------------------------------------------------
-        try:
-            await fabric.publish("REASONING_STARTED", {
-                "task_id": task_id,
-                "model_route": "sovereign_router"
-            })
-        except Exception:
-            pass
-
-        t5 = AgentTask(
-            task_id=task_id,
-            intent="DEDUCE_AND_SYNTHESIZE",
-            payload={
+        # STAGE 5: REASON
+        await publish("REASONING_STARTED", {
+            "task_id": task_id,
+            "model_route": "sovereign_router",
+        })
+        res_reasoning = await dispatch(
+            "reasoning", AgentCapability.REASONING, "DEDUCE_AND_SYNTHESIZE", {
                 "normalized_query": normalized_query,
                 "domain": domain,
                 "world_model_state": wm_state,
-                "research_findings": research_findings
-            },
-            actor=actor,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id
+                "research_findings": research_findings,
+            }
         )
-        res_reasoning = await swarm.dispatch("reasoning", t5)
-
         session_record["stages"].append({
             "stage": "5_REASON",
             "stage_name": "Model-Backed Logical Deduction",
-            "agent": "reasoning",
+            "agent": res_reasoning.agent_id,
             "execution_time_ms": res_reasoning.execution_time_ms,
             "status": res_reasoning.status,
             "output": res_reasoning.output,
-            "reality": res_reasoning.reality.value if hasattr(res_reasoning.reality, "value") else str(res_reasoning.reality)
+            "reality": res_reasoning.reality.value,
         })
-
         deductions = res_reasoning.output.get("deductions", [])
         await send_msg("reasoning", "planning", "DEDUCTION_SET", res_reasoning.output, res_reasoning.reality, res_reasoning.confidence)
 
-        # --------------------------------------------------------------------
-        # STAGE 6: PLAN (Planning Agent)
-        # --------------------------------------------------------------------
-        t6 = AgentTask(
-            task_id=task_id,
-            intent="DECOMPOSE_PLAN",
-            payload={
+        # STAGE 6: PLAN
+        res_plan = await dispatch(
+            "planning", AgentCapability.PLANNING, "DECOMPOSE_PLAN", {
                 "domain": domain,
                 "is_action_intent": is_action_intent,
-                "deductions": deductions
+                "deductions": deductions,
             },
-            actor=actor,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id
+            risk_level=RiskLevel.LOW_RISK if is_action_intent else RiskLevel.READ_ONLY,
         )
-        res_plan = await swarm.dispatch("planning", t6)
-
-        try:
-            await fabric.publish("PLAN_CREATED", {
-                "task_id": task_id,
-                "plan_id": res_plan.output.get("plan_id"),
-                "step_count": len(res_plan.output.get("steps", []))
-            })
-        except Exception:
-            pass
-
+        await publish("PLAN_CREATED", {
+            "task_id": task_id,
+            "plan_id": res_plan.output.get("plan_id"),
+            "step_count": len(res_plan.output.get("steps", [])),
+        })
         session_record["stages"].append({
             "stage": "6_PLAN",
             "stage_name": "Tactical Task Decomposition",
-            "agent": "planning",
-            "execution_time_ms": res_plan.output.get("execution_time_ms", 12.0),
+            "agent": res_plan.agent_id,
+            "execution_time_ms": res_plan.execution_time_ms,
             "status": res_plan.status,
             "output": res_plan.output,
-            "reality": res_plan.reality.value if hasattr(res_plan.reality, "value") else str(res_plan.reality)
+            "reality": res_plan.reality.value,
         })
-
         plan_output = res_plan.output
         await send_msg("planning", "risk", "PLAN_PROPOSAL", plan_output, res_plan.reality, res_plan.confidence)
 
-        # --------------------------------------------------------------------
-        # STAGE 7: SIMULATE / ASSESS RISK (Risk Agent)
-        # --------------------------------------------------------------------
-        t7 = AgentTask(
-            task_id=task_id,
-            intent="ASSESS_OPERATIONAL_RISK",
-            payload={
+        # STAGE 7: RISK
+        res_risk = await dispatch(
+            "risk", AgentCapability.RISK_ASSESSMENT, "ASSESS_OPERATIONAL_RISK", {
                 "domain": domain,
                 "is_action_intent": is_action_intent,
-                "plan": plan_output
+                "plan": plan_output,
             },
-            actor=actor,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id
+            risk_level=RiskLevel.LOW_RISK if is_action_intent else RiskLevel.READ_ONLY,
         )
-        res_risk = await swarm.dispatch("risk", t7)
-
         session_record["stages"].append({
             "stage": "7_SIMULATE",
             "stage_name": "Operational Risk & Blast Radius Audit",
-            "agent": "risk",
+            "agent": res_risk.agent_id,
             "execution_time_ms": res_risk.execution_time_ms,
             "status": res_risk.status,
             "output": res_risk.output,
-            "reality": res_risk.reality.value if hasattr(res_risk.reality, "value") else str(res_risk.reality)
+            "reality": res_risk.reality.value,
         })
-
         risk_output = res_risk.output
         risk_level_str = risk_output.get("risk_level", "LOW_RISK")
         await send_msg("risk", "verification", "RISK_ENVELOPE", risk_output, res_risk.reality, res_risk.confidence)
 
-        # --------------------------------------------------------------------
-        # STAGE 8 & 9: VERIFY & GOVERN (Verification Agent + ABAC)
-        # --------------------------------------------------------------------
-        try:
-            await fabric.publish("VERIFICATION_STARTED", {
-                "task_id": task_id,
-                "risk_level": risk_level_str
-            })
-        except Exception:
-            pass
-
-        t8 = AgentTask(
-            task_id=task_id,
-            intent="VERIFY_INVARIANTS",
-            payload={
+        # STAGE 8/9: VERIFY
+        await publish("VERIFICATION_STARTED", {
+            "task_id": task_id,
+            "risk_level": risk_level_str,
+        })
+        res_verify = await dispatch(
+            "verification", AgentCapability.VERIFICATION, "VERIFY_INVARIANTS", {
                 "plan": plan_output,
                 "reasoning": res_reasoning.output,
-                "risk": risk_output
-            },
-            actor=actor,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id
+                "risk": risk_output,
+                "is_action_intent": is_action_intent,
+            }
         )
-        res_verify = await swarm.dispatch("verification", t8)
-
         session_record["stages"].append({
             "stage": "9_VERIFY",
             "stage_name": "Epistemic Verification & Policy Invariant Audit",
-            "agent": "verification",
+            "agent": res_verify.agent_id,
             "execution_time_ms": res_verify.execution_time_ms,
             "status": res_verify.status,
             "output": res_verify.output,
-            "reality": res_verify.reality.value if hasattr(res_verify.reality, "value") else str(res_verify.reality)
+            "reality": res_verify.reality.value,
+        })
+        verification_status = res_verify.output.get("status", "UNVERIFIED")
+        session_record["verification_status"] = verification_status
+        await publish("VERIFICATION_COMPLETED", {
+            "task_id": task_id,
+            "status": verification_status,
+            "confidence": res_verify.confidence,
         })
 
-        verification_status = res_verify.output.get("status", "VERIFIED")
-        session_record["verification_status"] = verification_status
-
-        try:
-            await fabric.publish("VERIFICATION_COMPLETED", {
-                "task_id": task_id,
-                "status": verification_status,
-                "confidence": res_verify.confidence
-            })
-        except Exception:
-            pass
-
-        await send_msg("verification", "execution", "VERIFICATION_CERT", res_verify.output, res_verify.reality, res_verify.confidence)
-
-        # --------------------------------------------------------------------
-        # STAGE 10: RESPOND OR ACT (Execution Agent + Action Gate)
-        # --------------------------------------------------------------------
-        t10 = AgentTask(
-            task_id=task_id,
-            intent="GOVERNED_EXECUTION_OR_RESPONSE",
-            payload={
-                "is_action_intent": is_action_intent,
+        # STAGE 10: RESPOND OR ACT. Non-action requests never dispatch execution.
+        res_exec: Optional[AgentResult] = None
+        if is_action_intent:
+            t10_payload = {
+                "is_action_intent": True,
                 "risk_level": risk_level_str,
                 "plan": plan_output,
                 "deductions": deductions,
-                "verification_status": verification_status
-            },
-            actor=actor,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id
-        )
-        res_exec = await swarm.dispatch("execution", t10)
+                "verification_status": verification_status,
+            }
+            res_exec = await dispatch(
+                "execution", AgentCapability.EXECUTION, "GOVERNED_EXECUTION", t10_payload,
+                risk_level=RiskLevel(risk_level_str) if risk_level_str in RiskLevel._value2member_map_ else RiskLevel.CONSEQUENTIAL,
+                verification_required=True,
+            )
+            session_record["action_decision"] = res_exec.output.get("governance_decision", res_exec.status)
+            execution_stage = {
+                "stage": "10_RESPOND_OR_ACT",
+                "stage_name": "Governed Action",
+                "agent": res_exec.agent_id,
+                "execution_time_ms": res_exec.execution_time_ms,
+                "status": res_exec.status,
+                "output": res_exec.output,
+                "reality": res_exec.reality.value,
+            }
+        else:
+            execution_stage = {
+                "stage": "10_RESPOND_OR_ACT",
+                "stage_name": "Response Synthesis",
+                "agent": "jarvis_orchestrator",
+                "execution_time_ms": 0.0,
+                "status": "SKIPPED_EXECUTION",
+                "output": {
+                    "action_state": "RESPONSE_ONLY",
+                    "governance_decision": "NOT_APPLICABLE",
+                },
+                "reality": "OBSERVED",
+            }
+        session_record["stages"].append(execution_stage)
 
-        session_record["stages"].append({
-            "stage": "10_RESPOND_OR_ACT",
-            "stage_name": "Governed Action & Sovereign Synthesis",
-            "agent": "execution",
-            "execution_time_ms": res_exec.execution_time_ms,
-            "status": res_exec.status,
-            "output": res_exec.output,
-            "reality": res_exec.reality.value if hasattr(res_exec.reality, "value") else str(res_exec.reality)
-        })
-
-        # Formulate sovereign answer
-        final_answer = ""
-        if "tallest_structures" in research_findings:
+        if res_exec and res_exec.output.get("action_state") == "PENDING_APPROVAL":
+            final_answer = f"Action [{res_exec.output.get('action_id')}] held at Action Gate: Requires Sovereign Human Approval."
+        elif "tallest_structures" in research_findings:
             structures = research_findings["tallest_structures"]
             summary = ", ".join([f"{b.get('name', 'Structure')} ({b.get('height', 0)}m)" for b in structures[:3]])
             final_answer = f"J.A.R.V.I.S. verified surveyed Downtown Dubai structures: {summary}."
@@ -374,15 +386,15 @@ class JarvisOrchestrator:
             c = research_findings["climate"]
             final_answer = f"Open-Meteo Downtown Dubai (25.20°N, 55.27°E): Temperature {c.get('temperature_2m', 31.4)}°C, Relative Humidity {c.get('relative_humidity_2m', 48)}%, Wind {c.get('wind_speed_10m', 14.2)} km/h."
         else:
-            final_answer = res_reasoning.output.get("synthesis", f"J.A.R.V.I.S. completed multi-agent analysis for '{query}'. All constraints verified across UAE Sovereign World Model.")
-
-        if res_exec.output.get("action_state") == "PENDING_APPROVAL":
-            final_answer += f" Action [{res_exec.output.get('action_id')}] held at Action Gate: Requires Sovereign Human Approval."
+            final_answer = res_reasoning.output.get(
+                "synthesis",
+                f"J.A.R.V.I.S. completed multi-agent analysis for '{query}'.",
+            )
 
         session_record["final_answer"] = final_answer
         session_record["execution_time_ms"] = round((time.time() - start_time) * 1000, 2)
         self._history.append(session_record)
-
         return session_record
+
 
 jarvis_orchestrator = JarvisOrchestrator()
