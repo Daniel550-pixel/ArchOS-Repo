@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,9 @@ from app.services.governance_bridge import governance_bridge
 from app.services.event_fabric import app_event_fabric
 from backend.agents.action_gate import ActionRequest
 from backend.agents.base import RiskLevel
+from backend.auth.webauthn import router as auth_router
+from backend.auth.sessions import router as sessions_router
+from backend.auth.keysmith import router as keysmith_router, rotation_daemon
 from app.core.database import close_database
 
 usage_repo = TenantUsageRepository()
@@ -31,10 +35,16 @@ finops_service = FinOpsService(usage_repo)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.start()
+    rotation_task = asyncio.create_task(rotation_daemon())
     await app_event_fabric.publish("runtime.started", {"version": settings.VERSION}, source="app")
     try:
         yield
     finally:
+        rotation_task.cancel()
+        try:
+            await rotation_task
+        except asyncio.CancelledError:
+            pass
         await app_event_fabric.publish("runtime.stopping", source="app")
         scheduler.stop()
         if settings.DATABASE_URL:
@@ -67,6 +77,9 @@ app.add_middleware(
     ],
 )
 
+app.include_router(auth_router)
+app.include_router(sessions_router)
+app.include_router(keysmith_router)
 app.include_router(api_router, prefix=settings.API_PREFIX)
 app.include_router(world_model_router, prefix=settings.API_PREFIX)
 app.include_router(simulation_router)
@@ -116,10 +129,7 @@ async def jarvis_ask(request: JarvisRequest):
 
 @app.get("/api/v1/governance/actions")
 async def governance_actions():
-    return {
-        "pending": governance_bridge.pending(),
-        "history": governance_bridge.history(),
-    }
+    return {"pending": governance_bridge.pending(), "history": governance_bridge.history()}
 
 
 @app.post("/api/v1/governance/actions")
@@ -128,7 +138,6 @@ async def submit_governed_action(request: ActionSubmitRequest):
         risk_level = RiskLevel(request.risk_level)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid risk_level") from exc
-
     action = ActionRequest(
         actor=request.actor,
         agent=request.agent,
@@ -187,6 +196,9 @@ async def runtime_health():
             "jarvis": "bridged",
             "governance": "bridged",
             "event_fabric": "active",
+            "webauthn": "active",
+            "sessions": "active",
+            "keysmith": "active",
         },
     }
 
@@ -209,6 +221,7 @@ async def root():
         "jarvis_runtime": "BRIDGED",
         "governance_runtime": "BRIDGED",
         "event_fabric": "CANONICAL",
+        "security_runtime": "WEBAUTHN_KEYSMITH",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
@@ -216,5 +229,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
