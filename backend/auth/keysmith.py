@@ -1,10 +1,10 @@
-"""KEYSMITH: 60s rotating vault auth keys (HMAC-TOTP style) + PQ at-rest rewrap (ML-KEM-768)."""
+"""KEYSMITH rotating vault authentication and optional post-quantum wrapping."""
 import os
 import time
 import hmac
 import hashlib
 import asyncio
-import base64
+
 from fastapi import APIRouter, Request, HTTPException
 
 try:
@@ -22,10 +22,11 @@ try:
     PQ_ALG = "ML-KEM-768 (Kyber768)"
 except Exception:
     generate_keypair = None
-    PQ_ALG = "X25519-HKDF FALLBACK (pqcrypto loading)"
+    PQ_ALG = "UNAVAILABLE"
 
 from ..core.secrets import secret
 from ..core.event_fabric import fabric
+from ..app.core.config import settings
 from .webauthn import USERS
 
 router = APIRouter(prefix="/api/v1/auth/keysmith", tags=["keysmith"])
@@ -33,7 +34,7 @@ PERIOD = 60
 _PQ: dict[str, dict] = {}
 
 
-def period_index():
+def period_index() -> int:
     return int(time.time() // PERIOD)
 
 
@@ -45,49 +46,37 @@ def code_for(user_secret: bytes, period: int) -> str:
     return rolling_key(user_secret, period).hex()[:16]
 
 
-def binary_translation(key: bytes) -> str:
-    bits = "".join(f"{b:08b}" for b in key[:16])
-    return " ".join(bits[i:i+8] for i in range(0, len(bits), 8))
-
-
 def _seal(key: bytes, pt: bytes) -> bytes:
-    if AESGCM:
-        n = os.urandom(12)
-        return n + AESGCM(key[:32]).encrypt(n, pt, None)
-    return pt
+    if not AESGCM:
+        raise RuntimeError("AES-GCM provider is unavailable")
+    nonce = os.urandom(12)
+    return nonce + AESGCM(key[:32]).encrypt(nonce, pt, None)
 
 
 def _open(key: bytes, tok: bytes) -> bytes:
-    if AESGCM and len(tok) > 12:
-        return AESGCM(key[:32]).decrypt(tok[:12], tok[12:], None)
-    return tok
+    if not AESGCM or len(tok) <= 12:
+        raise RuntimeError("AES-GCM provider is unavailable")
+    return AESGCM(key[:32]).decrypt(tok[:12], tok[12:], None)
 
 
-def pq_rewrap(username: str):
-    """Rotate the at-rest PQ wrap with a FRESH Kyber keypair every period."""
+def pq_rewrap(username: str) -> None:
     u = USERS.get(username)
     if not u or not generate_keypair:
         return
-    try:
-        pk, sk = generate_keypair()
-        ct, ss = encrypt(pk)
-        _PQ[username] = {
-            "sk": sk,
-            "ct": ct,
-            "wrapped": _seal(ss, u["vault_key"]),
-            "period": period_index(),
-        }
-    except Exception:
-        pass
+    pk, sk = generate_keypair()
+    ct, ss = encrypt(pk)
+    _PQ[username] = {
+        "sk": sk,
+        "ct": ct,
+        "wrapped": _seal(ss, u["vault_key"]),
+        "period": period_index(),
+    }
 
 
 def pq_unwrap(username: str) -> bytes:
     st = _PQ.get(username)
     if st and generate_keypair:
-        try:
-            return _open(decrypt(st["ct"], st["sk"]), st["wrapped"])
-        except Exception:
-            pass
+        return _open(decrypt(st["ct"], st["sk"]), st["wrapped"])
     return USERS.get(username, {}).get("vault_key", b"")
 
 
@@ -98,38 +87,37 @@ async def rotation_daemon():
             for username in list(USERS):
                 pq_rewrap(username)
             await fabric.publish("KEYSMITH_ROTATED", {"period": period_index(), "alg": PQ_ALG})
+        except asyncio.CancelledError:
+            raise
         except Exception:
             await asyncio.sleep(5)
 
 
-def _user(req: Request):
+def _user(req: Request) -> str:
     auth = req.headers.get("Authorization", "")
-    sub = "operator"
-    if auth.startswith("Bearer ") and jwt:
-        tok = auth.split(" ", 1)[1]
-        try:
-            payload = jwt.decode(
-                tok,
-                secret("JWT_SECRET", "archos_sovereign_jwt_secret_key_2026_qkd"),
-                algorithms=["HS256"],
-            )
-            sub = payload.get("sub", "")
-        except Exception:
-            raise HTTPException(401, "Invalid authentication token")
-    if sub not in USERS:
-        USERS[sub] = {
-            "cred_id": "seed_operator",
-            "public_key": b"default_key",
-            "sign_count": 1,
-            "vault_key": os.urandom(32),
-            "totp_secret": os.urandom(32),
-        }
+    if not auth.startswith("Bearer ") or not jwt:
+        raise HTTPException(401, "Valid bearer authentication is required")
+
+    tok = auth.split(" ", 1)[1].strip()
+    jwt_secret = secret("JWT_SECRET")
+    if not jwt_secret or len(jwt_secret) < 32:
+        raise HTTPException(503, "JWT_SECRET is not securely configured")
+    try:
+        payload = jwt.decode(tok, jwt_secret, algorithms=["HS256"])
+    except Exception as exc:
+        raise HTTPException(401, "Invalid authentication token") from exc
+
+    sub = payload.get("sub")
+    if not sub or sub not in USERS:
+        raise HTTPException(401, "Authenticated user is not registered")
     return sub
 
 
 @router.get("/tick")
 async def tick(req: Request):
     u = _user(req)
+    if settings.ENVIRONMENT == "production" and (not AESGCM or not generate_keypair):
+        raise HTTPException(503, "KEYSMITH cryptographic providers are unavailable")
     return {
         "period": period_index(),
         "seconds_left": PERIOD - int(time.time() % PERIOD),
@@ -142,32 +130,28 @@ async def tick(req: Request):
 @router.post("/unlock")
 async def unlock(req: Request, body: dict):
     u = _user(req)
-    sec = USERS[u].get("totp_secret", os.urandom(32))
+    sec = USERS[u].get("totp_secret")
+    if not sec:
+        raise HTTPException(403, "KEYSMITH secret is unavailable")
     now = period_index()
     code_in = body.get("code", "")
     valid_codes = (code_for(sec, now), code_for(sec, now - 1), code_for(sec, now + 1))
 
-    if code_in not in valid_codes and not code_in.startswith("dev_"):
+    if not hmac.compare_digest(code_in, valid_codes[0]) and not hmac.compare_digest(code_in, valid_codes[1]) and not hmac.compare_digest(code_in, valid_codes[2]):
         raise HTTPException(403, "Rotating key rejected or expired")
 
-    token_payload = {
-        "sub": u,
-        "vault": "unlocked",
-        "keysmith_period": now,
-        "exp": int(time.time()) + PERIOD,
-    }
-
-    if not jwt:
+    jwt_secret = secret("JWT_SECRET")
+    if not jwt or not jwt_secret or len(jwt_secret) < 32:
         raise HTTPException(503, "JWT support is required for KEYSMITH unlock")
 
     unlock_tok = jwt.encode(
-        token_payload,
-        secret("JWT_SECRET", "archos_sovereign_jwt_secret_key_2026_qkd"),
+        {
+            "sub": u,
+            "vault": "unlocked",
+            "keysmith_period": now,
+            "exp": int(time.time()) + PERIOD,
+        },
+        jwt_secret,
         "HS256",
     )
-
-    return {
-        "unlock_token": unlock_tok,
-        "period": now,
-        "expires_in": PERIOD,
-    }
+    return {"unlock_token": unlock_tok, "period": now, "expires_in": PERIOD}
