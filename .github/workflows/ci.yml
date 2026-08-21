@@ -47,6 +47,8 @@ jobs:
         run: cd backend && python -c "from backend.auth.webauthn import router as webauthn_router; from backend.auth.keysmith import router as keysmith_router; print(len(webauthn_router.routes), len(keysmith_router.routes))"
       - name: Integration import smoke test
         run: cd backend && python -c "from app.api.integrations import router; from app.services.integration_runtime import integration_runtime; print(len(router.routes), type(integration_runtime).__name__)"
+      - name: Autonomous runtime import smoke test
+        run: cd backend && python -c "from app.services.night_shift import night_shift_runtime; print(type(night_shift_runtime).__name__)"
       - name: Run backend tests
         run: cd backend && pytest -q
       - name: Start backend
@@ -66,7 +68,7 @@ jobs:
           exit 1
       - name: Validate OpenAPI
         run: curl --fail --silent --show-error http://127.0.0.1:8000/openapi.json > openapi.json
-      - name: Verify security and integration routes exist
+      - name: Verify security, integration, and autonomous runtime routes exist
         run: |
           python - <<'PY'
           import json
@@ -84,6 +86,8 @@ jobs:
               '/api/integrations/modbus/writes',
               '/api/integrations/pulse/{slug}',
               '/api/integrations/osm/buildings',
+              '/api/v1/night-shift/status',
+              '/api/v1/night-shift/run',
           }
           missing = sorted(required - set(spec['paths']))
           if missing:
