@@ -9,6 +9,7 @@ from app.api.world_model import router as world_model_router
 from app.api.simulation import router as simulation_router
 from app.api.scenario_intelligence import router as scenario_intelligence_router
 from app.api.causal_graph import router as causal_graph_router
+from app.api.scenario_execution import router as scenario_execution_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
@@ -61,6 +62,7 @@ app.include_router(world_model_router, prefix=settings.API_PREFIX)
 app.include_router(simulation_router)
 app.include_router(scenario_intelligence_router)
 app.include_router(causal_graph_router)
+app.include_router(scenario_execution_router)
 
 
 @app.get("/")
@@ -75,6 +77,7 @@ async def root():
         "simulation_engine": "ISOLATED_BRANCHES",
         "scenario_intelligence": "CAUSAL_PROPAGATION",
         "causal_knowledge_graph": "TEMPORAL_POSTGRESQL",
+        "scenario_execution": "AUDITABLE_END_TO_END",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
