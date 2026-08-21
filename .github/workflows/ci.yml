@@ -6,11 +6,12 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-
-# CI verification trigger: run this workflow against the latest authoritative main revision.
+  issues:
+    types: [opened]
 
 jobs:
   lint-and-build:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[CI]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,6 +24,7 @@ jobs:
       - run: npm run build
 
   contracts:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[CI]')
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: test
