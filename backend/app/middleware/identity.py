@@ -1,10 +1,4 @@
-"""Request identity boundary for protected ArchOS operations.
-
-This is intentionally a small bootstrap identity layer. It establishes a
-verified principal from the configured administrative secret for internal
-sovereign operations. Tenant identity is derived from the authenticated
-principal and is never accepted from an arbitrary request header/query value.
-"""
+"""Request identity boundary for protected ArchOS operations."""
 
 import hmac
 from typing import Optional
@@ -21,12 +15,14 @@ PROTECTED_PREFIXES = (
     "/api/v1/jarvis/",
     "/api/v1/simulation/",
     "/api/v1/admin/",
+    "/api/v1/governance/",
+    "/api/v1/events",
     "/api/ai/",
 )
 
 
 class IdentityMiddleware(BaseHTTPMiddleware):
-    """Authenticate protected internal routes before FinOps or application code."""
+    """Authenticate protected internal routes before application code."""
 
     @staticmethod
     def _is_protected(path: str) -> bool:
@@ -37,11 +33,9 @@ class IdentityMiddleware(BaseHTTPMiddleware):
         explicit = request.headers.get("X-Admin-Key")
         if explicit:
             return explicit
-
         authorization = request.headers.get("Authorization")
         if authorization and authorization.lower().startswith("bearer "):
             return authorization[7:].strip()
-
         return None
 
     async def dispatch(self, request: Request, call_next):
@@ -50,7 +44,6 @@ class IdentityMiddleware(BaseHTTPMiddleware):
 
         configured_secret = settings.ADMIN_API_KEY
         supplied_token = self._extract_token(request)
-
         if not configured_secret or not supplied_token:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,8 +62,6 @@ class IdentityMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        # The tenant is derived from the verified credential. A caller cannot
-        # elevate itself by supplying X-Tenant-ID or tenant_id in the URL.
         request.state.principal = {
             "subject": "sovereign-admin",
             "role": "sovereign_operator",
@@ -78,5 +69,4 @@ class IdentityMiddleware(BaseHTTPMiddleware):
         }
         request.state.tenant_id = "tenant-sovereign-dgm"
         request.state.authenticated = True
-
         return await call_next(request)
