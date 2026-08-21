@@ -35,6 +35,14 @@ jobs:
         run: cd backend && pip install -r requirements.txt
       - name: Backend import smoke test
         run: cd backend && python -c "from app.main import app; print(app.title)"
+      - name: Legacy entrypoint delegation test
+        run: cd backend && python -c "from backend.main import app as legacy_app; from app.main import app as authoritative_app; assert legacy_app is authoritative_app; print('legacy entrypoint delegates to authoritative app')"
+      - name: Legacy authority guard
+        run: |
+          if grep -nE 'FastAPI\(|create_task\(|include_router\(|@app\.(get|post|put|patch|delete|websocket)' backend/main.py; then
+            echo 'backend/main.py contains a forbidden second runtime implementation'
+            exit 1
+          fi
       - name: Security import smoke test
         run: cd backend && python -c "from backend.auth.webauthn import router as webauthn_router; from backend.auth.keysmith import router as keysmith_router; print(len(webauthn_router.routes), len(keysmith_router.routes))"
       - name: Integration import smoke test
