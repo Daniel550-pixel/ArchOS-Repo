@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.causal_graph import CausalGraphService
 from app.services.scenario_store import ScenarioStore
+from app.services.scenario_verifier import ScenarioVerifier
 
 
 def utc_now() -> datetime:
@@ -19,6 +20,7 @@ class ScenarioExecutionEngine:
     def __init__(self) -> None:
         self.store = ScenarioStore()
         self.graph = CausalGraphService()
+        self.verifier = ScenarioVerifier()
 
     async def execute(
         self,
@@ -55,36 +57,57 @@ class ScenarioExecutionEngine:
 
         branch.status = "EXECUTING"
         await session.flush()
-        propagation = await self.graph.propagate(
-            session,
-            direct_deltas,
-            as_of=as_of,
-            max_depth=max_depth,
-            max_nodes=max_nodes,
-        )
+        try:
+            propagation = await self.graph.propagate(
+                session,
+                direct_deltas,
+                as_of=as_of,
+                max_depth=max_depth,
+                max_nodes=max_nodes,
+            )
+            report = {
+                "branch_id": branch.branch_id,
+                "snapshot_id": snapshot.snapshot_id,
+                "snapshot_digest": snapshot.digest,
+                "executed_at": utc_now().isoformat(),
+                "horizon": branch.horizon.isoformat(),
+                "status": "COMPLETED",
+                "baseline_vs_scenario": delta,
+                "causal_propagation": propagation,
+                "confidence": propagation["confidence"],
+                "risk_score": self._risk_score(propagation),
+                "authoritative_world_model_mutated": False,
+            }
+            verification = self.verifier.verify(report)
+            report["verification"] = {
+                "status": verification.status,
+                "score": verification.score,
+                "checks": verification.checks,
+                "violations": verification.violations,
+            }
+            if verification.status != "VERIFIED":
+                branch.status = "REJECTED"
+                branch.confidence = verification.score
+                await session.flush()
+                raise ValueError(
+                    "Scenario verification failed: " + ", ".join(verification.violations)
+                )
 
-        report = {
-            "branch_id": branch.branch_id,
-            "snapshot_id": snapshot.snapshot_id,
-            "snapshot_digest": snapshot.digest,
-            "executed_at": utc_now().isoformat(),
-            "horizon": branch.horizon.isoformat(),
-            "status": "COMPLETED",
-            "baseline_vs_scenario": delta,
-            "causal_propagation": propagation,
-            "confidence": propagation["confidence"],
-            "risk_score": self._risk_score(propagation),
-            "authoritative_world_model_mutated": False,
-        }
-        branch.status = "COMPLETED"
-        branch.confidence = report["confidence"]
-        branch.metrics = {
-            "changed_entities": delta["changed_entities"],
-            "risk_score": report["risk_score"],
-            "nodes_visited": propagation["nodes_visited"],
-        }
-        await session.flush()
-        return report
+            branch.status = "COMPLETED"
+            branch.confidence = report["confidence"]
+            branch.metrics = {
+                "changed_entities": delta["changed_entities"],
+                "risk_score": report["risk_score"],
+                "nodes_visited": propagation["nodes_visited"],
+                "verification_score": verification.score,
+            }
+            await session.flush()
+            return report
+        except Exception:
+            if branch.status == "EXECUTING":
+                branch.status = "FAILED"
+                await session.flush()
+            raise
 
     @staticmethod
     def _risk_score(propagation: Dict[str, Any]) -> float:
