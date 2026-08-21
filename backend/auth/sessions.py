@@ -1,9 +1,9 @@
-"""httpOnly rotating refresh + silent vault re-unlock. JWT stays memory-only client-side."""
+"""httpOnly rotating refresh sessions for authenticated ArchOS users."""
 import time
 import hashlib
 import secrets as pysec
 import base64
-import json
+
 try:
     import jwt
 except ImportError:
@@ -14,61 +14,76 @@ from ..core.secrets import secret
 from .webauthn import USERS
 
 router = APIRouter(prefix="/api/v1/auth", tags=["sessions"])
-REFRESH: dict[str, dict] = {}   # prod: Postgres. hash→{username, exp}
+REFRESH: dict[str, dict] = {}
 CK = "archos_rt"
+REFRESH_TTL = 7 * 86400
+ACCESS_TTL = 15 * 60
+
 
 def _b64u(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).decode("utf-8").rstrip("=")
 
+
+def _jwt_secret() -> str:
+    value = secret("JWT_SECRET")
+    if not value or len(value) < 32 or not jwt:
+        raise HTTPException(503, "JWT session security is unavailable")
+    return value
+
+
 def _access(username: str) -> str:
-    jwt_sec = secret("JWT_SECRET", "archos_sovereign_jwt_secret_key_2026_qkd")
-    if jwt:
-        return jwt.encode({"sub": username, "exp": int(time.time()) + 900}, jwt_sec, "HS256")
-    header = _b64u(b'{"alg":"HS256","typ":"JWT"}')
-    payload = _b64u(json.dumps({"sub": username, "exp": int(time.time()) + 900}).encode())
-    sig = _b64u(pysec.token_bytes(32))
-    return f"{header}.{payload}.{sig}"
+    return jwt.encode(
+        {"sub": username, "iat": int(time.time()), "exp": int(time.time()) + ACCESS_TTL},
+        _jwt_secret(),
+        "HS256",
+    )
 
-def _issue_refresh(username: str, res: Response) -> str:
-    tok = pysec.token_urlsafe(32)
+
+def _issue_refresh(username: str, res: Response) -> None:
+    tok = pysec.token_urlsafe(48)
     h = hashlib.sha256(tok.encode()).hexdigest()
-    REFRESH[h] = {"username": username, "exp": time.time() + 7 * 86400}
-    res.set_cookie(CK, tok, httponly=True, secure=True, samesite="strict", path="/api/v1/auth", max_age=7*86400)
-    return tok
+    REFRESH[h] = {"username": username, "exp": time.time() + REFRESH_TTL}
+    res.set_cookie(
+        CK,
+        tok,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        path="/api/v1/auth",
+        max_age=REFRESH_TTL,
+    )
 
-@router.post("/login/finalize")   # called by webauthn.login_verify internally
+
+@router.post("/login/finalize")
 def finalize(username: str, res: Response):
+    if username not in USERS:
+        raise HTTPException(401, "Unknown authenticated user")
     _issue_refresh(username, res)
     return {"ok": True}
 
-@router.post("/session")          # silent restore on reload
+
+@router.post("/session")
 async def session(req: Request, res: Response):
     tok = req.cookies.get(CK)
-    rec = REFRESH.get(hashlib.sha256(tok.encode()).hexdigest()) if tok else None
-    
-    # Dev fallback: if no cookie is present, check operator session
-    if not rec or rec["exp"] < time.time():
-        if "operator" in USERS:
-            u = USERS["operator"]
-            return {
-                "jwt": _access("operator"),
-                "vault_key": _b64u(u["vault_key"]),
-                "totp_secret": _b64u(u.get("totp_secret", pysec.token_bytes(32)))
-            }
-        raise HTTPException(401, "no session")
+    if not tok:
+        raise HTTPException(401, "No session")
 
-    u = USERS.get(rec["username"])
+    token_hash = hashlib.sha256(tok.encode()).hexdigest()
+    rec = REFRESH.pop(token_hash, None)
+    if not rec or rec["exp"] < time.time():
+        raise HTTPException(401, "Session expired or revoked")
+
+    username = rec["username"]
+    u = USERS.get(username)
     if not u:
-        raise HTTPException(401, "unknown user")
-    
-    # rotate
-    REFRESH.pop(hashlib.sha256(tok.encode()).hexdigest(), None)
-    _issue_refresh(rec["username"], res)
+        raise HTTPException(401, "Unknown user")
+
+    _issue_refresh(username, res)
     return {
-        "jwt": _access(rec["username"]),
+        "jwt": _access(username),
         "vault_key": _b64u(u["vault_key"]),
-        "totp_secret": _b64u(u.get("totp_secret", pysec.token_bytes(32)))
     }
+
 
 @router.post("/logout")
 async def logout(req: Request, res: Response):
