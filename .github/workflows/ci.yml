@@ -7,6 +7,8 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# CI verification trigger: run this workflow against the latest authoritative main revision.
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
