@@ -21,8 +21,11 @@ from app.services.finops_service import FinOpsService, TenantUsageRepository
 from app.services.jarvis_runtime_bridge import jarvis_runtime_bridge
 from app.services.governance_bridge import governance_bridge
 from app.services.event_fabric import app_event_fabric
+from app.services.security_observability import instrument, metrics_response, ops_status, certificate_watchdog
 from backend.agents.action_gate import ActionRequest
 from backend.agents.base import RiskLevel
+from backend.auth import webauthn as webauthn_runtime
+from backend.auth import keysmith as keysmith_runtime
 from backend.auth.webauthn import router as auth_router
 from backend.auth.sessions import router as sessions_router
 from backend.auth.keysmith import router as keysmith_router, rotation_daemon
@@ -32,19 +35,38 @@ usage_repo = TenantUsageRepository()
 finops_service = FinOpsService(usage_repo)
 
 
+def validate_security_runtime() -> None:
+    if settings.ENVIRONMENT != "production":
+        return
+    if not settings.JWT_SECRET or len(settings.JWT_SECRET) < 32:
+        raise RuntimeError("Production JWT_SECRET is not configured")
+    if not webauthn_runtime.verify_registration_response or not webauthn_runtime.verify_authentication_response:
+        raise RuntimeError("Production WebAuthn verification provider is unavailable")
+    if not keysmith_runtime.AESGCM or not keysmith_runtime.generate_keypair:
+        raise RuntimeError("Production KEYSMITH cryptographic providers are unavailable")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_security_runtime()
     scheduler.start()
     rotation_task = asyncio.create_task(rotation_daemon())
-    await app_event_fabric.publish("runtime.started", {"version": settings.VERSION}, source="app")
+    certificate_task = asyncio.create_task(certificate_watchdog())
+    await app_event_fabric.publish(
+        "runtime.started",
+        {"version": settings.VERSION, "environment": settings.ENVIRONMENT},
+        source="app",
+    )
     try:
         yield
     finally:
-        rotation_task.cancel()
-        try:
-            await rotation_task
-        except asyncio.CancelledError:
-            pass
+        for task in (rotation_task, certificate_task):
+            task.cancel()
+        for task in (rotation_task, certificate_task):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         await app_event_fabric.publish("runtime.stopping", source="app")
         scheduler.stop()
         if settings.DATABASE_URL:
@@ -61,6 +83,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def observability_middleware(request, call_next):
+    return await instrument(request, call_next)
+
+
 app.add_middleware(CostRiskMiddleware, finops_service=finops_service)
 app.add_middleware(IdentityMiddleware)
 
@@ -74,6 +102,7 @@ app.add_middleware(
         "Content-Type",
         "X-Admin-Key",
         "X-Estimated-Prompt-Length",
+        "X-Request-Id",
     ],
 )
 
@@ -184,6 +213,16 @@ async def event_history(limit: int = 100):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/metrics")
+async def metrics():
+    return metrics_response()
+
+
+@app.get("/api/v1/ops/status")
+async def get_ops_status():
+    return ops_status()
+
+
 @app.get("/api/v1/health/runtime")
 async def runtime_health():
     return {
@@ -199,6 +238,8 @@ async def runtime_health():
             "webauthn": "active",
             "sessions": "active",
             "keysmith": "active",
+            "certificate_watchdog": "active",
+            "observability": "active",
         },
     }
 
@@ -222,6 +263,8 @@ async def root():
         "governance_runtime": "BRIDGED",
         "event_fabric": "CANONICAL",
         "security_runtime": "WEBAUTHN_KEYSMITH",
+        "certificate_monitor": "ACTIVE",
+        "observability": "ACTIVE",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
