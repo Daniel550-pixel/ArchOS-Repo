@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   lint-and-build:
@@ -25,6 +26,20 @@ jobs:
       ENVIRONMENT: test
       DATABASE_URL: postgresql+asyncpg://ci:ci@127.0.0.1:5432/archos_ci
       PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: archos_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d archos_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
