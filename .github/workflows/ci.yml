@@ -43,6 +43,25 @@ jobs:
             echo 'backend/main.py contains a forbidden second runtime implementation'
             exit 1
           fi
+      - name: Superseded runtime removal guard
+        run: |
+          forbidden=(
+            backend/core/event_fabric.py
+            backend/core/observability.py
+            backend/agents/night_shift.py
+          )
+          for path in "${forbidden[@]}"; do
+            if [ -e "$path" ]; then
+              echo "Forbidden superseded runtime module still exists: $path"
+              exit 1
+            fi
+          done
+      - name: Legacy import guard
+        run: |
+          if grep -RInE '(^|[^[:alnum:]_])(from|import)[[:space:]]+(backend\.core\.event_fabric|backend\.core\.observability|core\.event_fabric|core\.observability|backend\.agents\.night_shift)([^[:alnum:]_]|$)' backend --include='*.py'; then
+            echo 'A backend module still imports a superseded runtime authority'
+            exit 1
+          fi
       - name: Security import smoke test
         run: cd backend && python -c "from backend.auth.webauthn import router as webauthn_router; from backend.auth.keysmith import router as keysmith_router; print(len(webauthn_router.routes), len(keysmith_router.routes))"
       - name: Integration import smoke test
