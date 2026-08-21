@@ -1,23 +1,14 @@
-"""ArchOS Multi-Agent Swarm Registry & Inter-Agent Router.
-Manages specialist agent registration, capability routing,
-bounded concurrency, and inter-agent message tracking.
-"""
+"""ArchOS multi-agent swarm registry and capability router."""
 from typing import Dict, Set, Any, List, Optional
 import asyncio
-from datetime import datetime, timezone
 
 from .base import Agent, AgentCapability, AgentTask, AgentResult, InterAgentMessage, RealityLevel
 from .specialists import (
-    PerceptionAgent,
-    WorldModelAgent,
-    ResearchAgent,
-    ReasoningAgent,
-    PlanningAgent,
-    RiskAgent,
-    VerificationAgent,
-    ExecutionAgent
+    PerceptionAgent, WorldModelAgent, ResearchAgent, ReasoningAgent,
+    PlanningAgent, RiskAgent, VerificationAgent, ExecutionAgent,
 )
 from ..core.event_fabric import fabric
+
 
 class Swarm:
     def __init__(self):
@@ -25,8 +16,8 @@ class Swarm:
         self.messages: List[InterAgentMessage] = []
         self._lock = asyncio.Lock()
 
-    def register(self, a: Agent):
-        self.agents[a.id] = a
+    def register(self, agent: Agent):
+        self.agents[agent.id] = agent
 
     def get_agent(self, agent_id: str) -> Optional[Agent]:
         return self.agents.get(agent_id)
@@ -38,10 +29,11 @@ class Swarm:
                 "name": a.name,
                 "description": a.description,
                 "capabilities": [c.value if hasattr(c, "value") else str(c) for c in a.capabilities],
-                "supported_tools": a.supported_tools,
+                "required_permissions": list(a.required_permissions),
+                "supported_tools": list(a.supported_tools),
                 "workload": round(a.workload, 2),
                 "performance": round(a.performance, 2),
-                "reality_default": a.reality_default.value if hasattr(a.reality_default, "value") else str(a.reality_default)
+                "reality_default": a.reality_default.value if hasattr(a.reality_default, "value") else str(a.reality_default),
             }
             for a in self.agents.values()
         ]
@@ -51,20 +43,32 @@ class Swarm:
             self.messages.append(msg)
             if len(self.messages) > 200:
                 self.messages = self.messages[-200:]
-        try:
-            await fabric.publish("AGENT_MESSAGE", {
-                "message_id": msg.message_id,
-                "task_id": msg.task_id,
-                "sender": msg.sender,
-                "receiver": msg.receiver,
-                "type": msg.message_type,
-                "reality": msg.reality.value if hasattr(msg.reality, "value") else str(msg.reality),
-                "confidence": msg.confidence
-            })
-        except Exception:
-            pass
+        await fabric.publish("AGENT_MESSAGE", {
+            "message_id": msg.message_id,
+            "task_id": msg.task_id,
+            "sender": msg.sender,
+            "receiver": msg.receiver,
+            "type": msg.message_type,
+            "reality": msg.reality.value if hasattr(msg.reality, "value") else str(msg.reality),
+            "confidence": msg.confidence,
+            "correlation_id": msg.correlation_id,
+        })
+
+    def eligible_agents(
+        self,
+        required_capabilities: Set[AgentCapability],
+        required_permissions: Optional[Set[str]] = None,
+    ) -> List[Agent]:
+        permissions = required_permissions or set()
+        candidates = [
+            agent for agent in self.agents.values()
+            if required_capabilities.issubset(agent.capabilities)
+            and permissions.issubset(set(agent.required_permissions))
+        ]
+        return sorted(candidates, key=lambda a: (a.workload, -a.performance))
 
     async def dispatch(self, agent_id: str, task: AgentTask) -> AgentResult:
+        """Dispatch only when the named agent satisfies the task contract."""
         agent = self.agents.get(agent_id)
         if not agent:
             return AgentResult(
@@ -74,42 +78,65 @@ class Swarm:
                 output={},
                 reality=RealityLevel.FALLBACK,
                 confidence=0.0,
-                error=f"Agent '{agent_id}' is not registered in Sovereign Swarm."
+                error="Requested agent is not registered",
+            )
+        if not agent.can_accept(task):
+            return AgentResult(
+                agent_id=agent.id,
+                task_id=task.task_id,
+                status="DENIED",
+                output={},
+                reality=RealityLevel.FALLBACK,
+                confidence=0.0,
+                provenance=f"{agent.id}:capability_contract_denied",
+                error="Requested agent does not satisfy task contract",
             )
 
-        try:
-            await fabric.publish("AGENT_STARTED", {
-                "task_id": task.task_id,
-                "agent_id": agent.id,
-                "agent_name": agent.name
-            })
-        except Exception:
-            pass
+        await fabric.publish("AGENT_STARTED", {
+            "task_id": task.task_id,
+            "agent_id": agent.id,
+            "agent_name": agent.name,
+            "required_capabilities": [c.value for c in task.required_capabilities],
+            "correlation_id": task.correlation_id,
+        })
+        result = await agent.execute(task)
+        await fabric.publish("AGENT_COMPLETED", {
+            "task_id": task.task_id,
+            "agent_id": agent.id,
+            "status": result.status,
+            "execution_time_ms": result.execution_time_ms,
+            "correlation_id": task.correlation_id,
+        })
+        return result
 
-        res = await agent.execute(task)
+    async def route(self, task: AgentTask) -> AgentResult:
+        """Select the best eligible agent from the declared capability contract."""
+        candidates = self.eligible_agents(task.required_capabilities, task.required_permissions)
+        if not candidates:
+            return AgentResult(
+                agent_id="swarm",
+                task_id=task.task_id,
+                status="DENIED",
+                output={},
+                reality=RealityLevel.FALLBACK,
+                confidence=0.0,
+                provenance="swarm:no_eligible_agent",
+                error="No registered agent satisfies the requested capability contract",
+            )
+        return await self.dispatch(candidates[0].id, task)
 
-        try:
-            await fabric.publish("AGENT_COMPLETED", {
-                "task_id": task.task_id,
-                "agent_id": agent.id,
-                "status": res.status,
-                "execution_time_ms": res.execution_time_ms
-            })
-        except Exception:
-            pass
-
-        return res
 
 def create_canonical_swarm() -> Swarm:
-    s = Swarm()
-    s.register(PerceptionAgent())
-    s.register(WorldModelAgent())
-    s.register(ResearchAgent())
-    s.register(ReasoningAgent())
-    s.register(PlanningAgent())
-    s.register(RiskAgent())
-    s.register(VerificationAgent())
-    s.register(ExecutionAgent())
-    return s
+    swarm_instance = Swarm()
+    swarm_instance.register(PerceptionAgent())
+    swarm_instance.register(WorldModelAgent())
+    swarm_instance.register(ResearchAgent())
+    swarm_instance.register(ReasoningAgent())
+    swarm_instance.register(PlanningAgent())
+    swarm_instance.register(RiskAgent())
+    swarm_instance.register(VerificationAgent())
+    swarm_instance.register(ExecutionAgent())
+    return swarm_instance
+
 
 swarm = create_canonical_swarm()
