@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import (
-    Column, String, Text, DateTime, Boolean, Float, Integer, ForeignKey, JSON, Index, UniqueConstraint
+    Column, String, Text, DateTime, Boolean, Float, Integer, ForeignKey, JSON, Index, UniqueConstraint, Sequence
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -184,7 +184,7 @@ class ProcessingJob(Base):
 class AuditRecord(Base):
     __tablename__ = "audit_records"
     event_id = Column(String(36), primary_key=True)
-    sequence = Column(Integer, nullable=False, unique=True, index=True)
+    sequence = Column(Integer, Sequence("audit_record_sequence"), nullable=False, unique=True, index=True)
     occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     actor = Column(String(255), nullable=False, index=True)
     action = Column(String(255), nullable=False, index=True)
@@ -201,7 +201,7 @@ class AuditRecord(Base):
 class DurableEvent(Base):
     __tablename__ = "durable_events"
     event_id = Column(String(36), primary_key=True)
-    sequence = Column(Integer, nullable=False, unique=True, index=True)
+    sequence = Column(Integer, Sequence("durable_event_sequence"), nullable=False, unique=True, index=True)
     event_type = Column(String(255), nullable=False, index=True)
     occurred_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     producer = Column(String(255), nullable=False, index=True)
