@@ -2,6 +2,8 @@ import { ExperienceCommand, CommandSource, CommandLogEntry } from '../../types';
 import { securityFabric } from '../security/securityFabric';
 import { quantumCryptoService } from '../security/quantumCryptoService';
 import { voiceService, ARCHOS_VOICES } from '../voice/elevenlabs';
+import { eventFabric } from '../eventFabric';
+import { ArchOSCommand as RuntimeCommand, ArchOSRuntimeResponse } from '../../types/archosRuntimeContracts';
 
 export interface ArchOSCommand {
   type: 'AUTH_SUCCESS' | 'THREAT_DETECTED' | 'SIMULATION_COMPLETE' | 'WORLD_MODEL_SYNC' | 'DEFCON_CHANGE' | 'TELEMETRY_ALERT' | string;
@@ -20,6 +22,64 @@ class UnifiedCommandBus {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  public async executeNaturalLanguageCommand(text: string, source: CommandSource = 'keyboard'): Promise<ArchOSRuntimeResponse | null> {
+    if (!text.trim()) return null;
+
+    const commandId = `cmd_${Date.now().toString(36)}`;
+    const correlationId = `corr_${Math.random().toString(36).substr(2, 6)}`;
+    const activeIdentity = securityFabric.getActiveIdentity();
+
+    // 1. Emit local command.received immediately for instant UI feedback
+    eventFabric.emit({
+      id: `evt_local_${Date.now()}`,
+      type: 'command.received',
+      timestamp: new Date().toISOString(),
+      correlationId,
+      sessionId: activeIdentity.id,
+      actor: activeIdentity.id,
+      payload: {
+        commandId,
+        rawText: text,
+        source: source === 'voice' ? 'voice' : source === 'gesture' ? 'gesture' : 'keyboard'
+      }
+    });
+
+    try {
+      const response = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          commandId,
+          sessionId: activeIdentity.id,
+          actor: activeIdentity.id,
+          tenantId: activeIdentity.tenant
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Command dispatch failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.result as ArchOSRuntimeResponse;
+    } catch (err: any) {
+      console.error('[CommandBus] Execution failed:', err);
+      eventFabric.emit({
+        id: `evt_err_${Date.now()}`,
+        type: 'error.occurred',
+        timestamp: new Date().toISOString(),
+        correlationId,
+        sessionId: activeIdentity.id,
+        payload: {
+          code: 'COMMAND_DISPATCH_FAILURE',
+          message: err.message || 'Failed to dispatch command to AIOS runtime'
+        }
+      });
+      return null;
+    }
   }
 
   public handleSystemEvent = (event: ArchOSCommand): void => {
