@@ -18,6 +18,9 @@ from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
 from app.services.finops_service import FinOpsService, TenantUsageRepository
 from app.services.jarvis_runtime_bridge import jarvis_runtime_bridge
+from app.services.governance_bridge import governance_bridge
+from backend.agents.action_gate import ActionRequest
+from backend.agents.base import RiskLevel
 from app.core.database import close_database
 
 usage_repo = TenantUsageRepository()
@@ -77,12 +80,71 @@ class JarvisRequest(BaseModel):
     tenant_id: str = "uae-sovereign"
 
 
+class ActionSubmitRequest(BaseModel):
+    actor: str
+    agent: str
+    task_id: str = ""
+    target: str
+    requested_operation: str
+    risk_level: str = "LOW_RISK"
+    required_authority: str = "OPERATOR_CLEARANCE"
+    provenance: str = ""
+    payload: dict = {}
+
+
+class ActionApprovalRequest(BaseModel):
+    approver: str
+
+
 @app.post("/api/v1/jarvis/ask")
 async def jarvis_ask(request: JarvisRequest):
     try:
         return await jarvis_runtime_bridge.run(request.model_dump())
     except Exception as exc:
         raise HTTPException(status_code=500, detail="JARVIS runtime execution failed") from exc
+
+
+@app.get("/api/v1/governance/actions")
+async def governance_actions():
+    return {
+        "pending": governance_bridge.pending(),
+        "history": governance_bridge.history(),
+    }
+
+
+@app.post("/api/v1/governance/actions")
+async def submit_governed_action(request: ActionSubmitRequest):
+    try:
+        risk_level = RiskLevel(request.risk_level)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid risk_level") from exc
+
+    action = ActionRequest(
+        actor=request.actor,
+        agent=request.agent,
+        task_id=request.task_id,
+        target=request.target,
+        requested_operation=request.requested_operation,
+        risk_level=risk_level,
+        required_authority=request.required_authority,
+        provenance=request.provenance,
+        payload=request.payload,
+    )
+    decision = await governance_bridge.evaluate_and_submit(action)
+    return {
+        "action_id": action.action_id,
+        "decision": decision.value,
+        "approval_state": action.approval_state,
+        "policy_decision": action.policy_decision.value,
+    }
+
+
+@app.post("/api/v1/governance/actions/{action_id}/approve")
+async def approve_governed_action(action_id: str, request: ActionApprovalRequest):
+    approved = await governance_bridge.approve(action_id, request.approver)
+    if not approved:
+        raise HTTPException(status_code=403, detail="Action approval rejected")
+    return {"action_id": action_id, "approved": True}
 
 
 @app.get("/")
@@ -101,6 +163,7 @@ async def root():
         "scenario_planner": "JARVIS_INTENT_TO_PLAN",
         "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED",
         "jarvis_runtime": "BRIDGED",
+        "governance_runtime": "BRIDGED",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
