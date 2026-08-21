@@ -49,6 +49,9 @@ class WorldModelBindingService:
             select(Entity).order_by(Entity.mention_count.desc()).limit(2000)
         )).scalars().all()
         request_tokens = _tokens(request)
+        if not request_tokens:
+            return []
+
         candidates: list[BindingCandidate] = []
 
         for entity in entities:
@@ -73,6 +76,17 @@ class WorldModelBindingService:
             if not state or not isinstance(state.state, dict):
                 continue
 
+            state_confidence = float(state.confidence if state.confidence is not None else 0.0)
+            entity_confidence = float(entity.confidence if entity.confidence is not None else 0.0)
+            provenance = {
+                "entity_id": entity.entity_id,
+                "entity_name": entity.name,
+                "state_version": state.version,
+                "state_confidence": state_confidence,
+                "entity_confidence": entity_confidence,
+                "source": "entity_state_versions",
+            }
+
             for metric, value in state.state.items():
                 metric_tokens = _tokens(str(metric))
                 metric_score = len(request_tokens & metric_tokens) / max(1, len(request_tokens))
@@ -84,14 +98,9 @@ class WorldModelBindingService:
                     entity_name=entity.name,
                     metric=str(metric),
                     score=combined,
-                    confidence=min(1.0, combined * state.confidence),
+                    confidence=min(1.0, combined * state_confidence * max(entity_confidence, 0.0)),
                     current_value=value,
-                    provenance=[{
-                        "entity_id": entity.entity_id,
-                        "state_version": state.version,
-                        "confidence": state.confidence,
-                        "source": "entity_state_versions",
-                    }],
+                    provenance=[provenance],
                 ))
 
         candidates.sort(key=lambda item: (item.score, item.confidence), reverse=True)
