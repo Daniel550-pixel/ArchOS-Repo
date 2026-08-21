@@ -7,12 +7,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.database import Entity, EntityStateVersion, WorldObservation
+from app.models.database import Entity, EntityStateVersion
 
 _STOPWORDS = {
     "the", "a", "an", "by", "to", "of", "in", "on", "for", "from", "and",
-    "what", "happens", "if", "increase", "decrease", "reduce", "raise", "lower",
-    "change", "changes", "capacity", "percent", "percentage", "until", "through",
+    "what", "happens", "if", "change", "changes", "percent", "percentage", "until",
+    "through", "with", "will", "would", "should", "could",
 }
 
 
@@ -45,8 +45,9 @@ class WorldModelBindingService:
         as_of=None,
         limit: int = 5,
     ) -> list[BindingCandidate]:
-        query = select(Entity).order_by(Entity.mention_count.desc()).limit(2000)
-        entities = (await session.execute(query)).scalars().all()
+        entities = (await session.execute(
+            select(Entity).order_by(Entity.mention_count.desc()).limit(2000)
+        )).scalars().all()
         request_tokens = _tokens(request)
         candidates: list[BindingCandidate] = []
 
@@ -78,12 +79,6 @@ class WorldModelBindingService:
                 combined = min(1.0, entity_score * 0.65 + metric_score * 0.35)
                 if combined <= 0:
                     continue
-                provenance = [{
-                    "entity_id": entity.entity_id,
-                    "state_version": state.version,
-                    "confidence": state.confidence,
-                    "source": "entity_state_versions",
-                }]
                 candidates.append(BindingCandidate(
                     entity_id=entity.entity_id,
                     entity_name=entity.name,
@@ -91,7 +86,12 @@ class WorldModelBindingService:
                     score=combined,
                     confidence=min(1.0, combined * state.confidence),
                     current_value=value,
-                    provenance=provenance,
+                    provenance=[{
+                        "entity_id": entity.entity_id,
+                        "state_version": state.version,
+                        "confidence": state.confidence,
+                        "source": "entity_state_versions",
+                    }],
                 ))
 
         candidates.sort(key=lambda item: (item.score, item.confidence), reverse=True)
