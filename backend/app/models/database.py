@@ -56,6 +56,7 @@ class Article(Base):
     topics = relationship("ArticleTopic", back_populates="article", cascade="all, delete-orphan")
     event_associations = relationship("EventArticle", back_populates="article")
     alerts = relationship("Alert", back_populates="article")
+    observations = relationship("WorldObservation", back_populates="article")
     __table_args__ = (
         Index("ix_articles_pub_importance", "published_at", "importance_score"),
         Index("ix_articles_emirate_pub", "detected_emirate", "published_at"),
@@ -76,6 +77,8 @@ class Entity(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     articles = relationship("ArticleEntity", back_populates="entity")
+    observations = relationship("WorldObservation", back_populates="entity")
+    state_versions = relationship("EntityStateVersion", back_populates="entity", cascade="all, delete-orphan")
 
 class ArticleEntity(Base):
     __tablename__ = "article_entities"
@@ -123,6 +126,7 @@ class Event(Base):
     last_updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     supporting_articles = relationship("EventArticle", back_populates="event", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="event")
+    observations = relationship("WorldObservation", back_populates="event")
 
 class EventArticle(Base):
     __tablename__ = "event_articles"
@@ -153,6 +157,55 @@ class ArticleTopic(Base):
     article = relationship("Article", back_populates="topics")
     topic = relationship("Topic", back_populates="articles")
     __table_args__ = (UniqueConstraint("article_id", "topic_id", name="uq_article_topic"),)
+
+class WorldObservation(Base):
+    __tablename__ = "world_observations"
+    observation_id = Column(String(100), primary_key=True)
+    subject_type = Column(String(50), nullable=False, index=True)
+    subject_id = Column(String(100), nullable=False, index=True)
+    predicate = Column(String(255), nullable=False, index=True)
+    value = Column(JSON, nullable=False, default=dict)
+    source_id = Column(String(100), ForeignKey("sources.source_id"), nullable=True, index=True)
+    article_id = Column(String(100), ForeignKey("articles.id", ondelete="SET NULL"), nullable=True, index=True)
+    event_id = Column(String(100), ForeignKey("events.event_id", ondelete="SET NULL"), nullable=True, index=True)
+    observed_at = Column(DateTime, nullable=False, index=True)
+    valid_from = Column(DateTime, nullable=False, index=True)
+    valid_until = Column(DateTime, nullable=True, index=True)
+    confidence = Column(Float, nullable=False, default=0.90)
+    provenance = Column(JSON, nullable=False, default=dict)
+    state_version = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    source = relationship("Source")
+    article = relationship("Article", back_populates="observations")
+    event = relationship("Event", back_populates="observations")
+    entity = relationship(
+        "Entity",
+        primaryjoin="and_(WorldObservation.subject_id==foreign(Entity.entity_id), WorldObservation.subject_type=='ENTITY')",
+        viewonly=True,
+    )
+    __table_args__ = (
+        Index("ix_world_obs_subject_time", "subject_type", "subject_id", "observed_at"),
+        Index("ix_world_obs_validity", "valid_from", "valid_until"),
+        Index("ix_world_obs_predicate_time", "predicate", "observed_at"),
+    )
+
+class EntityStateVersion(Base):
+    __tablename__ = "entity_state_versions"
+    state_id = Column(String(100), primary_key=True)
+    entity_id = Column(String(100), ForeignKey("entities.entity_id", ondelete="CASCADE"), nullable=False, index=True)
+    version = Column(Integer, nullable=False)
+    state = Column(JSON, nullable=False, default=dict)
+    valid_from = Column(DateTime, nullable=False, index=True)
+    valid_until = Column(DateTime, nullable=True, index=True)
+    derived_from_observation_id = Column(String(100), ForeignKey("world_observations.observation_id"), nullable=True, index=True)
+    confidence = Column(Float, nullable=False, default=0.90)
+    provenance = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    entity = relationship("Entity", back_populates="state_versions")
+    __table_args__ = (
+        UniqueConstraint("entity_id", "version", name="uq_entity_state_version"),
+        Index("ix_entity_state_current", "entity_id", "valid_until"),
+    )
 
 class Alert(Base):
     __tablename__ = "alerts"
