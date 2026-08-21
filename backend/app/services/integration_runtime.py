@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from app.services.event_fabric import app_event_fabric
@@ -9,30 +10,22 @@ from backend.integrations.pulse import pulse
 
 
 class IntegrationRuntime:
-    """Authoritative adapter for external data and building-control integrations.
-
-    Reads are explicitly observational. Writes are never exposed here as an
-    ungoverned operation; callers must pass them through GovernanceBridge.
-    """
+    """Authoritative adapter for external data and building-control integrations."""
 
     async def modbus_state(self) -> dict[str, Any]:
-        state = last_state()
+        state = await asyncio.to_thread(last_state)
         await app_event_fabric.publish(
             "integration.modbus.observed",
-            {"source": state.get("source"), "reality": state.get("reality")},
+            {"source": state.get("source"), "reality": state.get("reality"), "status": state.get("status")},
             source="integration.modbus",
         )
         return state
 
     async def modbus_write(self, updates: dict[str, Any]) -> dict[str, Any]:
-        result = write_registers(updates)
+        result = await asyncio.to_thread(write_registers, updates)
         await app_event_fabric.publish(
             "integration.modbus.write_completed",
-            {
-                "success": result.get("success"),
-                "read_back_verified": result.get("read_back_verified"),
-                "reality": result.get("reality"),
-            },
+            {"success": result.get("success"), "read_back_verified": result.get("read_back_verified"), "reality": result.get("reality")},
             source="integration.modbus",
         )
         return result
