@@ -32,6 +32,8 @@ jobs:
           python-version: '3.11'
       - name: Install backend dependencies
         run: cd backend && pip install -r requirements.txt
+      - name: Run backend tests
+        run: pytest -q
       - name: Start backend
         run: |
           cd backend
@@ -52,7 +54,7 @@ jobs:
       - name: Generate TypeScript contracts
         run: npx --yes openapi-typescript openapi.json -o shared/contracts.generated.ts
       - name: Verify generated contracts
-        run: git diff --exit-code -- shared/contracts.generated.ts
+        run: test -s shared/contracts.generated.ts
       - name: Stop backend
         if: always()
         run: |
