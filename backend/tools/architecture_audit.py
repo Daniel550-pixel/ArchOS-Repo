@@ -20,6 +20,9 @@ FORBIDDEN_FILES = {
     "backend/core/event_fabric.py",
     "backend/core/observability.py",
     "backend/agents/night_shift.py",
+    "backend/jarvis_real.py",
+    "backend/dubai_pulse.py",
+    "backend/modbus_gateway.py",
 }
 BLOCKING_CALLS = {"time.sleep", "requests.get", "requests.post", "requests.put", "requests.delete"}
 FABRICATED_MARKERS = {
