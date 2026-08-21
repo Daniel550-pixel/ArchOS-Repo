@@ -23,6 +23,7 @@ from app.services.jarvis_runtime_bridge import jarvis_runtime_bridge
 from app.services.governance_bridge import governance_bridge
 from app.services.event_fabric import app_event_fabric
 from app.services.security_observability import instrument, metrics_response, ops_status, certificate_watchdog
+from app.services.night_shift import night_shift_runtime
 from backend.agents.action_gate import ActionRequest
 from backend.agents.base import RiskLevel
 from backend.auth import webauthn as webauthn_runtime
@@ -51,6 +52,7 @@ def validate_security_runtime() -> None:
 async def lifespan(app: FastAPI):
     validate_security_runtime()
     scheduler.start()
+    night_shift_runtime.start()
     rotation_task = asyncio.create_task(rotation_daemon())
     certificate_task = asyncio.create_task(certificate_watchdog())
     await app_event_fabric.publish(
@@ -68,6 +70,7 @@ async def lifespan(app: FastAPI):
                 await task
             except asyncio.CancelledError:
                 pass
+        await night_shift_runtime.stop()
         await app_event_fabric.publish("runtime.stopping", source="app")
         scheduler.stop()
         if settings.DATABASE_URL:
@@ -225,6 +228,19 @@ async def get_ops_status():
     return ops_status()
 
 
+@app.get("/api/v1/night-shift/status")
+async def night_shift_status():
+    return night_shift_runtime.status()
+
+
+@app.post("/api/v1/night-shift/run")
+async def run_night_shift():
+    try:
+        return await night_shift_runtime.run_once()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Night Shift execution failed") from exc
+
+
 @app.get("/api/v1/health/runtime")
 async def runtime_health():
     return {
@@ -246,6 +262,7 @@ async def runtime_health():
             "dubai_pulse": "available",
             "modbus_bms": "governed",
             "osm": "available",
+            "night_shift": "active",
         },
     }
 
@@ -275,6 +292,7 @@ async def root():
         "dubai_pulse": "ADAPTER",
         "modbus_bms": "GOVERNED_WRITE_PATH",
         "osm": "ADAPTER",
+        "night_shift": "AUTHORITATIVE",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
