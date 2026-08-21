@@ -76,10 +76,7 @@ class NightShiftRuntime:
 
         try:
             buildings = await integration_runtime.buildings()
-            city = {
-                "count": len(buildings),
-                "source": "openstreetmap_overpass",
-            }
+            city = {"count": len(buildings), "source": "openstreetmap_overpass"}
         except Exception as exc:
             city = {"status": "unavailable"}
             await app_event_fabric.publish(
@@ -123,10 +120,7 @@ class NightShiftRuntime:
                                 "morning briefing. Never invent missing telemetry."
                             ),
                         },
-                        {
-                            "role": "user",
-                            "content": json.dumps(watch, ensure_ascii=False),
-                        },
+                        {"role": "user", "content": json.dumps(watch, ensure_ascii=False)},
                     ],
                 )
                 text = response.choices[0].message.content
@@ -148,17 +142,10 @@ class NightShiftRuntime:
                 f"BMS status: {bms.get('status', bms.get('reality', 'observed'))}."
             )
 
-        brief = {
-            "id": f"brief-{int(time.time())}",
-            "ts": watch["ts"],
-            "text": text,
-            "watch": watch,
-        }
+        brief = {"id": f"brief-{int(time.time())}", "ts": watch["ts"], "text": text, "watch": watch}
         self.last_briefing = brief
         await app_event_fabric.publish(
-            "night_shift.briefing_ready",
-            {"id": brief["id"]},
-            source="night_shift",
+            "night_shift.briefing_ready", {"id": brief["id"]}, source="night_shift"
         )
         return brief
 
@@ -178,15 +165,19 @@ class NightShiftRuntime:
             except Exception as exc:
                 self.last_status = "FAILED"
                 await app_event_fabric.publish(
-                    "night_shift.failed",
-                    {"error": type(exc).__name__},
-                    source="night_shift",
+                    "night_shift.failed", {"error": type(exc).__name__}, source="night_shift"
                 )
                 raise
 
     async def _loop(self) -> None:
+        first_run = True
         while self._running:
             try:
+                if first_run and self.last_run_at is None:
+                    first_run = False
+                    await self.run_once()
+                    continue
+                first_run = False
                 now = datetime.now(DUBAI_TZ)
                 target = now.replace(hour=7, minute=0, second=0, microsecond=0)
                 if target <= now:
