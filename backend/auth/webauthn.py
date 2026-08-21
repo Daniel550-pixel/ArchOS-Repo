@@ -1,8 +1,9 @@
-"""WebAuthn registration/authentication + JWT session + vault-key release."""
-import time
-import secrets as pysec
+"""WebAuthn registration/authentication and JWT session issuance."""
 import base64
 import json
+import time
+import secrets as pysec
+
 try:
     import jwt
 except ImportError:
@@ -22,8 +23,6 @@ try:
     from webauthn.helpers import (
         parse_registration_credential_json,
         parse_authentication_credential_json,
-        bytes_to_base64url,
-        base64url_to_bytes,
     )
     from webauthn.helpers.structs import (
         AuthenticatorSelectionCriteria,
@@ -33,187 +32,164 @@ try:
         PublicKeyCredentialDescriptor,
     )
 except ImportError:
-    # Graceful fallback imports if webauthn package is being loaded
     generate_registration_options = None
+    verify_registration_response = None
+    generate_authentication_options = None
+    verify_authentication_response = None
+    options_to_json = None
+    parse_registration_credential_json = None
+    parse_authentication_credential_json = None
+    AuthenticatorSelectionCriteria = None
+    ResidentKeyRequirement = None
+    UserVerificationRequirement = None
+    AuthenticatorAttachment = None
+    PublicKeyCredentialDescriptor = None
 
 from ..core.secrets import secret
+from ..app.core.config import settings
 
-RP_NAME, RP_ID, ORIGIN = "ArchOS", "localhost", "https://localhost"
+RP_NAME = settings.WEBAUTHN_RP_NAME
+RP_ID = settings.WEBAUTHN_RP_ID
+ORIGIN = settings.WEBAUTHN_ORIGIN
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
-# Prod: Postgres tables. Dev: in-memory.
 CHALLENGES: dict[str, bytes] = {}
-USERS: dict[str, dict] = {}   # username -> {cred_id, public_key, sign_count, vault_key}
+USERS: dict[str, dict] = {}
+
 
 class UserReq(BaseModel):
     username: str
+
 
 class CredReq(BaseModel):
     username: str
     credential: dict
 
+
+def _require_webauthn() -> None:
+    if not all((generate_registration_options, verify_registration_response,
+                generate_authentication_options, verify_authentication_response,
+                options_to_json, parse_registration_credential_json,
+                parse_authentication_credential_json)):
+        if not settings.ALLOW_INSECURE_AUTH_FALLBACKS:
+            raise HTTPException(503, "WebAuthn security provider is unavailable")
+
+
+def _jwt_secret() -> str:
+    value = secret("JWT_SECRET")
+    if not value or len(value) < 32:
+        raise HTTPException(503, "JWT_SECRET is not securely configured")
+    return value
+
+
 @router.post("/register/options")
 async def reg_options(body: UserReq):
-    if generate_registration_options:
-        user_id = USERS.get(body.username, {}).get("user_id", pysec.token_bytes(16))
-        opts = generate_registration_options(
-            rp_name=RP_NAME,
-            rp_id=RP_ID,
-            user_name=body.username,
-            user_id=user_id,
-            authenticator_selection=AuthenticatorSelectionCriteria(
-                authenticator_attachment=AuthenticatorAttachment.PLATFORM,  # device biometrics
-                resident_key=ResidentKeyRequirement.REQUIRED,
-                user_verification=UserVerificationRequirement.REQUIRED,     # biometric gate
-            ),
-        )
-        CHALLENGES[body.username] = opts.challenge
-        return json.loads(options_to_json(opts))
-    else:
-        # Standard RFC compliant challenge payload
-        raw_ch = pysec.token_bytes(32)
-        CHALLENGES[body.username] = raw_ch
-        ch_b64 = base64.urlsafe_b64encode(raw_ch).decode("utf-8").rstrip("=")
-        user_id_b64 = base64.urlsafe_b64encode(pysec.token_bytes(16)).decode("utf-8").rstrip("=")
-        return {
-            "challenge": ch_b64,
-            "rp": {"name": RP_NAME, "id": RP_ID},
-            "user": {"id": user_id_b64, "name": body.username, "displayName": body.username},
-            "pubKeyCredParams": [{"alg": -7, "type": "public-key"}, {"alg": -257, "type": "public-key"}],
-            "authenticatorSelection": {
-                "authenticatorAttachment": "platform",
-                "residentKey": "required",
-                "userVerification": "required",
-            },
-            "timeout": 60000,
-            "attestation": "none",
-        }
+    _require_webauthn()
+    if not generate_registration_options:
+        raise HTTPException(503, "WebAuthn security provider is unavailable")
+
+    user_id = USERS.get(body.username, {}).get("user_id", pysec.token_bytes(16))
+    opts = generate_registration_options(
+        rp_name=RP_NAME,
+        rp_id=RP_ID,
+        user_name=body.username,
+        user_id=user_id,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            authenticator_attachment=AuthenticatorAttachment.PLATFORM,
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+    )
+    CHALLENGES[body.username] = opts.challenge
+    return json.loads(options_to_json(opts))
+
 
 @router.post("/register/verify")
 async def reg_verify(body: CredReq):
+    _require_webauthn()
     ch = CHALLENGES.pop(body.username, None)
     if not ch:
-        raise HTTPException(400, "no challenge")
-    
-    cred_id = body.credential.get("id") or "cred_" + pysec.token_hex(8)
-    pub_key = b"dummy_pub_key"
-    sign_count = 0
+        raise HTTPException(400, "No active registration challenge")
+    if not verify_registration_response or not parse_registration_credential_json:
+        raise HTTPException(503, "WebAuthn security provider is unavailable")
 
-    if verify_registration_response and parse_registration_credential_json:
-        try:
-            ver = verify_registration_response(
-                credential=parse_registration_credential_json(json.dumps(body.credential)),
-                expected_challenge=ch,
-                expected_origin=ORIGIN,
-                expected_rp_id=RP_ID,
-                require_user_verification=True,
-            )
-            cred_id = ver.credential_id
-            pub_key = ver.credential_public_key
-            sign_count = ver.sign_count
-        except Exception as e:
-            # Fallback for dev origins
-            pass
+    try:
+        ver = verify_registration_response(
+            credential=parse_registration_credential_json(json.dumps(body.credential)),
+            expected_challenge=ch,
+            expected_origin=ORIGIN,
+            expected_rp_id=RP_ID,
+            require_user_verification=True,
+        )
+    except Exception as exc:
+        raise HTTPException(400, "WebAuthn registration verification failed") from exc
 
     USERS[body.username] = {
-        "cred_id": cred_id,
-        "public_key": pub_key,
-        "sign_count": sign_count,
+        "user_id": USERS.get(body.username, {}).get("user_id", pysec.token_bytes(16)),
+        "cred_id": ver.credential_id,
+        "public_key": ver.credential_public_key,
+        "sign_count": ver.sign_count,
         "vault_key": pysec.token_bytes(32),
         "totp_secret": pysec.token_bytes(32),
     }
     return {"ok": True}
 
+
 @router.post("/login/options")
 async def login_options(body: UserReq):
+    _require_webauthn()
     u = USERS.get(body.username)
-    # If not registered yet in dev, seed a default credential descriptor
     if not u:
-        u = {
-            "cred_id": pysec.token_bytes(16),
-            "public_key": b"default_key",
-            "sign_count": 0,
-            "vault_key": pysec.token_bytes(32),
-            "totp_secret": pysec.token_bytes(32),
-        }
-        USERS[body.username] = u
+        raise HTTPException(404, "User is not registered")
+    if not generate_authentication_options or not PublicKeyCredentialDescriptor:
+        raise HTTPException(503, "WebAuthn security provider is unavailable")
 
-    raw_ch = pysec.token_bytes(32)
-    CHALLENGES[body.username] = raw_ch
+    opts = generate_authentication_options(
+        rp_id=RP_ID,
+        user_verification=UserVerificationRequirement.REQUIRED,
+        allow_credentials=[PublicKeyCredentialDescriptor(id=u["cred_id"])],
+    )
+    CHALLENGES[body.username] = opts.challenge
+    return json.loads(options_to_json(opts))
 
-    if generate_authentication_options and isinstance(u["cred_id"], bytes):
-        try:
-            opts = generate_authentication_options(
-                rp_id=RP_ID,
-                user_verification=UserVerificationRequirement.REQUIRED,
-                allow_credentials=[PublicKeyCredentialDescriptor(id=u["cred_id"])],
-            )
-            CHALLENGES[body.username] = opts.challenge
-            return json.loads(options_to_json(opts))
-        except Exception:
-            pass
-
-    ch_b64 = base64.urlsafe_b64encode(raw_ch).decode("utf-8").rstrip("=")
-    cred_id_str = u["cred_id"] if isinstance(u["cred_id"], str) else base64.urlsafe_b64encode(u["cred_id"]).decode("utf-8").rstrip("=")
-    return {
-        "challenge": ch_b64,
-        "rpId": RP_ID,
-        "timeout": 60000,
-        "userVerification": "required",
-        "allowCredentials": [{"type": "public-key", "id": cred_id_str}],
-    }
 
 @router.post("/login/verify")
 async def login_verify(body: CredReq):
+    _require_webauthn()
     u = USERS.get(body.username)
     ch = CHALLENGES.pop(body.username, None)
     if not u or not ch:
-        # Auto-seed if running fresh ceremony
-        u = USERS.setdefault(body.username, {
-            "cred_id": "seed_" + pysec.token_hex(8),
-            "public_key": b"default_key",
-            "sign_count": 1,
-            "vault_key": pysec.token_bytes(32),
-            "totp_secret": pysec.token_bytes(32),
-        })
+        raise HTTPException(401, "Authentication ceremony is invalid or expired")
+    if not verify_authentication_response or not parse_authentication_credential_json:
+        raise HTTPException(503, "WebAuthn security provider is unavailable")
 
-    if verify_authentication_response and parse_authentication_credential_json:
-        try:
-            ver = verify_authentication_response(
-                credential=parse_authentication_credential_json(json.dumps(body.credential)),
-                expected_challenge=ch,
-                expected_origin=ORIGIN,
-                expected_rp_id=RP_ID,
-                credential_public_key=u["public_key"],
-                credential_current_sign_count=u["sign_count"],
-                require_user_verification=True,
-            )
-            u["sign_count"] = ver.new_sign_count
-        except Exception:
-            pass
-
-    attachment = body.credential.get("authenticatorAttachment", "platform")
-    jwt_sec = secret("JWT_SECRET", "archos_sovereign_jwt_secret_key_2026_qkd")
-    
-    if jwt:
-        token = jwt.encode(
-            {"sub": body.username, "iat": int(time.time()), "exp": int(time.time()) + 3600},
-            jwt_sec,
-            algorithm="HS256",
+    try:
+        ver = verify_authentication_response(
+            credential=parse_authentication_credential_json(json.dumps(body.credential)),
+            expected_challenge=ch,
+            expected_origin=ORIGIN,
+            expected_rp_id=RP_ID,
+            credential_public_key=u["public_key"],
+            credential_current_sign_count=u["sign_count"],
+            require_user_verification=True,
         )
-    else:
-        # Base64 mock token
-        header = base64.urlsafe_b64encode(b'{"alg":"HS256","typ":"JWT"}').decode().rstrip("=")
-        payload = base64.urlsafe_b64encode(json.dumps({"sub": body.username, "exp": int(time.time()) + 3600}).encode()).decode().rstrip("=")
-        sig = base64.urlsafe_b64encode(pysec.token_bytes(32)).decode().rstrip("=")
-        token = f"{header}.{payload}.{sig}"
+    except Exception as exc:
+        raise HTTPException(401, "WebAuthn authentication verification failed") from exc
+
+    u["sign_count"] = ver.new_sign_count
+    attachment = body.credential.get("authenticatorAttachment", "platform")
+    token = jwt.encode(
+        {"sub": body.username, "iat": int(time.time()), "exp": int(time.time()) + 3600},
+        _jwt_secret(),
+        algorithm="HS256",
+    ) if jwt else None
+    if not token:
+        raise HTTPException(503, "JWT support is required for authentication")
 
     vault_key_b64u = base64.urlsafe_b64encode(u["vault_key"]).decode("utf-8").rstrip("=")
-    totp_sec_b64u = base64.urlsafe_b64encode(u.get("totp_secret", pysec.token_bytes(32))).decode("utf-8").rstrip("=")
     return {
         "jwt": token,
-        "vault_key": vault_key_b64u,                  # released ONLY post-verification
-        "totp_secret": totp_sec_b64u,
-        "biometric": attachment == "platform",         # platform authenticator ⇒ enclave biometric
+        "vault_key": vault_key_b64u,
+        "biometric": attachment == "platform",
         "user_verified": True,
     }
