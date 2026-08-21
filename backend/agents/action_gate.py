@@ -40,6 +40,14 @@ class ActionGate:
     def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         return [self._serialize(a) for a in reversed(self._action_history[-limit:])]
 
+    def get_action(self, action_id: str) -> Optional[ActionRequest]:
+        if action_id in self._pending_actions:
+            return self._pending_actions[action_id]
+        for action in reversed(self._action_history):
+            if action.action_id == action_id:
+                return action
+        return None
+
     @staticmethod
     def _serialize(action: ActionRequest) -> Dict[str, Any]:
         return {
@@ -121,7 +129,6 @@ class ActionGate:
         req = self._pending_actions.pop(action_id)
         req.approval_state = "APPROVED"
         req.approved_by = approver
-        # Re-run ABAC with the explicit approval context rather than trusting state alone.
         decision = await self.evaluate_and_submit(req)
         if decision != ActionDecision.ALLOWED:
             self._pending_actions[action_id] = req
