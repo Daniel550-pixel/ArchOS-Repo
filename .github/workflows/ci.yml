@@ -21,6 +21,9 @@ jobs:
 
   contracts:
     runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/archos_ci
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
