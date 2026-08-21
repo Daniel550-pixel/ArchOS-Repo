@@ -10,9 +10,9 @@ jobs:
   lint-and-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
       - run: npm ci || npm install
@@ -23,11 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: test
-      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/archos_ci
+      DATABASE_URL: postgresql+asyncpg://ci:ci@127.0.0.1:5432/archos_ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Install backend dependencies
