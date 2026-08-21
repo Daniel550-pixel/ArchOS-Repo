@@ -5,12 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.endpoints import router as api_router
+from app.api.world_model import router as world_model_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
 from app.services.finops_service import FinOpsService, TenantUsageRepository
+from app.core.database import close_database
 
-# Initialize Singleton FinOps Usage Repository & Service
 usage_repo = TenantUsageRepository()
 finops_service = FinOpsService(usage_repo)
 
@@ -18,8 +19,12 @@ finops_service = FinOpsService(usage_repo)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.start()
-    yield
-    scheduler.stop()
+    try:
+        yield
+    finally:
+        scheduler.stop()
+        if settings.DATABASE_URL:
+            await close_database()
 
 
 app = FastAPI(
@@ -32,9 +37,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware order is deliberate. Starlette applies middleware in reverse
-# registration order, so IdentityMiddleware is the outer security boundary and
-# CostRiskMiddleware only sees authenticated principals.
 app.add_middleware(CostRiskMiddleware, finops_service=finops_service)
 app.add_middleware(IdentityMiddleware)
 
@@ -47,12 +49,12 @@ app.add_middleware(
         "Authorization",
         "Content-Type",
         "X-Admin-Key",
-        "X-Tenant-ID",
         "X-Estimated-Prompt-Length",
     ],
 )
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
+app.include_router(world_model_router, prefix=settings.API_PREFIX)
 
 
 @app.get("/")
@@ -63,6 +65,7 @@ async def root():
         "finops_router": "ACTIVE",
         "authority_separation": "ENFORCED",
         "identity_boundary": "ACTIVE",
+        "world_model": "PERSISTENT_POSTGRESQL",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
