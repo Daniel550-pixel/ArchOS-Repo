@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import socket
@@ -14,9 +15,8 @@ from app.services.event_fabric import app_event_fabric
 
 try:
     from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-except ImportError as exc:  # pragma: no cover - dependency is pinned in requirements
+except ImportError as exc:
     raise RuntimeError("prometheus-client is required for runtime observability") from exc
-
 
 REQUESTS = Counter("archos_requests_total", "Total requests processed", ["path", "status"])
 LATENCY = Histogram("archos_request_seconds", "Request latency in seconds", ["path"])
