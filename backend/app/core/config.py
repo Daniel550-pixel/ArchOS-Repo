@@ -8,11 +8,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "UAE News Intelligence Platform"
     VERSION: str = "1.0.0"
     API_PREFIX: str = "/api"
-    ENVIRONMENT: str = Field(default="development")  # development, test, production
+    ENVIRONMENT: str = Field(default="development")
 
-    # Secrets & API Keys
-    # Secrets are intentionally unset by default. Production startup validation
-    # below requires the values that are security-critical.
     NEWS_API_KEY: Optional[str] = Field(default=None)
     UAE_NEWS_API_KEY: Optional[str] = Field(default=None)
     NEWS_API_BASE_URL: str = Field(default="https://newsapi.org/v2")
@@ -20,22 +17,21 @@ class Settings(BaseSettings):
     NEWS_LANGUAGE: str = Field(default="en")
     NEWS_FETCH_INTERVAL_MINUTES: int = Field(default=15)
 
-    # Database
-    # Local development may override this through .env. Production must provide
-    # an explicit DATABASE_URL rather than using embedded credentials.
     DATABASE_URL: Optional[str] = Field(default=None)
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
 
-    # AI Engine
     GEMINI_API_KEY: Optional[str] = Field(default=None)
 
-    # Security & Admin
-    # Never ship a usable admin credential in source code.
     ADMIN_API_KEY: Optional[str] = Field(default=None)
+    JWT_SECRET: Optional[str] = Field(default=None)
     CORS_ORIGINS: List[str] = Field(default_factory=list)
 
-    # Ingestion rate limits & controls
+    WEBAUTHN_RP_NAME: str = "ArchOS"
+    WEBAUTHN_RP_ID: str = "localhost"
+    WEBAUTHN_ORIGIN: str = "https://localhost"
+    ALLOW_INSECURE_AUTH_FALLBACKS: bool = False
+
     MAX_ARTICLES_PER_FETCH: int = 50
     REQUEST_TIMEOUT_SECONDS: int = 15
 
@@ -48,44 +44,36 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_security_configuration(self) -> "Settings":
         environment = self.ENVIRONMENT.strip().lower()
-
         if environment not in {"development", "test", "production"}:
             raise ValueError("ENVIRONMENT must be development, test, or production")
 
         if environment == "production":
             missing = []
-
             if not self.ADMIN_API_KEY:
                 missing.append("ADMIN_API_KEY")
+            if not self.JWT_SECRET:
+                missing.append("JWT_SECRET")
             if not self.DATABASE_URL:
                 missing.append("DATABASE_URL")
             if not self.CORS_ORIGINS:
                 missing.append("CORS_ORIGINS")
-
             if missing:
                 raise ValueError(
                     "Production configuration is missing required settings: "
                     + ", ".join(missing)
                 )
-
             if "*" in self.CORS_ORIGINS:
-                raise ValueError(
-                    "CORS_ORIGINS must not contain '*' in production"
-                )
-
-            if self.ADMIN_API_KEY in {
-                "",
-                "changeme",
-                "change-me",
-                "secret",
-                "sovereign_uae_admin_secret_key",
-            }:
+                raise ValueError("CORS_ORIGINS must not contain '*' in production")
+            if len(self.ADMIN_API_KEY) < 32 or len(self.JWT_SECRET) < 32:
+                raise ValueError("ADMIN_API_KEY and JWT_SECRET must be at least 32 characters")
+            if self.ADMIN_API_KEY.lower() in {"changeme", "change-me", "secret"}:
                 raise ValueError("ADMIN_API_KEY must be a strong non-default secret")
-
+            if self.JWT_SECRET.lower() in {"changeme", "change-me", "secret"}:
+                raise ValueError("JWT_SECRET must be a strong non-default secret")
             if "postgres:postgres@" in self.DATABASE_URL:
-                raise ValueError(
-                    "DATABASE_URL contains the default PostgreSQL credentials"
-                )
+                raise ValueError("DATABASE_URL contains the default PostgreSQL credentials")
+            if self.ALLOW_INSECURE_AUTH_FALLBACKS:
+                raise ValueError("Insecure authentication fallbacks are forbidden in production")
 
         return self
 
