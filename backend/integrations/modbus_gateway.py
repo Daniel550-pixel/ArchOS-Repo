@@ -1,131 +1,96 @@
-"""Real Modbus-TCP BMS reader → secure MQTT. --sim spins a local Modbus slave."""
-import os
-import json
-import time
-import threading
+"""Modbus-TCP BMS adapter.
 
-REGISTERS = [
+The authoritative application calls these functions through IntegrationRuntime.
+No synthetic telemetry is returned when the BMS is unavailable.
+"""
+from __future__ import annotations
+
+import json
+import os
+import time
+from pathlib import Path
+
+REGISTERS = (
     ("strain_mpa", 0, 0.1),
     ("accel_ms2", 1, 0.001),
     ("chiller_dt_c", 2, 0.1),
     ("power_mw", 3, 0.1),
     ("supply_temp_c", 4, 0.1),
-    ("flow_lps", 5, 0.1)
-]
+    ("flow_lps", 5, 0.1),
+)
 
-STATE_FILE = "bms_state.json"
+STATE_FILE = Path(os.getenv("BMS_STATE_FILE", "bms_state.json"))
 
-DEFAULT_BMS_STATE = {
-    "ts": time.time(),
-    "source": "modbus://localhost:5020",
-    "protocol": "MODBUS-TCP -> MQTT 5.0 TLS",
-    "strain_mpa": 142.42,
-    "accel_ms2": 0.014,
-    "chiller_dt_c": 4.82,
-    "power_mw": 8.41,
-    "supply_temp_c": 7.2,
-    "flow_lps": 120.4
-}
 
-def last_state():
+def _client():
+    from pymodbus.client import ModbusTcpClient
+    return ModbusTcpClient(
+        os.getenv("PLC_HOST", "localhost"),
+        port=int(os.getenv("PLC_PORT", "5020")),
+        timeout=2,
+    )
+
+
+def last_state() -> dict:
+    """Return cached observed state, or an explicit unavailable state."""
     try:
-        if os.path.exists(STATE_FILE):
-            with open(STATE_FILE, "r") as f:
-                data = json.load(f)
-                data["reality"] = "EMULATED" if "localhost" in data.get("source", "") else "OBSERVED"
-                return data
-    except Exception:
+        if STATE_FILE.exists():
+            data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            source = str(data.get("source", ""))
+            data["reality"] = "EMULATED" if "localhost" in source else "OBSERVED"
+            return data
+    except (OSError, ValueError, TypeError):
         pass
-    st = dict(DEFAULT_BMS_STATE)
-    st["reality"] = "FALLBACK"
-    return st
+    return {"status": "unavailable", "reality": "UNAVAILABLE", "source": "modbus"}
 
-def write_registers(updates: dict) -> dict:
-    """Canonical Tool write operation with read-back verification."""
-    current = last_state()
-    plc_host = os.getenv("PLC_HOST", "localhost")
-    plc_port = int(os.getenv("PLC_PORT", "5020"))
 
-    # Apply updates to state
-    for k, v in updates.items():
-        if k in current:
-            current[k] = round(float(v), 3)
+def write_registers(updates: dict[str, float]) -> dict:
+    """Write registers and verify them by reading the physical endpoint back."""
+    if not updates:
+        raise ValueError("updates must not be empty")
+    unknown = sorted(set(updates) - {name for name, _, _ in REGISTERS})
+    if unknown:
+        raise ValueError(f"unsupported registers: {unknown}")
 
-    current["ts"] = time.time()
-    current["source"] = f"modbus://{plc_host}:{plc_port}"
-    current["reality"] = "EMULATED" if "localhost" in plc_host else "OBSERVED"
-
-    # Attempt physical Modbus write if client available
-    try:
-        from pymodbus.client import ModbusTcpClient
-        mb = ModbusTcpClient(plc_host, port=plc_port, timeout=2)
-        if mb.connect():
-            for name, reg_idx, scale in REGISTERS:
-                if name in updates:
-                    raw_val = int(updates[name] / scale)
-                    mb.write_register(reg_idx, raw_val)
-            mb.close()
-    except Exception:
-        pass
+    client = _client()
+    host = os.getenv("PLC_HOST", "localhost")
+    port = int(os.getenv("PLC_PORT", "5020"))
+    if not client.connect():
+        client.close()
+        raise ConnectionError(f"Modbus endpoint unavailable: {host}:{port}")
 
     try:
-        with open(STATE_FILE, "w") as sf:
-            json.dump(current, sf)
-    except Exception:
-        pass
+        for name, reg_idx, scale in REGISTERS:
+            if name in updates:
+                result = client.write_register(reg_idx, int(round(float(updates[name]) / scale)))
+                if result.isError():
+                    raise RuntimeError(f"Modbus write failed for {name}")
 
-    # Read-back verification
-    verified = True
-    for k, v in updates.items():
-        if k in current and abs(current[k] - float(v)) > 0.01:
-            verified = False
+        readback = client.read_holding_registers(address=0, count=len(REGISTERS))
+        if readback.isError():
+            raise RuntimeError("Modbus read-back failed")
 
-    return {
-        "success": verified,
-        "read_back_verified": verified,
-        "updated_state": current,
-        "execution_state": "EXECUTED" if verified else "UNCERTAIN",
-        "reality": current["reality"],
-        "timestamp": current["ts"]
-    }
+        state = {"ts": time.time(), "source": f"modbus://{host}:{port}", "reality": "EMULATED" if "localhost" in host else "OBSERVED"}
+        for (name, _, scale), raw in zip(REGISTERS, readback.registers):
+            state[name] = round(raw * scale, 3)
 
-def start_sim_server(port=5020):
-    try:
-        from pymodbus.server import StartTcpServer
-        from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
-        store = ModbusSlaveContext(hr=ModbusSequentialDataBlock(0, [1424, 14, 48, 84, 72, 1204]))
-        context = ModbusServerContext(slaves=store, single=True)
-        t = threading.Thread(target=lambda: StartTcpServer(context=context, address=("0.0.0.0", port)), daemon=True)
-        t.start()
-    except Exception as e:
-        print(f"[Modbus Sim Server] {e}")
+        verified = all(abs(state[name] - float(value)) <= 0.01 for name, value in updates.items())
+        state["read_back_verified"] = verified
+        if not verified:
+            raise RuntimeError("Modbus read-back verification failed")
 
-def main(sim=False):
-    if sim:
-        start_sim_server(5020)
-    
-    plc_host = os.getenv("PLC_HOST", "localhost")
-    plc_port = int(os.getenv("PLC_PORT", "5020"))
-
-    while True:
         try:
-            try:
-                from pymodbus.client import ModbusTcpClient
-                mb = ModbusTcpClient(plc_host, port=plc_port, timeout=2)
-                if mb.connect():
-                    rr = mb.read_holding_registers(address=0, count=len(REGISTERS))
-                    mb.close()
-                    if rr and not rr.isError():
-                        state = {"ts": time.time(), "source": f"modbus://{plc_host}:{plc_port}"}
-                        for (f, _, sc), raw in zip(REGISTERS, rr.registers):
-                            state[f] = round(raw * sc, 3)
-                        with open(STATE_FILE, "w") as sf:
-                            json.dump(state, sf)
-            except Exception:
-                pass
-        except Exception as e:
-            print("[BMS Gateway]", e)
-        time.sleep(1)
+            STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
+        except OSError:
+            pass
 
-if __name__ == "__main__":
-    main(sim=True)
+        return {
+            "success": True,
+            "read_back_verified": True,
+            "updated_state": state,
+            "execution_state": "EXECUTED",
+            "reality": state["reality"],
+            "timestamp": state["ts"],
+        }
+    finally:
+        client.close()
