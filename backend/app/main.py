@@ -14,6 +14,7 @@ from app.api.causal_graph import router as causal_graph_router
 from app.api.scenario_execution import router as scenario_execution_router
 from app.api.scenario_planner import router as scenario_planner_router
 from app.api.scenario_orchestrator import router as scenario_orchestrator_router
+from app.api.integrations import router as integrations_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
@@ -117,6 +118,7 @@ app.include_router(causal_graph_router)
 app.include_router(scenario_execution_router)
 app.include_router(scenario_planner_router)
 app.include_router(scenario_orchestrator_router)
+app.include_router(integrations_router, prefix=settings.API_PREFIX)
 
 
 class JarvisRequest(BaseModel):
@@ -240,6 +242,10 @@ async def runtime_health():
             "keysmith": "active",
             "certificate_watchdog": "active",
             "observability": "active",
+            "integration_runtime": "active",
+            "dubai_pulse": "available",
+            "modbus_bms": "governed",
+            "osm": "available",
         },
     }
 
@@ -265,6 +271,10 @@ async def root():
         "security_runtime": "WEBAUTHN_KEYSMITH",
         "certificate_monitor": "ACTIVE",
         "observability": "ACTIVE",
+        "integration_runtime": "ACTIVE",
+        "dubai_pulse": "ADAPTER",
+        "modbus_bms": "GOVERNED_WRITE_PATH",
+        "osm": "ADAPTER",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
