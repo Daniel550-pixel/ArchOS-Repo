@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 from uuid import uuid4
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -29,7 +28,7 @@ def _append_audit(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def _persist_audit(ctx: Any, record: Dict[str, Any]) -> None:
-    """Persist an audit decision before the governed operation proceeds."""
+    """Persist a governance decision before the governed operation proceeds."""
     session = getattr(ctx, "db", None)
     if not isinstance(session, AsyncSession):
         if settings.ENVIRONMENT == "production":
@@ -37,26 +36,23 @@ async def _persist_audit(ctx: Any, record: Dict[str, Any]) -> None:
         _append_audit(record)
         return
 
-    current_max = await session.scalar(select(func.max(AuditRecord.sequence)))
-    sequence = (current_max or 0) + 1
     _append_audit(record)
-
-    audit_row = AuditRecord(
-        event_id=record["event_id"],
-        sequence=sequence,
-        occurred_at=datetime.now(timezone.utc),
-        actor=record["actor"],
-        action=record["action"],
-        authority_level=record["level"],
-        decision=record["decision"],
-        tenant_id=record.get("tenant_id"),
-        correlation_id=record.get("correlation_id"),
-        reason=record.get("reason"),
-        payload=record,
-        previous_hash=record["previous_hash"],
-        record_hash=record["record_hash"],
+    session.add(
+        AuditRecord(
+            event_id=record["event_id"],
+            occurred_at=datetime.now(timezone.utc),
+            actor=record["actor"],
+            action=record["action"],
+            authority_level=record["level"],
+            decision=record["decision"],
+            tenant_id=record.get("tenant_id"),
+            correlation_id=record.get("correlation_id"),
+            reason=record.get("reason"),
+            payload=record,
+            previous_hash=record["previous_hash"],
+            record_hash=record["record_hash"],
+        )
     )
-    session.add(audit_row)
     await session.commit()
 
 
