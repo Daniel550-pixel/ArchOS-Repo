@@ -17,6 +17,7 @@ PROTECTED_PREFIXES = (
     "/api/v1/admin/",
     "/api/v1/governance/",
     "/api/v1/events",
+    "/api/v1/ops/status",
     "/api/ai/",
 )
 
