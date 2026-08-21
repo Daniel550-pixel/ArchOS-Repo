@@ -19,6 +19,7 @@ from app.middleware.cost_risk_router import CostRiskMiddleware
 from app.services.finops_service import FinOpsService, TenantUsageRepository
 from app.services.jarvis_runtime_bridge import jarvis_runtime_bridge
 from app.services.governance_bridge import governance_bridge
+from app.services.event_fabric import app_event_fabric
 from backend.agents.action_gate import ActionRequest
 from backend.agents.base import RiskLevel
 from app.core.database import close_database
@@ -30,9 +31,11 @@ finops_service = FinOpsService(usage_repo)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.start()
+    await app_event_fabric.publish("runtime.started", {"version": settings.VERSION}, source="app")
     try:
         yield
     finally:
+        await app_event_fabric.publish("runtime.stopping", source="app")
         scheduler.stop()
         if settings.DATABASE_URL:
             await close_database()
@@ -99,8 +102,15 @@ class ActionApprovalRequest(BaseModel):
 @app.post("/api/v1/jarvis/ask")
 async def jarvis_ask(request: JarvisRequest):
     try:
-        return await jarvis_runtime_bridge.run(request.model_dump())
+        result = await jarvis_runtime_bridge.run(request.model_dump())
+        await app_event_fabric.publish(
+            "jarvis.completed",
+            {"task_id": result.get("task_id"), "verification_status": result.get("verification_status")},
+            source="jarvis",
+        )
+        return result
     except Exception as exc:
+        await app_event_fabric.publish("jarvis.failed", {"error": type(exc).__name__}, source="jarvis")
         raise HTTPException(status_code=500, detail="JARVIS runtime execution failed") from exc
 
 
@@ -131,6 +141,11 @@ async def submit_governed_action(request: ActionSubmitRequest):
         payload=request.payload,
     )
     decision = await governance_bridge.evaluate_and_submit(action)
+    await app_event_fabric.publish(
+        "governance.action_evaluated",
+        {"action_id": action.action_id, "decision": decision.value, "risk_level": risk_level.value},
+        source="governance",
+    )
     return {
         "action_id": action.action_id,
         "decision": decision.value,
@@ -144,7 +159,36 @@ async def approve_governed_action(action_id: str, request: ActionApprovalRequest
     approved = await governance_bridge.approve(action_id, request.approver)
     if not approved:
         raise HTTPException(status_code=403, detail="Action approval rejected")
+    await app_event_fabric.publish(
+        "governance.action_approved",
+        {"action_id": action_id, "approver": request.approver},
+        source="governance",
+    )
     return {"action_id": action_id, "approved": True}
+
+
+@app.get("/api/v1/events")
+async def event_history(limit: int = 100):
+    try:
+        return {"events": await app_event_fabric.history(limit)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/health/runtime")
+async def runtime_health():
+    return {
+        "status": "operational",
+        "version": settings.VERSION,
+        "components": {
+            "world_model": "active",
+            "simulation": "active",
+            "causal_graph": "active",
+            "jarvis": "bridged",
+            "governance": "bridged",
+            "event_fabric": "active",
+        },
+    }
 
 
 @app.get("/")
@@ -164,6 +208,7 @@ async def root():
         "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED",
         "jarvis_runtime": "BRIDGED",
         "governance_runtime": "BRIDGED",
+        "event_fabric": "CANONICAL",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
