@@ -6,3 +6,15 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Generated OpenAPI artifacts
+openapi.json
+shared/contracts.generated.ts
