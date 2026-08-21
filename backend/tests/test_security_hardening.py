@@ -1,3 +1,5 @@
+import inspect
+
 from app.core.config import Settings
 from app.middleware.identity import PROTECTED_PREFIXES
 from backend.auth import keysmith, sessions, webauthn
@@ -34,21 +36,27 @@ def test_production_rejects_insecure_auth_fallbacks():
 
 
 def test_sensitive_runtime_surfaces_are_identity_protected():
-    protected = PROTECTED_PREFIXES
-    assert "/api/v1/governance/" in protected
-    assert "/api/v1/events" in protected
-    assert "/api/v1/jarvis/" in protected
+    assert "/api/v1/governance/" in PROTECTED_PREFIXES
+    assert "/api/v1/events" in PROTECTED_PREFIXES
+    assert "/api/v1/jarvis/" in PROTECTED_PREFIXES
 
 
 def test_session_has_no_operator_fallback():
-    assert "if not rec" in sessions.session.__code__.co_names or sessions.REFRESH == {}
-    assert "operator" not in sessions.session.__code__.co_names
+    source = inspect.getsource(sessions.session)
+    assert 'if "operator" in USERS' not in source
+    assert 'raise HTTPException(401, "No session")' in source
 
 
-def test_keysmith_requires_bearer_identity():
-    assert "Authorization" in keysmith._user.__code__.co_names
-    assert "dev_" not in keysmith.unlock.__code__.co_names
+def test_keysmith_has_no_development_unlock_bypass():
+    user_source = inspect.getsource(keysmith._user)
+    unlock_source = inspect.getsource(keysmith.unlock)
+    assert 'Authorization' in user_source
+    assert 'dev_' not in unlock_source
+    assert 'Valid bearer authentication is required' in user_source
 
 
-def test_webauthn_requires_challenge_for_login():
-    assert "Authentication ceremony is invalid or expired" in webauthn.login_verify.__code__.co_consts
+def test_webauthn_requires_real_authentication_verification():
+    source = inspect.getsource(webauthn.login_verify)
+    assert 'Authentication ceremony is invalid or expired' in source
+    assert 'WebAuthn authentication verification failed' in source
+    assert 'except Exception:' not in source
