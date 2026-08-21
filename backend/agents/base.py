@@ -1,7 +1,4 @@
-"""ArchOS Specialist Agent Interface & Protocol Specification.
-Phase 4 Unified Architecture: Strong typing, provenance propagation,
-reality classification, and timeout/cancellation handling.
-"""
+"""ArchOS specialist-agent contracts and execution boundaries."""
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Set, Dict, Any, List, Optional
@@ -9,6 +6,7 @@ import uuid
 import time
 import asyncio
 from datetime import datetime, timezone
+
 
 class AgentCapability(str, Enum):
     PERCEPTION = "PERCEPTION"
@@ -21,6 +19,7 @@ class AgentCapability(str, Enum):
     EXECUTION = "EXECUTION"
     COMMUNICATION = "COMMUNICATION"
 
+
 class RealityLevel(str, Enum):
     OBSERVED = "OBSERVED"
     INFERRED = "INFERRED"
@@ -29,11 +28,13 @@ class RealityLevel(str, Enum):
     EMULATED = "EMULATED"
     FALLBACK = "FALLBACK"
 
+
 class RiskLevel(str, Enum):
     READ_ONLY = "READ_ONLY"
     LOW_RISK = "LOW_RISK"
     CONSEQUENTIAL = "CONSEQUENTIAL"
     HIGH_IMPACT = "HIGH_IMPACT"
+
 
 class VerificationStatus(str, Enum):
     VERIFIED = "VERIFIED"
@@ -41,10 +42,12 @@ class VerificationStatus(str, Enum):
     UNVERIFIED = "UNVERIFIED"
     REJECTED = "REJECTED"
 
+
 class ActionDecision(str, Enum):
     ALLOWED = "ALLOWED"
     DENIED = "DENIED"
     REQUIRES_APPROVAL = "REQUIRES_APPROVAL"
+
 
 @dataclass
 class AgentTask:
@@ -56,20 +59,26 @@ class AgentTask:
     correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     timeout_sec: float = 30.0
+    required_capabilities: Set[AgentCapability] = field(default_factory=set)
+    required_permissions: Set[str] = field(default_factory=set)
+    risk_level: RiskLevel = RiskLevel.READ_ONLY
+    verification_required: bool = True
+
 
 @dataclass
 class AgentResult:
     agent_id: str
     task_id: str
-    status: str                         # "SUCCESS" | "FAILED" | "TIMEOUT" | "CANCELLED"
+    status: str
     output: Dict[str, Any]
     reality: RealityLevel = RealityLevel.INFERRED
-    confidence: float = 1.0             # 0.0 to 1.0
+    confidence: float = 1.0
     provenance: str = ""
     evidence: List[str] = field(default_factory=list)
     execution_time_ms: float = 0.0
     error: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
 
 @dataclass
 class InterAgentMessage:
@@ -78,12 +87,13 @@ class InterAgentMessage:
     sender: str = ""
     receiver: str = ""
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    message_type: str = "DATA_EXCHANGE"  # "DATA_EXCHANGE" | "HYPOTHESIS" | "PLAN_PROPOSAL" | "VERIFICATION_REQUEST"
+    message_type: str = "DATA_EXCHANGE"
     payload: Dict[str, Any] = field(default_factory=dict)
     provenance: str = ""
     confidence: float = 1.0
     reality: RealityLevel = RealityLevel.INFERRED
     correlation_id: str = ""
+
 
 @dataclass
 class Agent:
@@ -98,12 +108,34 @@ class Agent:
     performance: float = 1.0
     reality_default: RealityLevel = RealityLevel.INFERRED
 
+    def can_accept(self, task: AgentTask) -> bool:
+        """Return whether this agent satisfies the task's declared capability contract."""
+        if task.required_capabilities and not task.required_capabilities.issubset(self.capabilities):
+            return False
+        if task.required_permissions and not task.required_permissions.issubset(set(self.required_permissions)):
+            return False
+        return True
+
     async def execute(self, task: AgentTask) -> AgentResult:
-        """Execute task with timeout and structured error boundaries."""
+        """Execute only after the swarm has validated the capability contract."""
+        if not self.can_accept(task):
+            return AgentResult(
+                agent_id=self.id,
+                task_id=task.task_id,
+                status="DENIED",
+                output={},
+                reality=RealityLevel.FALLBACK,
+                confidence=0.0,
+                provenance=f"{self.id}:capability_contract_denied",
+                error="Agent does not satisfy the task capability/permission contract",
+            )
+
         start = time.time()
         self.workload = min(1.0, self.workload + 0.2)
         try:
-            res = await asyncio.wait_for(self._run(task), timeout=min(task.timeout_sec, self.timeout_sec))
+            res = await asyncio.wait_for(
+                self._run(task), timeout=min(task.timeout_sec, self.timeout_sec)
+            )
             res.execution_time_ms = round((time.time() - start) * 1000, 2)
             self.performance = min(1.0, self.performance * 0.98 + 0.02)
             return res
@@ -118,9 +150,9 @@ class Agent:
                 confidence=0.0,
                 provenance=f"{self.id}:execution_timeout",
                 execution_time_ms=round((time.time() - start) * 1000, 2),
-                error=f"Agent {self.id} timed out after {self.timeout_sec}s"
+                error=f"Agent {self.id} timed out after {self.timeout_sec}s",
             )
-        except Exception as e:
+        except Exception:
             self.performance = max(0.2, self.performance - 0.05)
             return AgentResult(
                 agent_id=self.id,
@@ -131,7 +163,7 @@ class Agent:
                 confidence=0.0,
                 provenance=f"{self.id}:exception",
                 execution_time_ms=round((time.time() - start) * 1000, 2),
-                error=str(e)
+                error="Agent execution failed",
             )
         finally:
             self.workload = max(0.0, self.workload - 0.2)
@@ -145,5 +177,5 @@ class Agent:
             output={"result": "ok"},
             reality=self.reality_default,
             confidence=self.performance,
-            provenance=f"{self.id}:base"
+            provenance=f"{self.id}:base",
         )
