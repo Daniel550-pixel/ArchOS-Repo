@@ -6,16 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.services.scenario_execution import ScenarioExecutionEngine
 
 router = APIRouter(prefix="/api/simulation/execution", tags=["simulation-execution"])
 _engine = ScenarioExecutionEngine()
-
-
-async def get_db() -> AsyncSession:
-    from app.core.database import get_db_session
-    async for session in get_db_session():
-        yield session
 
 
 class ExecuteRequest(BaseModel):
