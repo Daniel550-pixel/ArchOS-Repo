@@ -11,6 +11,7 @@ from app.api.scenario_intelligence import router as scenario_intelligence_router
 from app.api.causal_graph import router as causal_graph_router
 from app.api.scenario_execution import router as scenario_execution_router
 from app.api.scenario_planner import router as scenario_planner_router
+from app.api.scenario_orchestrator import router as scenario_orchestrator_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
@@ -65,6 +66,7 @@ app.include_router(scenario_intelligence_router)
 app.include_router(causal_graph_router)
 app.include_router(scenario_execution_router)
 app.include_router(scenario_planner_router)
+app.include_router(scenario_orchestrator_router)
 
 
 @app.get("/")
@@ -81,6 +83,7 @@ async def root():
         "causal_knowledge_graph": "TEMPORAL_POSTGRESQL",
         "scenario_execution": "AUDITABLE_END_TO_END",
         "scenario_planner": "JARVIS_INTENT_TO_PLAN",
+        "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED",
         "docs_url": "/docs",
         "api_prefix": settings.API_PREFIX,
     }
