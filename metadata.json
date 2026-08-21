@@ -1,0 +1,11 @@
+{
+  "name": "ULTRON / JARVIS — UAE Intelligence System",
+  "description": "ARCHOS 2.0 Unified UAE AI Operating System featuring full architecture contracts, hardened TLS/WSS transport, FIDO2 Passkeys, Modbus BMS gateways, Real-time Strategic Intelligence (RSI / AGI Matrix), Meta-Cognitive Self-Reflection, Multi-Horizon Causal Reasoning, complete lifecycle governance (IMAGINE, DISCOVER, DESIGN, PROVE, BUILD, LIVE, OBSERVE), and 3D geospatial sovereign digital twins.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

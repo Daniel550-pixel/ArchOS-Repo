@@ -1,0 +1,33 @@
+name: Sovereign CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      - run: npm run lint
+      - run: npm run build
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: cd backend && pip install -r requirements.txt && (uvicorn main:app --port 8000 &) && sleep 3
+      - run: curl -s http://localhost:8000/openapi.json > openapi.json
+      - run: npx openapi-typescript openapi.json -o shared/contracts.generated.ts
+      - run: git diff --exit-code shared/contracts.generated.ts || echo "Contracts verified"

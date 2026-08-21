@@ -1,0 +1,9 @@
+user telemetry-gw
+topic write archos/+/telemetry
+topic write archos/+/bms
+
+user ultron
+topic read archos/#
+
+user archos-admin
+topic readwrite archos/#
