@@ -32,8 +32,10 @@ jobs:
           python-version: '3.11'
       - name: Install backend dependencies
         run: cd backend && pip install -r requirements.txt
+      - name: Backend import smoke test
+        run: cd backend && python -c "from app.main import app; print(app.title)"
       - name: Run backend tests
-        run: pytest -q
+        run: cd backend && pytest -q
       - name: Start backend
         run: |
           cd backend
