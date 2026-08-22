@@ -1,25 +1,5 @@
 import React from 'react';
-import {
-  Sparkles,
-  Globe,
-  Brain,
-  Zap,
-  Box,
-  FlaskConical,
-  HardHat,
-  Layers,
-  Activity,
-  Plane,
-  CloudSun,
-  Building2,
-  Compass,
-  ShoppingBag,
-  Coins,
-  Search,
-  Command,
-  Maximize2,
-  Radio
-} from 'lucide-react';
+import { Sparkles, Globe, Brain, Zap, Box, FlaskConical, HardHat, Layers, Activity, Plane, CloudSun, Building2, Compass, ShoppingBag, Coins, Command, Radio } from 'lucide-react';
 import { ActiveTab } from './HeaderBar';
 
 export type WorkspaceCategory = 'GOVERNANCE' | 'GEOSPATIAL' | 'LIFECYCLE' | 'OPERATIONS' | 'COMMERCE';
@@ -30,104 +10,65 @@ interface WorkspaceOrganizerBarProps {
   onOpenCommandPalette: () => void;
 }
 
-export const WorkspaceOrganizerBar: React.FC<WorkspaceOrganizerBarProps> = ({
-  activeTab,
-  onTabChange,
-  onOpenCommandPalette
-}) => {
-  const workspaces = [
-    {
-      category: 'GOVERNANCE' as WorkspaceCategory,
-      title: 'GOVERNANCE & AGI',
-      items: [
-        { id: 'orb' as ActiveTab, label: 'Orb Core', icon: Sparkles },
-        { id: 'intelligence' as ActiveTab, label: 'Intelligence', icon: Brain },
-        { id: 'rsi_agi' as ActiveTab, label: 'RSI / AGI Matrix', icon: Zap }
-      ]
-    },
-    {
-      category: 'GEOSPATIAL' as WorkspaceCategory,
-      title: 'GEOSPATIAL 3D',
-      items: [
-        { id: 'world' as ActiveTab, label: '3D World Model', icon: Globe }
-      ]
-    },
-    {
-      category: 'LIFECYCLE' as WorkspaceCategory,
-      title: 'ARCHOS LIFECYCLE (5 STAGES)',
-      items: [
-        { id: 'design' as ActiveTab, label: '1. Design', icon: Box },
-        { id: 'prove' as ActiveTab, label: '2. Prove', icon: FlaskConical },
-        { id: 'build' as ActiveTab, label: '3. Build', icon: HardHat },
-        { id: 'experience' as ActiveTab, label: '4. Operate', icon: Layers }
-      ]
-    },
-    {
-      category: 'OPERATIONS' as WorkspaceCategory,
-      title: 'OPERATIONS & CLIMATE',
-      items: [
-        { id: 'pulse' as ActiveTab, label: 'Pulse & Carbon', icon: Activity },
-        { id: 'live' as ActiveTab, label: 'Live Telemetry', icon: Radio },
-        { id: 'skyway' as ActiveTab, label: 'Drone Skyways', icon: Plane },
-        { id: 'weather' as ActiveTab, label: 'Weather Radar', icon: CloudSun }
-      ]
-    },
-    {
-      category: 'COMMERCE' as WorkspaceCategory,
-      title: 'SOVEREIGN FINOPS',
-      items: [
-        { id: 'valuation' as ActiveTab, label: 'Land Valuation', icon: Building2 },
-        { id: 'connectivity' as ActiveTab, label: '7 Emirates Mesh', icon: Compass },
-        { id: 'marketplace' as ActiveTab, label: 'Marketplace Hub', icon: ShoppingBag },
-        { id: 'finops' as ActiveTab, label: 'FinOps & Router', icon: Coins }
-      ]
-    }
-  ];
+type Workspace = { id: ActiveTab; label: string; icon: React.ElementType; category: WorkspaceCategory };
+
+const WORKSPACES: Workspace[] = [
+  { id: 'orb', label: 'Orb Core', icon: Sparkles, category: 'GOVERNANCE' },
+  { id: 'intelligence', label: 'Intelligence', icon: Brain, category: 'GOVERNANCE' },
+  { id: 'rsi_agi', label: 'RSI / AGI', icon: Zap, category: 'GOVERNANCE' },
+  { id: 'world', label: 'World Model', icon: Globe, category: 'GEOSPATIAL' },
+  { id: 'design', label: 'Design', icon: Box, category: 'LIFECYCLE' },
+  { id: 'prove', label: 'Prove', icon: FlaskConical, category: 'LIFECYCLE' },
+  { id: 'build', label: 'Build', icon: HardHat, category: 'LIFECYCLE' },
+  { id: 'experience', label: 'Operate', icon: Layers, category: 'LIFECYCLE' },
+  { id: 'pulse', label: 'Pulse', icon: Activity, category: 'OPERATIONS' },
+  { id: 'live', label: 'Live', icon: Radio, category: 'OPERATIONS' },
+  { id: 'skyway', label: 'Skyways', icon: Plane, category: 'OPERATIONS' },
+  { id: 'weather', label: 'Weather', icon: CloudSun, category: 'OPERATIONS' },
+  { id: 'valuation', label: 'Valuation', icon: Building2, category: 'COMMERCE' },
+  { id: 'connectivity', label: 'Mesh', icon: Compass, category: 'COMMERCE' },
+  { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, category: 'COMMERCE' },
+  { id: 'finops', label: 'FinOps', icon: Coins, category: 'COMMERCE' },
+];
+
+const CATEGORY_LABELS: Record<WorkspaceCategory, string> = {
+  GOVERNANCE: 'Governance',
+  GEOSPATIAL: 'Geospatial',
+  LIFECYCLE: 'Lifecycle',
+  OPERATIONS: 'Operations',
+  COMMERCE: 'Commerce',
+};
+
+export const WorkspaceOrganizerBar: React.FC<WorkspaceOrganizerBarProps> = ({ activeTab, onTabChange, onOpenCommandPalette }) => {
+  const active = WORKSPACES.find((item) => item.id === activeTab) ?? WORKSPACES[0];
+  const categoryItems = WORKSPACES.filter((item) => item.category === active.category);
+  const ActiveIcon = active.icon;
 
   return (
-    <div className="z-35 h-9 bg-[#040812]/95 border-b border-[#00e5ff]/15 px-4 flex items-center justify-between text-xs backdrop-blur-xl font-mono-tech select-none overflow-x-auto custom-scrollbar">
-      {/* Grouped Workspace Navigation Dock */}
-      <div className="flex items-center gap-4 shrink-0">
-        {workspaces.map((group, gIdx) => (
-          <div key={group.category} className="flex items-center gap-1">
-            {gIdx > 0 && <span className="w-px h-3.5 bg-white/10 mx-1" />}
-            <span className="text-[9px] text-[#8e8d88] uppercase font-bold tracking-widest mr-1 hidden md:inline">
-              {group.title}:
-            </span>
-            <div className="flex items-center gap-1">
-              {group.items.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => onTabChange(tab.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                      isActive
-                        ? 'bg-[#00e5ff] text-black shadow-[0_0_10px_#00e5ff]'
-                        : 'text-[#8e8d88] hover:text-[#f5f4f0] hover:bg-white/5'
-                    }`}
-                  >
-                    <Icon size={11} />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+    <div className="archos-workspace-bar" aria-label="Workspace navigation">
+      <div className="archos-workspace-context">
+        <span className="archos-workspace-category">{CATEGORY_LABELS[active.category]}</span>
+        <span className="archos-workspace-separator" />
+        <ActiveIcon className="archos-workspace-active-icon" size={13} />
+        <span className="archos-workspace-active">{active.label}</span>
       </div>
-
-      {/* Right Quick Action: Command Palette Launcher */}
-      <div className="flex items-center gap-2 pl-4 shrink-0">
-        <button
-          onClick={onOpenCommandPalette}
-          className="px-2.5 py-1 rounded-lg bg-[#00e5ff]/15 hover:bg-[#00e5ff]/25 border border-[#00e5ff]/40 text-[#00e5ff] text-[10px] font-bold flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(0,229,255,0.2)] cursor-pointer"
-        >
-          <Command size={11} />
-          <span>CMD+K PALETTE</span>
-        </button>
-      </div>
+      <nav className="archos-workspace-items" aria-label={`${CATEGORY_LABELS[active.category]} workspaces`}>
+        {categoryItems.map((item) => {
+          const Icon = item.icon;
+          const selected = item.id === activeTab;
+          return (
+            <button key={item.id} type="button" aria-current={selected ? 'page' : undefined} onClick={() => onTabChange(item.id)} className={`archos-workspace-item ${selected ? 'is-active' : ''}`}>
+              <Icon size={12} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <button type="button" onClick={onOpenCommandPalette} className="archos-workspace-command" title="Open command palette">
+        <Command size={12} />
+        <span>Command</span>
+        <kbd>⌘K</kbd>
+      </button>
     </div>
   );
 };
