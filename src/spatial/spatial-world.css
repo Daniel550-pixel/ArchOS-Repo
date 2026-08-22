@@ -1,0 +1,1 @@
+.spatial-world-canvas{position:absolute;inset:0;z-index:1;pointer-events:auto;background:#010206}.spatial-world-canvas canvas{display:block;width:100%!important;height:100%!important;touch-action:none}.one-world .spatial-world-canvas{filter:saturate(1.08) contrast(1.04)}
