@@ -4,6 +4,7 @@ import { Camera, Command, Heart, MessageCircle, Mic, MoreHorizontal, Play, Searc
 import { aiosRuntime, type AIOSRuntimeState } from '../../aios/runtime';
 import { speechService } from '../../services/voice/speechService';
 import './UltronOneWorld.css';
+import './UltronOneWorld.expansion.css';
 
 const STAR_COUNT = 72;
 type Star = { id:string; name:string; type:'city'|'infrastructure'|'signal'|'region'; x:number; y:number; depth:number; size:number; importance:number };
