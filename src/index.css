@@ -22,27 +22,12 @@
   button,input,textarea,select { font:inherit; }
   button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible { outline:1px solid var(--accent-cyan); outline-offset:2px; }
 }
-
 .font-display { font-family:'Syne',sans-serif; }
 .font-condensed { font-family:'Bebas Neue',sans-serif; letter-spacing:.04em; }
 .font-mono-tech { font-family:var(--font-mono); letter-spacing:-.02em; }
-
-.glass {
-  background:rgba(9,15,24,.88);
-  backdrop-filter:blur(14px) saturate(110%);
-  -webkit-backdrop-filter:blur(14px) saturate(110%);
-  border:1px solid var(--border-subtle);
-  box-shadow:0 10px 30px rgba(0,0,0,.18);
-}
-.glass-panel {
-  background:rgba(7,12,20,.94);
-  backdrop-filter:blur(14px) saturate(110%);
-  -webkit-backdrop-filter:blur(14px) saturate(110%);
-  border:1px solid var(--border-subtle);
-  box-shadow:0 12px 34px rgba(0,0,0,.22);
-}
+.glass { background:rgba(9,15,24,.88); backdrop-filter:blur(14px) saturate(110%); -webkit-backdrop-filter:blur(14px) saturate(110%); border:1px solid var(--border-subtle); box-shadow:0 10px 30px rgba(0,0,0,.18); }
+.glass-panel { background:rgba(7,12,20,.94); backdrop-filter:blur(14px) saturate(110%); -webkit-backdrop-filter:blur(14px) saturate(110%); border:1px solid var(--border-subtle); box-shadow:0 12px 34px rgba(0,0,0,.22); }
 .glass-panel:hover { border-color:var(--border-subtle); box-shadow:0 12px 34px rgba(0,0,0,.22); }
-
 .archos-clean-shell { --panel-radius:12px; --panel-gap:10px; }
 .archos-clean-shell .glass-panel { border-radius:var(--panel-radius); }
 .archos-clean-shell .glass-panel:hover { transform:none; }
@@ -54,22 +39,7 @@
 .archos-divider { height:1px; background:var(--border-subtle); width:100%; }
 .archos-data-value { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
 .archos-status-live::before { content:""; display:inline-block; width:6px; height:6px; margin-right:7px; border-radius:50%; background:var(--accent-cyan); box-shadow:0 0 7px rgba(0,217,239,.55); }
-
-/* CLEAN WORKSPACE NAVIGATION */
-.archos-workspace-bar {
-  position:relative;
-  z-index:35;
-  height:42px;
-  display:flex;
-  align-items:center;
-  gap:16px;
-  padding:0 16px;
-  background:#070c14;
-  border-bottom:1px solid var(--border-subtle);
-  color:var(--text-muted);
-  font:500 10px var(--font-mono);
-  overflow:hidden;
-}
+.archos-workspace-bar { position:relative; z-index:35; height:42px; display:flex; align-items:center; gap:16px; padding:0 16px; background:#070c14; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); font:500 10px var(--font-mono); overflow:hidden; }
 .archos-workspace-context { display:flex; align-items:center; gap:8px; flex:0 0 auto; min-width:150px; }
 .archos-workspace-category { color:#647185; text-transform:uppercase; letter-spacing:.12em; font-size:8px; }
 .archos-workspace-separator { width:1px; height:16px; background:var(--border-subtle); }
@@ -77,53 +47,35 @@
 .archos-workspace-active { color:#e8edf2; font-weight:700; }
 .archos-workspace-items { display:flex; align-items:center; gap:3px; min-width:0; overflow-x:auto; scrollbar-width:none; }
 .archos-workspace-items::-webkit-scrollbar { display:none; }
-.archos-workspace-item {
-  display:flex; align-items:center; gap:6px; height:28px; padding:0 9px;
-  border:1px solid transparent; border-radius:7px; background:transparent; color:#718095;
-  cursor:pointer; white-space:nowrap; transition:background-color .15s ease,border-color .15s ease,color .15s ease;
-}
+.archos-workspace-item { display:flex; align-items:center; gap:6px; height:28px; padding:0 9px; border:1px solid transparent; border-radius:7px; background:transparent; color:#718095; cursor:pointer; white-space:nowrap; transition:background-color .15s ease,border-color .15s ease,color .15s ease; }
 .archos-workspace-item:hover { color:#dbe3eb; background:rgba(255,255,255,.035); }
 .archos-workspace-item.is-active { color:var(--accent-cyan); background:rgba(0,217,239,.08); border-color:rgba(0,217,239,.20); }
 .archos-workspace-command { margin-left:auto; display:flex; align-items:center; gap:7px; flex:0 0 auto; height:28px; padding:0 9px; border:1px solid var(--border-subtle); border-radius:7px; background:#0a111b; color:#8995a5; cursor:pointer; }
 .archos-workspace-command:hover { color:#e8edf2; border-color:rgba(0,217,239,.25); }
 .archos-workspace-command kbd { padding:2px 5px; border:1px solid var(--border-subtle); border-radius:4px; color:#5f6d80; font-size:8px; }
 
-/* REMOVE REDUNDANT HUD LAYERS */
+/* Fullscreen shell: one identity bar, one contextual workspace bar, one dominant canvas. */
 #root > div.h-screen.w-screen { background:#05080e !important; }
-#root > div.h-screen.w-screen > .scanlines { display:none !important; }
-#root > div.h-screen.w-screen > .film-grain-overlay { display:none !important; }
+#root > div.h-screen.w-screen > .scanlines,#root > div.h-screen.w-screen > .film-grain-overlay { display:none !important; }
 #root > div.h-screen.w-screen > main { min-width:0; background:#05080e !important; }
 #root > div.h-screen.w-screen > main > div { min-width:0; }
-
-/* Header becomes identity + system controls. Workspace navigation owns navigation. */
 #root header { min-height:52px !important; height:52px !important; padding:0 16px !important; background:#060b12 !important; border-bottom:1px solid var(--border-subtle) !important; box-shadow:none !important; }
 #root header nav { display:none !important; }
-#root header > div:first-child { min-width:0; }
 #root header > div:last-child { gap:5px !important; }
 #root header > div:last-child > button { box-shadow:none !important; }
-
-/* Bottom telemetry is utility, not a permanent competing dashboard layer. */
 #root footer { display:none !important; }
 
-/* World-model subnavigation: quiet, single-purpose toolbar. */
+/* World Model: keep the mode selector, remove its decorative HUD stack. */
 #root main [class*="h-11"][class*="border-b"] { height:38px !important; min-height:38px !important; background:#070c14 !important; border-color:var(--border-subtle) !important; box-shadow:none !important; }
 #root main [class*="h-11"][class*="border-b"] button { box-shadow:none !important; }
 #root main [class*="h-11"][class*="border-b"] button[class*="shadow"] { box-shadow:none !important; }
+#root main div.absolute.inset-0.pointer-events-none.z-30:has(canvas) { display:none !important; }
 
-/* Reduce decorative competition. Keep active states and semantic warnings visible. */
-#root .shadow-\[0_0_12px_rgba\(0\,229\,255\,0\.25\)\],
-#root .shadow-\[0_0_12px_rgba\(0\,229\,255\,0\.2\)\],
-#root .shadow-\[0_0_10px_\#00e5ff\],
-#root .shadow-\[0_0_8px_\#00e5ff\],
-#root .shadow-\[0_0_20px_rgba\(0\,229\,255\,0\.3\)\] { box-shadow:none !important; }
+/* De-emphasize glow as decoration; reserve accent for state and focus. */
+#root .shadow-\[0_0_12px_rgba\(0\,229\,255\,0\.25\)\],#root .shadow-\[0_0_12px_rgba\(0\,229\,255\,0\.2\)\],#root .shadow-\[0_0_10px_\#00e5ff\],#root .shadow-\[0_0_8px_\#00e5ff\],#root .shadow-\[0_0_20px_rgba\(0\,229\,255\,0\.3\)\] { box-shadow:none !important; }
 #root .hover\:scale-105:hover { transform:none !important; }
-#root .scanlines { opacity:.02 !important; }
-
-/* Dense map labels/cards should read as data, not floating windows. */
 #root main .glass-panel { box-shadow:0 8px 22px rgba(0,0,0,.18) !important; }
 #root main .glass-panel:hover { transform:none !important; }
-
-/* Keep the main spatial canvas dominant. */
 #root main > div:first-child { min-width:0; overflow:hidden; }
 #root main > div:first-child > div { min-width:0; }
 
