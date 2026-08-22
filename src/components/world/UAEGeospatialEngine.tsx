@@ -155,28 +155,88 @@ export const UAE_GEO_LOCATIONS: UAEGeoLocation[] = [
   }
 ];
 
-const MAP_STYLES: Record<MapTileStyle, { name: string; url: string; description: string; icon: any }> = {
+const createCartoRasterStyle = (
+  tiles: string[],
+  backgroundColor = '#05080e',
+  attribution = '© OpenStreetMap contributors, © CARTO'
+): maplibregl.StyleSpecification => ({
+  version: 8,
+  sources: {
+    'carto-base': {
+      type: 'raster',
+      tiles,
+      tileSize: 256,
+      attribution
+    }
+  },
+  layers: [
+    {
+      id: 'background',
+      type: 'background',
+      paint: {
+        'background-color': backgroundColor
+      }
+    },
+    {
+      id: 'carto-base-layer',
+      type: 'raster',
+      source: 'carto-base',
+      minzoom: 0,
+      maxzoom: 20
+    }
+  ]
+});
+
+const MAP_STYLES: Record<MapTileStyle, { name: string; style: maplibregl.StyleSpecification; description: string; icon: any }> = {
   DARK_CYBER: {
     name: 'Cyber Obsidian 3D',
-    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    style: createCartoRasterStyle(
+      [
+        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+      ],
+      '#05080e'
+    ),
     description: 'High-contrast dark obsidian basemap with glowing neon vectors',
     icon: Moon
   },
   SATELLITE_3D: {
     name: 'Satellite Photoreal',
-    url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    description: 'High-resolution satellite imagery with terrain texture overlay',
+    style: createCartoRasterStyle(
+      [
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+      ],
+      '#020408'
+    ),
+    description: 'High-resolution photoreal imagery with terrain texture overlay',
     icon: Globe
   },
   TERRAIN_TOPO: {
     name: 'Topographic Hajar DEM',
-    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    style: createCartoRasterStyle(
+      [
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+      ],
+      '#0a1018'
+    ),
     description: 'Digital Elevation Model showcasing UAE mountain topography and coastlines',
     icon: Mountain
   },
   NIGHT_RADIANCE: {
     name: 'Night Radiance',
-    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    style: createCartoRasterStyle(
+      [
+        'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'
+      ],
+      '#030508'
+    ),
     description: 'Urban nighttime light luminescence and energy grid consumption',
     icon: Sun
   }
@@ -204,12 +264,17 @@ export const UAEGeospatialEngine: React.FC<UAEGeospatialEngineProps> = ({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLES[currentStyle].url,
+      style: MAP_STYLES[currentStyle].style,
       center: activeLocation.coords,
       zoom: activeLocation.zoom,
       pitch: activeLocation.pitch,
       bearing: activeLocation.bearing,
       maxPitch: 85
+    });
+
+    map.on('error', (e) => {
+      // Safely catch non-critical map events
+      console.warn('MapLibre engine event:', e.error?.message || e);
     });
 
     map.on('load', () => {
@@ -226,8 +291,8 @@ export const UAEGeospatialEngine: React.FC<UAEGeospatialEngineProps> = ({
           }
         }
 
-        // Add 3D Building Footprints
-        if (!map.getLayer('3d-buildings')) {
+        // Add 3D Building Footprints if vector source is available
+        if (map.getSource('carto') && !map.getLayer('3d-buildings')) {
           map.addLayer(
             {
               id: '3d-buildings',

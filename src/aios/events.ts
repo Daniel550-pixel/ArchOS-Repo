@@ -46,18 +46,18 @@ export type ULTRONEventName = keyof ULTRONEventMap;
 export type ULTRONEventHandler<K extends ULTRONEventName> = (event: ULTRONEventMap[K]) => void;
 
 class ULTRONEventBus {
-  private listeners = new Map<ULTRONEventName, Set<(event: never) => void>>();
+  private listeners = new Map<ULTRONEventName, Set<(event: any) => void>>();
 
   on<K extends ULTRONEventName>(name: K, handler: ULTRONEventHandler<K>): () => void {
-    const listeners = this.listeners.get(name) ?? new Set<(event: never) => void>();
-    listeners.add(handler as (event: never) => void);
+    const listeners = this.listeners.get(name) ?? new Set<(event: any) => void>();
+    listeners.add(handler as (event: any) => void);
     this.listeners.set(name, listeners);
 
     return () => this.off(name, handler);
   }
 
   off<K extends ULTRONEventName>(name: K, handler: ULTRONEventHandler<K>): void {
-    this.listeners.get(name)?.delete(handler as (event: never) => void);
+    this.listeners.get(name)?.delete(handler as (event: any) => void);
   }
 
   emit<K extends ULTRONEventName>(name: K, event: ULTRONEventMap[K]): void {

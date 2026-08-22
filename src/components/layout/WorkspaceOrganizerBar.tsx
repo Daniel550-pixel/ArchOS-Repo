@@ -10,7 +10,7 @@ interface WorkspaceOrganizerBarProps {
   onOpenCommandPalette: () => void;
 }
 
-type Workspace = { id: ActiveTab; label: string; icon: React.ElementType; category: WorkspaceCategory };
+type Workspace = { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string; size?: number }>; category: WorkspaceCategory };
 
 const WORKSPACES: Workspace[] = [
   { id: 'orb', label: 'Orb Core', icon: Sparkles, category: 'GOVERNANCE' },

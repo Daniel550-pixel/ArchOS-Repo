@@ -23,7 +23,7 @@ import type { ActiveTab } from './HeaderBar';
 import { aiosRuntime } from '../../aios/runtime';
 import type { AIOSRuntimeState } from '../../aios/runtime';
 
-const primary: Array<{ id: ActiveTab; label: string; icon: React.ElementType; hint: string }> = [
+const primary: Array<{ id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string; size?: number }>; hint: string }> = [
   { id: 'orb', label: 'Core', icon: Orbit, hint: 'System center' },
   { id: 'world', label: 'World', icon: Globe2, hint: 'UAE world model' },
   { id: 'intelligence', label: 'Intel', icon: Brain, hint: 'Intelligence feed' },
