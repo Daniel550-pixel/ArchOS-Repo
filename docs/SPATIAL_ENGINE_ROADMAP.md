@@ -3,7 +3,7 @@
 ## Performance track
 
 - [ ] Move hot-path entity position/radius/activity data to typed arrays.
-- [ ] Add camera-frustum culling before render submission.
+- [x] Add camera-frustum culling before render submission.
 - [ ] Add cluster-level LOD and visibility aggregation.
 - [ ] Add GPU instancing for repeated primitives.
 - [ ] Add adaptive quality based on measured frame time.
@@ -11,8 +11,8 @@
 ## Graph track
 
 - [ ] Replace avoidable full graph rebuilds with incremental topology updates.
-- [ ] Preserve bounded degree and deterministic edge selection.
-- [ ] Add module-to-core relationship weights and activity propagation.
+- [x] Preserve bounded degree and deterministic edge selection.
+- [x] Add module-to-core relationship weights and activity propagation.
 
 ## Spatial reasoning track
 
@@ -23,11 +23,11 @@
 
 ## Rendering track
 
-- [ ] Persistent GPU buffers.
+- [x] Persistent GPU edge buffer.
 - [ ] Instanced module/entity rendering.
-- [ ] Frustum + distance + importance culling.
+- [x] Frustum + distance/LOD edge culling.
 - [ ] Multi-resolution World Model representation.
-- [ ] TON 618 core remains the authoritative visual/spatial anchor.
+- [x] TON 618 core remains the authoritative visual/spatial anchor.
 
 ## Validation track
 
@@ -36,7 +36,7 @@
 - [ ] Runtime smoke test.
 - [ ] Verify no duplicate UI layer is mounted over the canonical interface.
 - [ ] Verify all modules resolve to spatial graph nodes.
-- [ ] Verify renderer consumes one spatial snapshot.
+- [x] Verify renderer consumes one spatial snapshot.
 - [ ] Verify 4K viewport scaling without proportional entity-count explosion.
 
 ## Rule
