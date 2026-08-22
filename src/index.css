@@ -16,7 +16,6 @@
 .archos-clean-shell{--panel-radius:12px;--panel-gap:10px}.archos-clean-shell .glass-panel{border-radius:var(--panel-radius)}.archos-clean-shell .glass-panel:hover{transform:none}
 .archos-clean-nav,.archos-clean-workspace,.archos-clean-footer{background:rgba(5,9,15,.97)!important;border-color:var(--border-subtle)!important;box-shadow:none!important}.archos-clean-viewport{background:#05080e!important;min-width:0}.archos-clean-dock{width:min(350px,29vw)!important;min-width:310px!important;background:#070c14!important;border-left:1px solid var(--border-subtle)!important;box-shadow:-12px 0 30px rgba(0,0,0,.18)!important}
 .archos-section{padding:12px;border:1px solid var(--border-subtle);border-radius:12px;background:rgba(10,16,25,.72)}.archos-section-title{display:flex;align-items:center;justify-content:space-between;min-height:24px;margin-bottom:8px;color:var(--text-muted);font:700 9px var(--font-mono);letter-spacing:.12em;text-transform:uppercase}.archos-divider{height:1px;background:var(--border-subtle);width:100%}.archos-data-value{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.archos-status-live::before{content:"";display:inline-block;width:6px;height:6px;margin-right:7px;border-radius:50%;background:var(--accent-cyan);box-shadow:0 0 7px rgba(0,217,239,.55)}
-
 .archos-workspace-bar{position:relative;z-index:35;height:42px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#070c14;border-bottom:1px solid var(--border-subtle);color:var(--text-muted);font:500 10px var(--font-mono);overflow:hidden}
 .archos-workspace-context{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:128px}.archos-workspace-active-icon{color:var(--accent-cyan)}.archos-workspace-active{color:#e8edf2;font-weight:700;white-space:nowrap}
 .archos-workspace-categories{display:flex;align-items:center;gap:2px;flex:0 0 auto}.archos-workspace-category-button{height:28px;padding:0 8px;border:1px solid transparent;border-radius:7px;background:transparent;color:#667488;cursor:pointer;white-space:nowrap;font:700 8px var(--font-mono);text-transform:uppercase;letter-spacing:.07em}.archos-workspace-category-button:hover{color:#dbe3eb;background:rgba(255,255,255,.035)}.archos-workspace-category-button.is-active{color:var(--accent-cyan);background:rgba(0,217,239,.07);border-color:rgba(0,217,239,.18)}
@@ -29,7 +28,35 @@
 #root main [class*="h-11"][class*="border-b"]{height:38px!important;min-height:38px!important;background:#070c14!important;border-color:var(--border-subtle)!important;box-shadow:none!important}#root main [class*="h-11"][class*="border-b"] button{box-shadow:none!important}#root main [class*="h-11"][class*="border-b"] button[class*="shadow"]{box-shadow:none!important}
 #root main div.absolute.inset-0.pointer-events-none.z-30:has(canvas){display:none!important}
 #root .shadow-\[0_0_12px_rgba\(0\,229\,255\,0\.25\)\],#root .shadow-\[0_0_12px_rgba\(0\,229\,255\,0\.2\)\],#root .shadow-\[0_0_10px_\#00e5ff\],#root .shadow-\[0_0_8px_\#00e5ff\],#root .shadow-\[0_0_20px_rgba\(0\,229\,255\,0\.3\)\]{box-shadow:none!important}#root .hover\:scale-105:hover{transform:none!important}#root main .glass-panel{box-shadow:0 8px 22px rgba(0,0,0,.18)!important}#root main .glass-panel:hover{transform:none!important}#root main>div:first-child{min-width:0;overflow:hidden}#root main>div:first-child>div{min-width:0}
+
+/* World Model — focused workspace: one canvas, two quiet utility rails. */
+#root main [class*="h-11"][class*="border-b"] > div:first-child{gap:2px!important;min-width:0!important}
+#root main [class*="h-11"][class*="border-b"] > div:first-child > button{height:30px!important;padding:0 8px!important;border:0!important;border-radius:6px!important;background:transparent!important;box-shadow:none!important;font-size:8px!important;letter-spacing:.04em!important}
+#root main [class*="h-11"][class*="border-b"] > div:first-child > button[data-advanced="true"]{display:none!important}
+#root main [class*="h-11"][class*="border-b"] > div:last-child{gap:4px!important}
+#root main [class*="h-11"][class*="border-b"] > div:last-child > div:first-child > button:first-child{display:none!important}
+#root main [class*="h-11"][class*="border-b"] > div:last-child > div:first-child > div{background:transparent!important;border:0!important}
+#root main [class*="h-11"][class*="border-b"] > div:last-child > div:first-child > div button{height:28px!important;padding:0 7px!important;border:0!important;box-shadow:none!important;background:transparent!important;font-size:8px!important}
+
+/* Narrow the utility rails so the 3D viewport owns the screen. */
+#root main aside[class*="border-r"][class*="p-4"]{width:220px!important;min-width:220px!important;padding:12px!important;background:#070c14!important;box-shadow:none!important}
+#root main aside[class*="border-l"][class*="p-4"]{width:260px!important;min-width:260px!important;padding:12px!important;background:#070c14!important;box-shadow:none!important}
+#root main aside[class*="border-r"][class*="p-4"] .border-t{padding-top:10px!important}
+#root main aside[class*="border-r"][class*="p-4"] .grid.grid-cols-2{gap:4px!important}
+#root main aside[class*="border-r"][class*="p-4"] button{box-shadow:none!important}
+#root main aside[class*="border-l"][class*="p-4"] .border-b{border-color:var(--border-subtle)!important}
+
+/* Remove secondary HUD clutter from the spatial canvas. */
+#root main [class*="flex-1"][class*="items-center"][class*="justify-center"] > div.absolute.top-4.left-6{top:10px!important;left:12px!important;padding:5px 8px!important;border:0!important;background:rgba(5,8,14,.72)!important;box-shadow:none!important;border-radius:6px!important}
+#root main [class*="flex-1"][class*="items-center"][class*="justify-center"] > div.absolute.top-4.right-6{display:none!important}
+#root main [class*="flex-1"][class*="items-center"][class*="justify-center"] > div.absolute.bottom-5{bottom:12px!important;padding:4px!important;gap:2px!important;background:rgba(5,8,14,.82)!important;border:1px solid var(--border-subtle)!important;box-shadow:none!important;border-radius:8px!important}
+#root main [class*="flex-1"][class*="items-center"][class*="justify-center"] > div.absolute.bottom-5 button{box-shadow:none!important;transform:none!important;padding:5px 8px!important;font-size:9px!important}
+#root main [class*="flex-1"][class*="items-center"][class*="justify-center"] > div.absolute.bottom-5 button:last-child{display:none!important}
+
+/* Do not let decorative infrastructure telemetry become the primary view. */
+#root main div.absolute.inset-0.pointer-events-none.z-30:has(canvas){display:none!important}
+
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#05080e}::-webkit-scrollbar-thumb{background:#263143;border-radius:2px}::-webkit-scrollbar-thumb:hover{background:#3b4a60}
-@media(max-width:1200px){.archos-workspace-context{min-width:105px}.archos-workspace-category-button{padding:0 6px;font-size:7px}.archos-workspace-item{padding:0 7px}.archos-workspace-command span{display:none}}
-@media(max-width:900px){.archos-workspace-bar{gap:7px;padding:0 10px}.archos-workspace-context{min-width:auto}.archos-workspace-categories{display:none}#root header{height:48px!important;min-height:48px!important}}
+@media(max-width:1200px){.archos-workspace-context{min-width:105px}.archos-workspace-category-button{padding:0 6px;font-size:7px}.archos-workspace-item{padding:0 7px}.archos-workspace-command span{display:none}#root main aside[class*="border-r"][class*="p-4"]{width:200px!important;min-width:200px!important}#root main aside[class*="border-l"][class*="p-4"]{width:230px!important;min-width:230px!important}}
+@media(max-width:900px){.archos-workspace-bar{gap:7px;padding:0 10px}.archos-workspace-context{min-width:auto}.archos-workspace-categories{display:none}#root header{height:48px!important;min-height:48px!important}#root main aside[class*="border-r"][class*="p-4"]{width:180px!important;min-width:180px!important}#root main aside[class*="border-l"][class*="p-4"]{width:210px!important;min-width:210px!important}}
 @media(prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
