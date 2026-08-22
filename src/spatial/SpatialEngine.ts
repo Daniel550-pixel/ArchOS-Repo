@@ -48,36 +48,12 @@ export class SpatialEngine {
         radius: 0.14 + module.activity * 0.045,
       });
     }
-    this.rebuildEdges();
+    this.syncNodes();
   }
 
   setEntities(entities: SpatialEntity[]) {
     this.entities = entities;
-    for (const node of this.moduleNodes.values()) this.nodes.set(node.id, node);
-    const live = new Set<string>();
-    for (const entity of entities) {
-      const id = `entity:${entity.id}`;
-      live.add(id);
-      const existing = this.nodes.get(id);
-      if (existing) {
-        existing.position.lerp(entity.position, 0.12);
-        existing.activity = entity.activity;
-        existing.radius = 0.025 + entity.activity * 0.035;
-      } else {
-        this.nodes.set(id, {
-          id,
-          kind: 'entity',
-          moduleId: entity.moduleId,
-          position: entity.position.clone(),
-          velocity: new THREE.Vector3(),
-          activity: entity.activity,
-          radius: 0.025 + entity.activity * 0.035,
-        });
-      }
-    }
-    for (const [id, node] of this.nodes) {
-      if (node.kind === 'entity' && !live.has(id)) this.nodes.delete(id);
-    }
+    this.syncNodes();
     this.rebuildEdges();
   }
 
@@ -97,10 +73,12 @@ export class SpatialEngine {
     for (const entity of this.entities) {
       const node = this.nodes.get(`entity:${entity.id}`);
       if (!node) continue;
-      const target = entity.position;
       const phase = time * (0.08 + entity.activity * 0.08) + entity.id.length;
-      const orbit = new THREE.Vector3(Math.cos(phase) * 0.025, Math.sin(phase * 1.7) * 0.018, Math.sin(phase) * 0.025);
-      target.clone().add(orbit);
+      const target = entity.position.clone().add(new THREE.Vector3(
+        Math.cos(phase) * 0.025,
+        Math.sin(phase * 1.7) * 0.018,
+        Math.sin(phase) * 0.025,
+      ));
       node.velocity.copy(target).sub(node.position).multiplyScalar(Math.min(1, delta * 6));
       node.position.add(node.velocity);
     }
@@ -126,15 +104,43 @@ export class SpatialEngine {
     return {
       nodes,
       edges: this.edges,
-      moduleActivity: new Map([...moduleActivity.entries()].map(([id, v]) => [id, v.count ? v.total / v.count : 0])),
+      moduleActivity: new Map([...moduleActivity.entries()].map(([id, value]) => [id, value.count ? value.total / value.count : 0])),
     };
   }
 
-  private rebuildEdges() {
-    const edges: SpatialEdge[] = [];
-    for (const module of SPATIAL_MODULES) {
-      edges.push({ id: `core:${module.id}`, source: 'core', target: `module:${module.id}`, strength: module.activity, kind: 'module-core' });
+  private syncNodes() {
+    for (const node of this.moduleNodes.values()) this.nodes.set(node.id, node);
+    const live = new Set(this.entities.map((entity) => `entity:${entity.id}`));
+    for (const entity of this.entities) {
+      const id = `entity:${entity.id}`;
+      const existing = this.nodes.get(id);
+      if (existing) {
+        existing.position.lerp(entity.position, 0.12);
+        existing.activity = entity.activity;
+        existing.radius = 0.025 + entity.activity * 0.035;
+      } else {
+        this.nodes.set(id, {
+          id,
+          kind: 'entity',
+          moduleId: entity.moduleId,
+          position: entity.position.clone(),
+          velocity: new THREE.Vector3(),
+          activity: entity.activity,
+          radius: 0.025 + entity.activity * 0.035,
+        });
+      }
     }
+    for (const [id, node] of this.nodes) if (node.kind === 'entity' && !live.has(id)) this.nodes.delete(id);
+  }
+
+  private rebuildEdges() {
+    const edges: SpatialEdge[] = SPATIAL_MODULES.map((module) => ({
+      id: `core:${module.id}`,
+      source: 'core',
+      target: `module:${module.id}`,
+      strength: module.activity,
+      kind: 'module-core',
+    }));
     for (const entity of this.entities) {
       edges.push({ id: `module:${entity.id}`, source: `module:${entity.moduleId}`, target: `entity:${entity.id}`, strength: entity.activity, kind: 'entity-module' });
     }
@@ -142,8 +148,7 @@ export class SpatialEngine {
     for (let i = 0; i < active.length; i += 1) {
       const a = active[i];
       const b = active[(i + 1) % active.length];
-      if (!b || a.id === b.id) continue;
-      edges.push({ id: `flow:${a.id}:${b.id}`, source: `entity:${a.id}`, target: `entity:${b.id}`, strength: Math.min(a.activity, b.activity) * 0.65, kind: 'entity-entity' });
+      if (b && a.id !== b.id) edges.push({ id: `flow:${a.id}:${b.id}`, source: `entity:${a.id}`, target: `entity:${b.id}`, strength: Math.min(a.activity, b.activity) * 0.65, kind: 'entity-entity' });
     }
     this.edges = edges;
   }
