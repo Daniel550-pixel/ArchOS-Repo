@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Header
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models.database import Article, Entity, Event, Location
 from app.services.world_model import WorldModelService
 from app.services.world_model_reasoning import WorldModelReasoningService
+from app.services.event_fabric import app_event_fabric
 
 router = APIRouter(prefix="/world-model", tags=["UAE World Model"])
 reasoning = WorldModelReasoningService()
@@ -110,3 +111,63 @@ async def entity_observations(
         raise HTTPException(status_code=400, detail="end must be later than or equal to start")
     observations = await reasoning.observations(db, subject_type="ENTITY", subject_id=entity_id, start=start, end=end)
     return {"source": "postgresql", "entity_id": entity_id, "items": observations, "total": len(observations)}
+
+
+@router.get("/query/{entity_id}")
+async def authoritative_entity_query(
+    entity_id: str,
+    at: Optional[datetime] = Query(None),
+    observation_start: Optional[datetime] = Query(None),
+    observation_end: Optional[datetime] = Query(None),
+    x_request_id: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Canonical read-only World Model query for J.A.R.V.I.S. and agents."""
+    if observation_start and observation_end and observation_end < observation_start:
+        raise HTTPException(status_code=400, detail="observation_end must be later than or equal to observation_start")
+
+    result = await reasoning.entity_state(db, entity_id, at=at)
+    if result is None:
+        await app_event_fabric.publish(
+            "world_model.query.failed",
+            {"entity_id": entity_id, "reason": "not_found"},
+            source="world_model",
+            correlation_id=x_request_id,
+        )
+        raise HTTPException(status_code=404, detail="World Model entity not found")
+
+    observations = await reasoning.observations(
+        db,
+        subject_type="ENTITY",
+        subject_id=entity_id,
+        start=observation_start,
+        end=observation_end,
+    )
+    confidence_values = [float(result.get("confidence", 0.0))]
+    confidence_values.extend(float(item["confidence"]) for item in observations)
+    effective_confidence = min(confidence_values) if confidence_values else None
+
+    response = {
+        "source": "postgresql",
+        "entity": result,
+        "observations": observations,
+        "observation_count": len(observations),
+        "effective_confidence": effective_confidence,
+        "query": {
+            "at": at.isoformat() if at else None,
+            "observation_start": observation_start.isoformat() if observation_start else None,
+            "observation_end": observation_end.isoformat() if observation_end else None,
+        },
+    }
+    await app_event_fabric.publish(
+        "world_model.query.completed",
+        {
+            "entity_id": entity_id,
+            "state_version": result.get("state_version"),
+            "observation_count": len(observations),
+            "effective_confidence": effective_confidence,
+        },
+        source="world_model",
+        correlation_id=x_request_id,
+    )
+    return response
