@@ -1,17 +1,13 @@
 import { GestureRecognizer, type GestureRecognizerOptions } from './GestureRecognizer';
 import { HandControlController, type HandControlOptions, type HandLandmark } from './HandControl';
-import { SpatialCommandBus, type SpatialCommand, type SpatialCommandHandler } from './SpatialCommandBus';
+import { SpatialCommandBus, type SpatialCommand, type SpatialCommandHandler, type SpatialCommandType } from './SpatialCommandBus';
 
 export interface SpatialInteractionRuntimeOptions {
   hand?: HandControlOptions;
   gestures?: GestureRecognizerOptions;
 }
 
-/**
- * Native spatial interaction runtime. MediaPipe (or another vision provider)
- * only supplies landmarks; this class owns the deterministic path from
- * landmarks -> gesture semantics -> application command bus.
- */
+/** Native spatial runtime: landmarks -> gestures -> semantic commands. */
 export class SpatialInteractionRuntime {
   readonly hand: HandControlController;
   readonly gestures: GestureRecognizer;
@@ -35,7 +31,7 @@ export class SpatialInteractionRuntime {
     return commands;
   }
 
-  subscribe(type: Parameters<SpatialCommandHandler>[0]['type'], handler: SpatialCommandHandler): () => void {
+  subscribe(type: SpatialCommandType, handler: SpatialCommandHandler): () => void {
     return this.bus.subscribe(type, handler);
   }
 
