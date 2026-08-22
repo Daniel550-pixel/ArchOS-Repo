@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 import asyncio
+import json
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -218,6 +220,37 @@ async def event_history(limit: int = 100):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@app.get("/api/v1/events/stream")
+async def event_stream(request: Request):
+    """Stream canonical Event Fabric events to UI clients over SSE."""
+    queue = await app_event_fabric.subscribe(max_queue=100)
+
+    async def generate():
+        try:
+            yield ": connected\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    payload = json.dumps(event, separators=(",", ":"), default=str)
+                    yield f"id: {event['event_id']}\ndata: {payload}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            await app_event_fabric.unsubscribe(queue)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.get("/metrics")
 async def metrics():
     return metrics_response()
@@ -285,6 +318,7 @@ async def root():
         "jarvis_runtime": "BRIDGED",
         "governance_runtime": "BRIDGED",
         "event_fabric": "CANONICAL",
+        "event_stream": "SSE",
         "security_runtime": "WEBAUTHN_KEYSMITH",
         "certificate_monitor": "ACTIVE",
         "observability": "ACTIVE",
