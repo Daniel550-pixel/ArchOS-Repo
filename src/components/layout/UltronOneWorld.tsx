@@ -4,6 +4,7 @@ import { Camera, Command, Mic, Search, ShieldCheck, Sparkles, Volume2, VolumeX, 
 import { aiosRuntime, type AIOSRuntimeState } from '../../aios/runtime';
 import { speechService } from '../../services/voice/speechService';
 import { Ton618Canvas } from './Ton618Canvas';
+import { ModuleConstellation } from './ModuleConstellation';
 import './UltronOneWorld.css';
 import './UltronOneWorld.expansion.css';
 
@@ -30,6 +31,7 @@ export const UltronOneWorld: React.FC = () => {
 
   return <div className={`one-world ${pulse%2?'world-pulse':''}`} onPointerMove={e=>{const r=e.currentTarget.getBoundingClientRect();setPointer({x:(e.clientX-r.left)/r.width-.5,y:(e.clientY-r.top)/r.height-.5});}} onPointerLeave={()=>setPointer({x:0,y:0})}>
     <Ton618Canvas />
+    <ModuleConstellation />
     <div className="one-world-field" aria-hidden="true"/><div className="world-ambient-scan" aria-hidden="true"/>
     <div className="one-world-stars" style={{transform:`translate3d(${pointer.x*-10}px,${pointer.y*-7}px,0)`}}>{visibleStars.map(star=><button key={star.id} className={`world-star world-star-${star.type} ${selected?.id===star.id?'is-selected':''}`} style={{left:`${star.x}%`,top:`${star.y}%`,'--star-size':`${star.size}px`,'--star-depth':star.depth} as React.CSSProperties} onClick={()=>focusStar(star)} aria-label={`Select ${star.name}`}><span className="world-star-core"/>{selected?.id===star.id&&<span className="world-star-ring"/>}{star.importance>.75&&<span className="world-star-label">{star.name}</span>}</button>)}</div>
     <svg className="world-connections" aria-hidden="true"><line x1="63%" y1="43%" x2="55%" y2="49%"/><line x1="39%" y1="58%" x2="42%" y2="51%"/><line x1="69%" y1="31%" x2="71%" y2="45%"/></svg>
@@ -37,7 +39,7 @@ export const UltronOneWorld: React.FC = () => {
     <div className="one-world-black-hole" aria-label="ULTRON AIOS intelligence core" style={{transform:`translate(-50%,-50%) rotateX(${pointer.y*-3}deg) rotateY(${pointer.x*3}deg)`}}><div className="black-hole-label"><strong>ULTRON</strong><span>AIOS · WORLD MODEL</span><em><Zap/> {runtime.systemState}</em></div></div>
     <header className="one-world-topbar"><div className="one-world-brand"><span className="brand-dot"/><div><strong>ULTRON</strong><small>ARCHOS INTELLIGENCE OS</small></div></div><div className="one-world-status"><span className={runtime.systemState!=='IDLE'?'status-live':''}/>{runtime.systemState}<i/>{runtime.activeEntityId||'GLOBAL'}</div><button className="world-camera" title="Capture world state" onClick={()=>speechService.speak('World state capture armed.')}><Camera/></button></header>
     <div className="one-world-title"><span>ONE WORLD</span><h1>Living intelligence.</h1><p>The world model reorganizes around your intent.</p></div>
-    <div className="world-metrics"><span><b>72</b> SIGNALS</span><i/><span><b>10</b> ENTITIES</span><i/><span><b>LIVE</b> FABRIC</span></div>
+    <div className="world-metrics"><span><b>{allStars.length}</b> SIGNALS</span><i/><span><b>15</b> MODULES</span><i/><span><b>LIVE</b> FABRIC</span></div>
     <div className="world-intelligence-story" aria-live="polite"><div className="story-kicker"><span className="story-live-dot"/> LIVE INTELLIGENCE <i/>{selectedName}</div><div className="story-copy"><strong>{selectedName} is inside the living model.</strong><span>Signals, entities, scenarios and governed agents converge through one interface.</span></div><div className="story-meta"><Sparkles/><span>WORLD MODEL · {selectedType.toUpperCase()} · CONTINUOUS</span></div></div>
     {showActions&&<motion.div className="world-action-menu" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}><div className="world-action-menu-head"><span>WORLD ACTIONS</span><button onClick={()=>setShowActions(false)}><X/></button></div><button onClick={()=>speechService.speak('Opening simulation controls.')}>Run simulation <span>→</span></button><button onClick={()=>speechService.speak('Agent fabric ready for orchestration.')}>Open agent fabric <span>→</span></button><button onClick={()=>setShowTimeline(true)}>Inspect timeline <span>→</span></button></motion.div>}
     {showTimeline&&<motion.div className="world-timeline" initial={{opacity:0,y:20}} animate={{opacity:1,y:0}}><div className="timeline-head"><span>TEMPORAL INTELLIGENCE</span><button onClick={()=>setShowTimeline(false)}><X/></button></div><div className="timeline-track"><span className="timeline-now"/><i/><i/><i/><i/><i/></div><div className="timeline-labels"><span>PAST</span><strong>NOW · LIVE</strong><span>SCENARIO</span></div><p>The interface is ready to bind historical states, live signals and future simulations to the same World Model.</p></motion.div>}
