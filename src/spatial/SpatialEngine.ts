@@ -108,11 +108,11 @@ export class SpatialEngine {
     this.options = { ...DEFAULTS, ...options };
     this.index = new SpatialHashIndex(this.options.cellSize);
     this.ensureCore();
+    this.snapshot(0);
   }
 
   setEntities(entities: SpatialEntity[]): void {
     this.pendingEntities = entities;
-    this.snapshotCache.time = 0;
   }
 
   tick(time: number, entities: SpatialEntity[] = this.pendingEntities): SpatialSnapshot {
