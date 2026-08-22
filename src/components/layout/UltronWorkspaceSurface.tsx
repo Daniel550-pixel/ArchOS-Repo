@@ -1,10 +1,9 @@
 import React from 'react';
-import { Activity, ArrowUpRight, Brain, Globe2, Layers3, Radio, ShieldCheck } from 'lucide-react';
+import { Activity, ArrowUpRight, Globe2, Layers3, Radio, ShieldCheck } from 'lucide-react';
 import type { ActiveTab } from './HeaderBar';
 import type { AIOSRuntimeState } from '../../aios/runtime';
 
 type Props = { activeTab: ActiveTab; runtime: AIOSRuntimeState };
-
 type SurfaceProps = { eyebrow: string; title: string; description: string; children: React.ReactNode };
 
 const Surface: React.FC<SurfaceProps> = ({ eyebrow, title, description, children }) => (
