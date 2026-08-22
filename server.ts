@@ -484,19 +484,21 @@ function emitServerEvent(event: any) {
   }
 }
 
-// Canonical /api/events (Server-Sent Events)
-app.get("/api/events", (req, res) => {
+// Canonical /api/events and /api/v1/events/stream (Server-Sent Events)
+app.get(["/api/events", "/api/v1/events/stream"], (req, res) => {
   const correlationId = req.query.correlationId as string | undefined;
 
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
   const client: SseClient = { res, correlationId };
   sseClients.add(client);
 
   // Send initial handshake
+  res.write(`: connected\n\n`);
   res.write(`data: ${JSON.stringify({
     id: `evt-init-${nodeCrypto.randomBytes(4).toString("hex")}`,
     type: "connected",
@@ -505,7 +507,18 @@ app.get("/api/events", (req, res) => {
     payload: { status: "ESTABLISHED", activeEnclave: "ARCHOS_2_0" }
   })}\n\n`);
 
+  // Heartbeat to maintain live connection across reverse proxies
+  const heartbeatTimer = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      clearInterval(heartbeatTimer);
+      sseClients.delete(client);
+    }
+  }, 15000);
+
   req.on("close", () => {
+    clearInterval(heartbeatTimer);
     sseClients.delete(client);
   });
 });
@@ -582,7 +595,7 @@ app.post("/api/v1/jarvis/cancel", (req, res) => {
 });
 
 // Canonical /api/world endpoint (Hierarchical UAE World Model State)
-app.get("/api/world", (req, res) => {
+app.get(["/api/world", "/api/v1/world"], (req, res) => {
   const bms = {
     strain_mpa: 142.42,
     power_mw: 8.41,
@@ -622,7 +635,7 @@ app.get("/api/world", (req, res) => {
 });
 
 // Canonical /api/world/query endpoint (Multi-dimensional World Model Query with Provenance)
-app.post("/api/world/query", (req, res) => {
+app.post(["/api/world/query", "/api/v1/world/query", "/api/v1/world-model/query"], (req, res) => {
   try {
     const {
       entity = "Dubai",
@@ -793,7 +806,7 @@ app.post("/api/v1/jarvis/orchestrate", async (req, res) => {
 });
 
 // Backward-compatible Ask Endpoint powered by Orchestration
-app.post("/api/v1/jarvis/ask", async (req, res) => {
+app.post(["/api/v1/jarvis/ask", "/api/jarvis/ask"], async (req, res) => {
   try {
     const { query = "", actor = "operator", tenant_id = "uae-sovereign" } = req.body;
     const session = await runCanonicalOrchestration(query, actor, tenant_id);
@@ -808,6 +821,17 @@ app.post("/api/v1/jarvis/ask", async (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
+});
+
+// Ground scan discovery layers endpoint
+app.get(["/api/v1/discover/layers/:locationId", "/api/discover/layers/:locationId"], (req, res) => {
+  const { locationId } = req.params;
+  res.json([
+    { id: `${locationId}-terrain`, type: "TERRAIN", name: "High-Resolution Geodetic Elevation Mesh", confidence: 0.99 },
+    { id: `${locationId}-infra`, type: "INFRASTRUCTURE", name: "DEWA Smart Power & Water Grid", confidence: 0.98 },
+    { id: `${locationId}-mobility`, type: "MOBILITY", name: "RTA Intelligent Traffic Network & Metro Corridor", confidence: 0.97 },
+    { id: `${locationId}-constraints`, type: "CONSTRAINTS", name: "Dubai Municipality Master Zoning & Setback Matrix", confidence: 1.0 }
+  ]);
 });
 
 // Action Gate Status & Pending Consequential Operations
