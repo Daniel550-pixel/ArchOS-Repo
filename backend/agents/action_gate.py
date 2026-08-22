@@ -7,7 +7,7 @@ import asyncio
 import uuid
 
 from .base import RiskLevel, ActionDecision
-from ..core import abac
+from backend.services.policy_engine import policy_engine
 from app.services.event_fabric import app_event_fabric
 
 MAX_PENDING_ACTIONS = 1000
@@ -64,13 +64,26 @@ class ActionGate:
             self._action_history.append(req)
             await self._publish("governance.action_blocked", {"action_id": req.action_id, "reason": "missing_actor_agent_or_operation"})
             return ActionDecision.DENIED
-        ctx = {"actor": req.actor, "agent": req.agent, "action": req.requested_operation, "target": req.target, "risk_level": req.risk_level.value, "human_approved": req.approval_state == "APPROVED"}
-        if not await abac.decide(ctx):
+
+        ctx = {
+            "actor": req.actor,
+            "agent": req.agent,
+            "action": req.requested_operation,
+            "target": req.target,
+            "risk_level": req.risk_level.value,
+            "human_approved": req.approval_state == "APPROVED",
+            "required_authority": req.required_authority,
+            "task_id": req.task_id,
+            "correlation_id": req.task_id or req.action_id,
+        }
+        decision = await policy_engine.evaluate(ctx)
+        if not decision.allowed:
             req.policy_decision = ActionDecision.DENIED
             req.approval_state = "REJECTED"
             self._action_history.append(req)
-            await self._publish("governance.action_blocked", {"action_id": req.action_id, "target": req.target, "reason": "ABAC policy denial"})
+            await self._publish("governance.action_blocked", {"action_id": req.action_id, "target": req.target, "reason": decision.reason, "policy": decision.policy})
             return ActionDecision.DENIED
+
         if req.risk_level in (RiskLevel.CONSEQUENTIAL, RiskLevel.HIGH_IMPACT) and req.approval_state != "APPROVED":
             if len(self._pending_actions) >= MAX_PENDING_ACTIONS:
                 req.policy_decision = ActionDecision.DENIED
@@ -83,10 +96,11 @@ class ActionGate:
             self._pending_actions[req.action_id] = req
             await self._publish("governance.action_requested", {"action_id": req.action_id, "target": req.target, "operation": req.requested_operation, "risk_level": req.risk_level.value})
             return ActionDecision.REQUIRES_APPROVAL
+
         req.policy_decision = ActionDecision.ALLOWED
         req.approval_state = "AUTO_APPROVED" if req.approval_state != "APPROVED" else "APPROVED"
         self._action_history.append(req)
-        await self._publish("governance.action_approved", {"action_id": req.action_id, "target": req.target, "actor": req.actor})
+        await self._publish("governance.action_approved", {"action_id": req.action_id, "target": req.target, "actor": req.actor, "policy": decision.policy})
         return ActionDecision.ALLOWED
 
     async def approve(self, action_id: str, approver: str) -> bool:
