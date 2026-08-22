@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { AdditiveBlending, BufferAttribute, BufferGeometry, DynamicDrawUsage, LineBasicMaterial, Matrix4, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedMesh, LineBasicMaterial, Matrix4, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
+import { SPATIAL_MODULES } from './SpatialRuntime';
 import { SpatialEngine, type SpatialTemporalState } from './SpatialEngine';
 import type { SpatialEntity } from './WorldModelSpatialBridge';
 
@@ -18,11 +19,10 @@ export function SpatialEngineLayer({ entities, temporalState = 'current', tempor
   const nodeGeometry = useMemo(() => new SphereGeometry(0.045, 8, 8), []);
   const nodeMaterial = useMemo(() => new MeshBasicMaterial({ color: '#dff7ff', transparent: true, opacity: 0.9, blending: AdditiveBlending }), []);
   const moduleMaterial = useMemo(() => new MeshBasicMaterial({ color: '#8fd8ff', transparent: true, opacity: 0.72, blending: AdditiveBlending }), []);
-  const moduleRef = useRef<THREE.InstancedMesh>(null);
-  const entityRef = useRef<THREE.InstancedMesh>(null);
+  const moduleRef = useRef<InstancedMesh>(null);
+  const entityRef = useRef<InstancedMesh>(null);
   const scratch = useMemo(() => new Vector3(), []);
   const matrix = useMemo(() => new Matrix4(), []);
-  const moduleCount = 15;
 
   useEffect(() => {
     engine.setEntities(entities);
@@ -80,7 +80,7 @@ export function SpatialEngineLayer({ entities, temporalState = 'current', tempor
   return (
     <group>
       <lineSegments geometry={geometry} material={material} />
-      <instancedMesh ref={moduleRef} args={[nodeGeometry, moduleMaterial, moduleCount]} frustumCulled={false} />
+      <instancedMesh ref={moduleRef} args={[nodeGeometry, moduleMaterial, SPATIAL_MODULES.length]} frustumCulled={false} />
       <instancedMesh
         ref={entityRef}
         args={[nodeGeometry, nodeMaterial, Math.max(entities.length, 1)]}
