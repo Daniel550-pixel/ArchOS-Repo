@@ -39,6 +39,14 @@ const CATEGORY_LABELS: Record<WorkspaceCategory, string> = {
   COMMERCE: 'Commerce',
 };
 
+const CATEGORY_DEFAULTS: Record<WorkspaceCategory, ActiveTab> = {
+  GOVERNANCE: 'orb',
+  GEOSPATIAL: 'world',
+  LIFECYCLE: 'design',
+  OPERATIONS: 'pulse',
+  COMMERCE: 'finops',
+};
+
 export const WorkspaceOrganizerBar: React.FC<WorkspaceOrganizerBarProps> = ({ activeTab, onTabChange, onOpenCommandPalette }) => {
   const active = WORKSPACES.find((item) => item.id === activeTab) ?? WORKSPACES[0];
   const categoryItems = WORKSPACES.filter((item) => item.category === active.category);
@@ -47,11 +55,27 @@ export const WorkspaceOrganizerBar: React.FC<WorkspaceOrganizerBarProps> = ({ ac
   return (
     <div className="archos-workspace-bar" aria-label="Workspace navigation">
       <div className="archos-workspace-context">
-        <span className="archos-workspace-category">{CATEGORY_LABELS[active.category]}</span>
-        <span className="archos-workspace-separator" />
         <ActiveIcon className="archos-workspace-active-icon" size={13} />
         <span className="archos-workspace-active">{active.label}</span>
       </div>
+
+      <nav className="archos-workspace-categories" aria-label="Workspace categories">
+        {(Object.keys(CATEGORY_LABELS) as WorkspaceCategory[]).map((category) => {
+          const selected = category === active.category;
+          return (
+            <button
+              key={category}
+              type="button"
+              aria-current={selected ? 'page' : undefined}
+              onClick={() => onTabChange(selected ? activeTab : CATEGORY_DEFAULTS[category])}
+              className={`archos-workspace-category-button ${selected ? 'is-active' : ''}`}
+            >
+              {CATEGORY_LABELS[category]}
+            </button>
+          );
+        })}
+      </nav>
+
       <nav className="archos-workspace-items" aria-label={`${CATEGORY_LABELS[active.category]} workspaces`}>
         {categoryItems.map((item) => {
           const Icon = item.icon;
@@ -64,6 +88,7 @@ export const WorkspaceOrganizerBar: React.FC<WorkspaceOrganizerBarProps> = ({ ac
           );
         })}
       </nav>
+
       <button type="button" onClick={onOpenCommandPalette} className="archos-workspace-command" title="Open command palette">
         <Command size={12} />
         <span>Command</span>
