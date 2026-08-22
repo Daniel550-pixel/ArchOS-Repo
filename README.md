@@ -1,139 +1,129 @@
-# MOTION / FORM — Gesture-Controlled Transformation Films
+# ArchOS
 
-> **Architecture Tier:** `JARVIS / AIOS` → `EXPERIENCE ENGINE` → `MOTION / FORM MODULE`
+> **An early-stage open-source AIOS / JARVIS-style software architecture for multimodal intelligence, reusable experiences, world-model services, simulation, and governed agent execution.**
 
-An editorial, gesture-controlled cinematic 3D exploded view transformation module built in React, TypeScript, Vite, and Tailwind CSS. Users swipe through editorial experience cards, hold an open palm to select, and continuously manipulate physical time via optical pinch distance gestures mapped directly to 3D video timelines.
+ArchOS is being developed as a modular AI operating-system-style platform. The repository currently combines backend orchestration and intelligence services with a multimodal 3D experience layer. The project is intentionally transparent about its maturity: it is early-stage, actively developed, and does **not** currently claim large-scale adoption or production-critical status.
 
----
+## What is currently here
 
-## 1. Architectural Integration (JARVIS / AIOS Architecture)
+- JARVIS-style agent orchestration and specialist agents
+- Agent swarm and world-model runtime components
+- Action-gating and governance-oriented middleware
+- World-model, causal-graph, scenario, and simulation APIs
+- React + TypeScript experience layer
+- Three.js / React Three Fiber 3D rendering
+- MediaPipe-based hand-vision interaction
+- Voice, vision, gesture, keyboard, mouse, touch, and API command inputs
+- Docker and GitHub Actions infrastructure
+- Project-specific linting, E2E, governance, and architecture verification commands
 
-`MOTION / FORM` is designed as a reusable **Experience Module** running under the Experience Engine layer rather than replacing the parent AIOS/JARVIS shell:
+## Architecture
 
 ```text
-                    JARVIS / AIOS
-                         │
-                  EXPERIENCE ENGINE
-                         │
-        ┌────────────────┼────────────────┐
-        │                │                │
-   UAE WORLD       MOTION / FORM      OTHER 3D
-     MODEL            MODULE         EXPERIENCES
-        │                │
-   spatial data     visual assets
-        │                │
-        └────────┬───────┘
-                 ↓
-           UNIFIED INPUT
-      Voice / Vision / Gesture
-                 ↓
-        Unified Command Bus
+                         ARCHOS
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+        EXPERIENCE ENGINE          INTELLIGENCE RUNTIME
+              │                         │
+       Motion / Form             JARVIS Orchestrator
+       3D Experiences            Specialist Agents
+       Voice / Vision            Agent Swarm
+       Gesture Input             World Model Runtime
+              │                         │
+              └────────────┬────────────┘
+                           │
+                    UNIFIED COMMAND BUS
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+            APIs       Simulation    World Model
+              │            │            │
+              └────────────┼────────────┘
+                           │
+                 Governance / Security
+                           │
+                     Infrastructure
 ```
 
-### Clean Module Interface (`MotionFormExperienceModule`)
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the detailed architectural model and boundaries.
 
-```tsx
-import { MotionFormExperienceModule } from './components/MotionFormExperienceModule';
-import { commandBus } from './services/commandBus';
+## Current experience: Motion / Form
 
-<MotionFormExperienceModule
-  initialExperienceId="future-city-block"
-  onExperienceChange={(id) => console.log('Experience:', id)}
-  onProgressChange={(progress) => console.log('Normalized Spatial Scrub:', progress)}
-/>
-```
+The current flagship experience module is a gesture-controlled cinematic 3D transformation interface built with React, TypeScript, Vite, Tailwind CSS, Three.js, and MediaPipe Tasks Vision.
 
-### Unified Command Bus
+It demonstrates the Experience Engine pattern: a reusable experience runs beneath the broader AIOS/JARVIS architecture instead of replacing it.
 
-All modalities (Voice, Vision Gestures, Keyboard, Mouse Wheel, Touch, API) converge on the unified command dispatcher:
+### Unified command interface
+
+Voice, vision gestures, keyboard, mouse wheel, touch, and API events converge on a unified command dispatcher.
 
 ```ts
-// Open an experience
-commandBus.dispatch({ type: 'OPEN_EXPERIENCE', payload: { id: 'kinetic-gt' } }, 'voice');
+commandBus.dispatch(
+  { type: 'OPEN_EXPERIENCE', payload: { id: 'kinetic-gt' } },
+  'voice'
+);
 
-// Set exploded view progress (0.0 = Assembled, 0.5 = Halfway, 1.0 = Max Exploded)
-commandBus.dispatch({ type: 'SET_PROGRESS', payload: { value: 0.5 } }, 'voice');
+commandBus.dispatch(
+  { type: 'SET_PROGRESS', payload: { value: 0.5 } },
+  'voice'
+);
 
-// Reset to assembled
-commandBus.dispatch({ type: 'RESET_EXPERIENCE' }, 'voice');
-
-// Exit
 commandBus.dispatch({ type: 'CLOSE_EXPERIENCE' }, 'gesture');
 ```
 
----
+### Optical gesture interaction
 
-## 2. Quick Start & Development
+The vision pipeline uses MediaPipe hand landmarks with normalized hand scale, pinch-distance mapping, exponential smoothing, palm-hold activation, and trigger cooldowns. The current implementation maps normalized hand geometry to an exploded-view timeline.
+
+### Fallback and accessibility
+
+When camera/vision input is unavailable, the experience provides slider, mouse/trackpad, keyboard, and layer-selection controls. Reduced-motion behavior follows `prefers-reduced-motion`.
+
+### Resource lifecycle
+
+Camera tracks, MediaPipe/WebAssembly resources, animation loops, and DOM listeners are explicitly cleaned up when the experience is unmounted or gesture mode is disabled.
+
+## Quick start
+
+Requirements depend on the active backend/frontend paths. For the current Node-based experience:
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server (Port 3000)
 npm run dev
+```
 
-# Compile production bundle
+Production build:
+
+```bash
 npm run build
-
-# Start production server
 npm start
 ```
 
----
+Available verification commands are defined in `package.json`, including TypeScript checking and project-specific web, governance, A3, and A4 verification.
 
-## 3. Video Asset Specifications & Placement
+## Configuration and secrets
 
-Place your rendered 10-second 60fps 4K video files in the `public/assets/` directory (or `/assets/`):
+Use `.env.example` as the configuration reference. **Never commit real API keys, passwords, tokens, private keys, or other credentials.**
 
-1. **Card 01 (Kinetic GT):** `public/assets/kinetic-gt.mp4`
-2. **Card 02 (Orbital Habitat):** `public/assets/orbital-habitat.mp4`
-3. **Card 03 (Botanical Clock):** `public/assets/botanical-clock.mp4`
-4. **Card 04 (Analogue Sound Machine):** `public/assets/analogue-sound-machine.mp4`
-5. **Card 05 (Future City Block):** `public/assets/future-city-block.mp4`
+The repository's `.gitignore` excludes environment files while explicitly retaining `.env.example` as a safe template.
 
-### Mandatory Generative Video Directives
-- **Camera:** Completely locked static perspective (no orbit, pan, zoom, or shake).
-- **Transformation Timeline:**
-  - `0.00s (0%)`: Fully assembled object/structure.
-  - `1.00s–10.00s (10%–100%)`: Components separate along the designated disassembly axis into parallel floating layers.
-- **Lighting & Aesthetics:** Dark slate / charcoal matte studio background, soft volumetric rim lighting, zero text overlay, zero background clutter.
+## Open-source project status
 
-> **Hardware-Accelerated 3D Fallback:** If local MP4 files are loading or not yet placed in the assets directory, the built-in procedural Canvas 3D engine renders multi-tier exploded geometry, depth offsets, and floating leader callouts in real time.
+ArchOS is MIT licensed and publicly developed. It is an early-stage project, so its current adoption and contributor base are limited. The project roadmap focuses first on reproducibility, automated verification, security, stable AIOS/JARVIS interfaces, world-model contracts, multimodal experience modules, and an organically growing contributor ecosystem.
 
----
+See [`ROADMAP.md`](ROADMAP.md) for the current direction.
 
-## 4. Optical Gesture Calibration & MediaPipe Vision Engine
+## Contributing
 
-The vision pipeline is powered by `@mediapipe/tasks-vision` and calibrated in `src/services/vision/handLandmarks.ts`:
+Contributions are welcome when they improve correctness, security, maintainability, accessibility, performance, documentation, or architectural clarity.
 
-- **Hand Scale Normalization:** Euclidean distance between **Wrist** (`landmark 0`) and **Middle MCP** (`landmark 9`).
-- **Normalized Pinch Metric:** `distance(ThumbTip 4, IndexTip 8) / HandScale`.
-- `minPinchThreshold: 0.20`: Fingers closed / touching $\rightarrow$ maps to `0%` (Fully Assembled).
-- `maxPinchThreshold: 0.82`: Fingers spread wide apart $\rightarrow$ maps to `100%` (Fully Exploded).
-- `smoothingAlpha: 0.28`: Exponential Moving Average (EMA) coefficient for responsive, jitter-free scrubbing.
-- `palmHoldDurationMs: 450`: Continuous 5-finger extended hold required to enter the selected card.
-- `triggerCooldownMs: 1400`: Cooldown to prevent rapid double activations.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Security vulnerabilities should be reported according to [`SECURITY.md`](SECURITY.md), not through public issues.
 
----
+## License
 
-## 5. Fallback Controls & Accessibility
+ArchOS is licensed under the [MIT License](LICENSE).
 
-If the webcam is disabled or hand tracking is not available:
+## Maintainer
 
-- **Slider Scrubbing:** Drag the bottom technical range scrubber.
-- **Mouse Wheel / Trackpad:** Scroll up/down to assemble or explode.
-- **Keyboard Navigation:**
-  - `[← / →]` : Switch cards in Gallery.
-  - `[↑ / ↓]` : Scrub exploded timeline forward / backward.
-  - `[SPACE / ENTER]` : Open active card.
-  - `[ESC]` : Close full-screen experience and return to gallery.
-  - `[R / 0 / Home]` : Instant reset to 0% Assembled.
-  - `[1 / End]` : Jump to 100% Exploded view.
-- **Layer Decomposition Drawer:** Click any layer in the right slide-over to jump directly to its separation tier.
-- **Reduced Motion:** Adheres to CSS `prefers-reduced-motion` media queries.
-
----
-
-## 6. Resource Management & Cleanup
-
-All MediaPipe instances, camera video tracks, WebAssembly task runners, `requestAnimationFrame` render loops, and DOM event listeners are strictly disposed upon unmount to eliminate memory leaks and ensure no background camera activity remains when gesture mode is toggled off.
+**Daniel550-pixel** — primary project maintainer.
