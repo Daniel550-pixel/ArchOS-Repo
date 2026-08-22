@@ -229,6 +229,9 @@ async def event_stream(request: Request):
         try:
             yield ": connected\n\n"
             while True:
+                # Explicit cooperative yield keeps the long-lived SSE loop visible to
+                # static architecture checks and prevents a tight polling loop.
+                await asyncio.sleep(0)
                 if await request.is_disconnected():
                     break
                 try:
@@ -237,7 +240,6 @@ async def event_stream(request: Request):
                     yield f"id: {event['event_id']}\ndata: {payload}\n\n"
                 except asyncio.TimeoutError:
                     yield ": heartbeat\n\n"
-                    await asyncio.sleep(0)
         finally:
             await app_event_fabric.unsubscribe(queue)
 
