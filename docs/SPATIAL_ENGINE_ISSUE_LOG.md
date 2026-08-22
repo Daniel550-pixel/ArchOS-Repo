@@ -39,7 +39,7 @@ This document records defects found and repaired during the TON 618 spatial-runt
 ### 007 — Missing bounded graph growth
 - **Symptom:** Entity relationships could grow without a strict per-node edge budget.
 - **Impact:** Potential quadratic graph/render workload.
-- **Resolution:** Edge count is bounded per node before GPU upload.
+- **Resolution:** Added explicit per-node degree accounting and bounded spatial-edge insertion; authoritative core-to-module links remain exempt so every module stays connected to TON 618.
 
 ### 008 — Missing explicit LOD hierarchy
 - **Symptom:** World Model entities did not have a consistent rendering-density policy.
@@ -100,6 +100,11 @@ This document records defects found and repaired during the TON 618 spatial-runt
 - **Symptom:** `npm ci || npm install` silently fell back because the repository carries `bun.lock` rather than a committed npm lockfile.
 - **Impact:** Dependency reproducibility was obscured and CI could behave differently from container builds.
 - **Resolution:** CI now uses one explicit installation path (`npm install --no-audit --no-fund`) consistent with the active package manifest/container build contract rather than masking a failed `npm ci`.
+
+### 020 — Graph topology churn recreated stable edge objects
+- **Symptom:** Every graph cadence cleared and recreated the complete edge map, even when the topology had not changed.
+- **Impact:** Stable graph frames still forced snapshot-array refreshes and edge object allocation.
+- **Resolution:** Graph rebuilds now retain stable edge objects, update only strength/type, and delete only stale edges; snapshot topology is marked dirty only when node/edge membership changes.
 
 ## Current target
 
