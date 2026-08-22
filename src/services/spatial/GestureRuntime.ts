@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { commandBus } from '../commandBus';
 import { gestureEngine } from './GestureEngine';
 import { gestureRecognizer } from './GestureRecognizer';
 import type { UltronGestureEvent } from './types';
@@ -28,8 +29,8 @@ function emit(): void {
 function ensureInitialized(): void {
   if (unsubscribeRecognizer) return;
 
-  // Importing the engine instantiates its command-bus integration. The explicit
-  // reference above prevents tree-shaking from removing that runtime boundary.
+  // Keep the global GestureEngine alive for the application lifetime. Its
+  // constructor binds the recognizer to the spatial raycaster, haptics and bus.
   void gestureEngine;
 
   unsubscribeRecognizer = gestureRecognizer.onGestureDetected((event) => {
@@ -45,22 +46,16 @@ function ensureInitialized(): void {
 
 export function initializeGestureRuntime(): () => void {
   ensureInitialized();
-  return () => {
-    // The global recognizer/engine intentionally remain alive for the application
-    // lifetime. This function only guarantees initialization for consumers.
-  };
+  return () => undefined;
 }
 
 export function setGestureRuntimeEnabled(enabled: boolean): void {
+  ensureInitialized();
   snapshot = { ...snapshot, enabled };
-  if (!enabled) {
-    gestureEngine.processGesture({
-      type: 'IDLE',
-      timestamp: performance.now(),
-      confidence: 1,
-      source: 'gesture'
-    });
-  }
+  commandBus.dispatch(
+    { type: enabled ? 'ENABLE_GESTURES' : 'DISABLE_GESTURES' },
+    'system'
+  );
   emit();
 }
 
