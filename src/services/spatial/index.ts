@@ -7,4 +7,5 @@ export * from './SpatialRaycaster';
 export * from './HapticFeedbackService';
 export * from './GestureRecognizer';
 export * from './GestureEngine';
+export * from './GestureRuntime';
 export * from './SpatialContextSynchronizer';
