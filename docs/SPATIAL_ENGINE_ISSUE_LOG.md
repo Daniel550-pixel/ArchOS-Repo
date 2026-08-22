@@ -61,6 +61,11 @@ This document records defects found and repaired during the TON 618 spatial-runt
 - **Impact:** Unnecessary allocation churn during graph rebuilds.
 - **Resolution:** Fixed-capacity typed buffer is allocated once and reused with `setDrawRange`.
 
+### 012 — Snapshot allocation churn identified
+- **Symptom:** `SpatialEngine.tick()` currently reconstructs node/edge arrays and a snapshot object on every render frame, even when topology is unchanged.
+- **Impact:** Avoidable JavaScript allocation and garbage-collection pressure directly on the 60 FPS hot path.
+- **Status:** Identified; queued for the next runtime optimization pass. No claim of resolution until the implementation and validation are complete.
+
 ## Current target
 
 `World Model → Spatial Runtime → TON 618 Core → Module Graph → LOD/Culling → GPU Renderer`
@@ -69,10 +74,11 @@ The runtime must preserve this as a single coherent spatial model rather than la
 
 ## Next iteration queue
 
-1. Typed-array entity storage for hot-path spatial data.
-2. Cluster-level LOD for large World Model populations.
-3. Incremental graph updates instead of full rebuilds where possible.
-4. GPU instancing for repeated module/entity visual primitives.
-5. Frame-time instrumentation and adaptive quality scaling.
-6. Deterministic spatial simulation for reproducible debugging.
-7. Automated TypeScript/build validation after every runtime change.
+1. Cache/reuse immutable topology arrays and update only changed snapshot metadata.
+2. Typed-array entity storage for hot-path spatial data.
+3. Cluster-level LOD for large World Model populations.
+4. Incremental graph updates instead of full rebuilds where possible.
+5. GPU instancing for repeated module/entity visual primitives.
+6. Frame-time instrumentation and adaptive quality scaling.
+7. Deterministic spatial simulation for reproducible debugging.
+8. Automated TypeScript/build validation after every runtime change.
