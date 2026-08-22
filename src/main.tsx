@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import { RuntimePulseOverlay } from './components/runtime/RuntimePulseOverlay';
+import { ProductionReadinessBar } from './components/runtime/ProductionReadinessBar';
 import { aiosRuntime } from './aios/runtime';
 import './index.css';
 
@@ -16,5 +17,6 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
     <RuntimePulseOverlay />
+    <ProductionReadinessBar />
   </StrictMode>,
 );
