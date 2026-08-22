@@ -145,24 +145,11 @@ export const UltronOneWorld: React.FC = () => {
   const ActiveModule = selectedModule ? MODULES[selectedModule]?.component : null;
 
   return (
-    <div
-      className={`one-world ${selectedModule ? 'has-module' : ''}`}
-      onPointerMove={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        setPointer({ x: (event.clientX - rect.left) / rect.width - 0.5, y: (event.clientY - rect.top) / rect.height - 0.5 });
-      }}
-      onPointerLeave={() => setPointer({ x: 0, y: 0 })}
-    >
+    <div className={`one-world ${selectedModule ? 'has-module' : ''}`} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPointer({ x: (event.clientX - rect.left) / rect.width - 0.5, y: (event.clientY - rect.top) / rect.height - 0.5 }); }} onPointerLeave={() => setPointer({ x: 0, y: 0 })}>
       <div className="one-world-field" aria-hidden="true" />
       <div className="one-world-stars" style={{ transform: `translate3d(${pointer.x * -10}px, ${pointer.y * -7}px, 0)` }}>
         {visibleStars.map((star) => (
-          <button
-            key={star.id}
-            className={`world-star world-star-${star.type} ${selected?.id === star.id ? 'is-selected' : ''}`}
-            style={{ left: `${star.x}%`, top: `${star.y}%`, '--star-size': `${star.size}px`, '--star-depth': star.depth } as React.CSSProperties}
-            onClick={() => focusStar(star)}
-            aria-label={`Select ${star.name}`}
-          >
+          <button key={star.id} className={`world-star world-star-${star.type} ${selected?.id === star.id ? 'is-selected' : ''}`} style={{ left: `${star.x}%`, top: `${star.y}%`, '--star-size': `${star.size}px`, '--star-depth': star.depth } as React.CSSProperties} onClick={() => focusStar(star)} aria-label={`Select ${star.name}`}>
             <span className="world-star-core" />
             {selected?.id === star.id && <span className="world-star-ring" />}
             {star.importance > 0.75 && <span className="world-star-label">{star.name}</span>}
@@ -173,19 +160,10 @@ export const UltronOneWorld: React.FC = () => {
       <div className="one-world-module-stars" style={{ transform: `translate3d(${pointer.x * -5}px, ${pointer.y * -3}px, 0)` }} aria-label="ArchOS module constellation">
         {moduleEntries.map(([id, definition], index) => {
           const angle = (index / moduleEntries.length) * Math.PI * 2 - Math.PI / 2;
-          const radiusX = 41;
-          const radiusY = 32;
-          const x = 50 + Math.cos(angle) * radiusX;
-          const y = 50 + Math.sin(angle) * radiusY;
+          const x = 50 + Math.cos(angle) * 41;
+          const y = 50 + Math.sin(angle) * 32;
           return (
-            <button
-              key={id}
-              className={`module-star ${selectedModule === id ? 'is-selected' : ''}`}
-              style={{ left: `${x}%`, top: `${y}%` }}
-              onClick={() => openModule(id)}
-              onMouseEnter={() => focusModule(id)}
-              aria-label={`Open ${definition.title}`}
-            >
+            <button key={id} className={`module-star ${selectedModule === id ? 'is-selected' : ''}`} style={{ left: `${x}%`, top: `${y}%` }} onClick={() => openModule(id)} aria-label={`Open ${definition.title}`}>
               <span className="module-star-core" />
               <span className="module-star-label">{definition.title}</span>
             </button>
@@ -193,55 +171,22 @@ export const UltronOneWorld: React.FC = () => {
         })}
       </div>
 
-      <div className="one-world-orbit orbit-one" aria-hidden="true" />
-      <div className="one-world-orbit orbit-two" aria-hidden="true" />
-      <div className="one-world-orbit orbit-three" aria-hidden="true" />
+      <div className="one-world-orbit orbit-one" aria-hidden="true" /><div className="one-world-orbit orbit-two" aria-hidden="true" /><div className="one-world-orbit orbit-three" aria-hidden="true" />
 
       <div className="one-world-black-hole" aria-label="ULTRON AIOS intelligence core">
-        <div className="black-hole-glow" />
-        <div className="black-hole-accretion" />
-        <div className="black-hole-event-horizon" />
-        <div className="black-hole-center" />
+        <div className="black-hole-glow" /><div className="black-hole-accretion" /><div className="black-hole-event-horizon" /><div className="black-hole-center" />
         <div className="black-hole-label"><strong>ULTRON</strong><span>AIOS · WORLD MODEL</span></div>
       </div>
 
-      <header className="one-world-topbar">
-        <div className="one-world-brand"><span className="brand-dot" /><div><strong>ULTRON</strong><small>ARCHOS INTELLIGENCE OS</small></div></div>
-        <div className="one-world-status"><span className={runtime.systemState !== 'IDLE' ? 'status-live' : ''} />{runtime.systemState}<i />{runtime.activeEntityId || 'GLOBAL'}</div>
-      </header>
-
+      <header className="one-world-topbar"><div className="one-world-brand"><span className="brand-dot" /><div><strong>ULTRON</strong><small>ARCHOS INTELLIGENCE OS</small></div></div><div className="one-world-status"><span className={runtime.systemState !== 'IDLE' ? 'status-live' : ''} />{runtime.systemState}<i />{runtime.activeEntityId || 'GLOBAL'}</div></header>
       <div className="one-world-title"><span>ONE WORLD</span><h1>Living intelligence.</h1><p>Every ArchOS capability orbits one world model.</p></div>
 
-      {selected && (
-        <motion.aside className="world-inspector" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="inspector-kicker">WORLD ENTITY</div>
-          <div className="inspector-title">{selected.name}</div>
-          <div className="inspector-meta"><span>{selected.type.toUpperCase()}</span><span>LIVE MODEL</span></div>
-          <div className="inspector-grid"><div><small>STATUS</small><strong>ACTIVE</strong></div><div><small>CONFIDENCE</small><strong>—</strong></div><div><small>SIGNALS</small><strong>—</strong></div></div>
-          <button className="inspector-close" onClick={() => setSelected(null)}>Dismiss</button>
-        </motion.aside>
-      )}
+      {selected && <motion.aside className="world-inspector" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}><div className="inspector-kicker">WORLD ENTITY</div><div className="inspector-title">{selected.name}</div><div className="inspector-meta"><span>{selected.type.toUpperCase()}</span><span>LIVE MODEL</span></div><div className="inspector-grid"><div><small>STATUS</small><strong>ACTIVE</strong></div><div><small>CONFIDENCE</small><strong>—</strong></div><div><small>SIGNALS</small><strong>—</strong></div></div><button className="inspector-close" onClick={() => setSelected(null)}>Dismiss</button></motion.aside>}
 
-      {ActiveModule && (
-        <motion.aside className="module-viewport" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }}>
-          <div className="module-viewport-header">
-            <div><span>MODULE · {MODULES[selectedModule!].stage}</span><strong>{MODULES[selectedModule!].title}</strong></div>
-            <button onClick={closeModule} aria-label="Close module"><X /></button>
-          </div>
-          <div className="module-viewport-body"><ActiveModule /></div>
-        </motion.aside>
-      )}
+      {ActiveModule && <motion.aside className="module-viewport" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }}><div className="module-viewport-header"><div><span>MODULE · {MODULES[selectedModule!].stage}</span><strong>{MODULES[selectedModule!].title}</strong></div><button onClick={closeModule} aria-label="Close module"><X /></button></div><div className="module-viewport-body"><ActiveModule /></div></motion.aside>}
 
-      <div className="one-world-command">
-        <Search /><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && submitQuery()} placeholder="Ask ULTRON anything" aria-label="Ask ULTRON anything" /><kbd><Command />K</kbd>
-      </div>
-
-      <div className="one-world-actions">
-        <button className={listening ? 'is-active' : ''} onClick={toggleVoice} title="Voice"><Mic /></button>
-        <button className={speaking ? 'is-active' : ''} onClick={toggleSpeech} title="ULTRON voice"><Volume2 /></button>
-        <span className="action-divider" /><span className="world-integrity"><ShieldCheck /> GOVERNED</span>
-      </div>
-
+      <div className="one-world-command"><Search /><input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && submitQuery()} placeholder="Ask ULTRON anything" aria-label="Ask ULTRON anything" /><kbd><Command />K</kbd></div>
+      <div className="one-world-actions"><button className={listening ? 'is-active' : ''} onClick={toggleVoice} title="Voice"><Mic /></button><button className={speaking ? 'is-active' : ''} onClick={toggleSpeech} title="ULTRON voice"><Volume2 /></button><span className="action-divider" /><span className="world-integrity"><ShieldCheck /> GOVERNED</span></div>
       <footer className="one-world-footer"><span>WORLD MODEL</span><i /><span>{allStars.length} WORLD OBJECTS</span><i /><span>{moduleEntries.length} MODULES</span><i /><span>SPATIAL INTELLIGENCE</span></footer>
     </div>
   );
