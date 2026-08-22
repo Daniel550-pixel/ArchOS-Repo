@@ -5,7 +5,7 @@ import ssl
 import time
 
 async def watch(host="localhost", ports=(443, 8883, 9002), warn_days=14):
-    from .event_fabric import fabric
+    from app.services.event_fabric import app_event_fabric as fabric
     while True:
         for port in ports:
             try:

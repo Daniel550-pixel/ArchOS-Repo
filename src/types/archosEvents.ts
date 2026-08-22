@@ -3,6 +3,7 @@
 
 export type ArchOSEventType =
   | 'command.received'
+  | 'command.cancelled'
   | 'intent.detected'
   | 'context.assembled'
   | 'plan.created'
@@ -16,6 +17,8 @@ export type ArchOSEventType =
   | 'simulation.started'
   | 'simulation.progress'
   | 'simulation.completed'
+  | 'verification.started'
+  | 'verification.completed'
   | 'policy.evaluated'
   | 'action.requested'
   | 'approval.required'
@@ -46,6 +49,35 @@ export interface CommandReceivedEvent extends BaseArchOSEvent {
     commandId: string;
     rawText: string;
     source: 'voice' | 'gesture' | 'mouse' | 'keyboard' | 'touch' | 'system' | 'api';
+  };
+}
+
+export interface CommandCancelledEvent extends BaseArchOSEvent {
+  type: 'command.cancelled';
+  payload: {
+    commandId: string;
+    reason?: string;
+    cancelledAt: string;
+  };
+}
+
+export interface VerificationStartedEvent extends BaseArchOSEvent {
+  type: 'verification.started';
+  payload: {
+    commandId?: string;
+    invariants: string[];
+    stagesToVerify: number;
+  };
+}
+
+export interface VerificationCompletedEvent extends BaseArchOSEvent {
+  type: 'verification.completed';
+  payload: {
+    status: 'VERIFIED' | 'UNCERTAIN' | 'REJECTED';
+    invariantsPassed: number;
+    totalInvariants: number;
+    invariants: Array<{ rule: string; status: 'PASSED' | 'FAILED' | 'WARN'; detail: string }>;
+    durationMs: number;
   };
 }
 
@@ -246,6 +278,7 @@ export interface ErrorEvent extends BaseArchOSEvent {
 
 export type ArchOSEvent =
   | CommandReceivedEvent
+  | CommandCancelledEvent
   | IntentDetectedEvent
   | ContextAssembledEvent
   | PlanCreatedEvent
@@ -257,6 +290,8 @@ export type ArchOSEvent =
   | WorldModelUpdatedEvent
   | SimulationStartedEvent
   | SimulationCompletedEvent
+  | VerificationStartedEvent
+  | VerificationCompletedEvent
   | PolicyEvaluatedEvent
   | ActionRequestedEvent
   | ApprovalRequiredEvent

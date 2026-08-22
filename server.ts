@@ -4,6 +4,8 @@ import fs from "fs";
 import nodeCrypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { actionGateStore, ActionGateRecord } from "./server/governance/actionGateStore";
+import { signHs256Jwt, verifyHs256Jwt } from "./server/security/jwt";
 
 dotenv.config();
 
@@ -40,30 +42,6 @@ app.get("/api/health", (req, res) => {
 // ============================================================================
 // PHASE 4: SPECIALIST INTELLIGENCE & GOVERNED J.A.R.V.I.S. ORCHESTRATOR
 // ============================================================================
-
-interface NodeActionRequest {
-  actionId: string;
-  actor: string;
-  agent: string;
-  taskId: string;
-  target: string;
-  requestedOperation: string;
-  riskLevel: "READ_ONLY" | "LOW_RISK" | "CONSEQUENTIAL" | "HIGH_IMPACT";
-  requiredAuthority: string;
-  policyDecision: "ALLOWED" | "DENIED" | "REQUIRES_APPROVAL";
-  approvalState: "PENDING" | "APPROVED" | "REJECTED" | "AUTO_APPROVED";
-  approvedBy?: string;
-  provenance: string;
-  timestamp: string;
-  payload?: any;
-  result?: any;
-}
-
-const nodeActionGate = {
-  pending: new Map<string, NodeActionRequest>(),
-  history: [] as NodeActionRequest[],
-  audit: [] as any[]
-};
 
 const SPECIALIST_AGENTS = [
   {
@@ -296,14 +274,14 @@ async function runCanonicalOrchestration(query: string, actor: string = "operato
   let finalAnswer = "";
 
   if (isActionIntent && (riskLevel === "CONSEQUENTIAL" || (riskLevel as string) === "HIGH_IMPACT")) {
-    const actionReq: NodeActionRequest = {
+    const actionReq: ActionGateRecord = {
       actionId: `act-${nodeCrypto.randomBytes(6).toString("hex")}`,
       actor,
       agent: "execution",
       taskId,
       target: "Tower B-4471 / Downtown Microgrid",
       requestedOperation: `EXECUTE_OPTIMIZATION_${taskId.slice(0, 8)}`,
-      riskLevel,
+      riskLevel: riskLevel as any,
       requiredAuthority: "SOVEREIGN_ENGINEER_CLEARANCE",
       policyDecision: "REQUIRES_APPROVAL",
       approvalState: "PENDING",
@@ -311,8 +289,7 @@ async function runCanonicalOrchestration(query: string, actor: string = "operato
       timestamp: new Date().toISOString(),
       payload: { query, domain, planSteps }
     };
-    nodeActionGate.pending.set(actionReq.actionId, actionReq);
-    nodeActionGate.audit.push({ ...actionReq, auditEvent: "ACTION_HELD_PENDING_APPROVAL" });
+    actionGateStore.submit(actionReq);
     actionResult = {
       actionId: actionReq.actionId,
       action_state: "PENDING_APPROVAL",
@@ -574,6 +551,36 @@ app.post("/api/command", async (req, res) => {
   }
 });
 
+// Canonical /api/command/cancel Endpoint
+app.post("/api/command/cancel", (req, res) => {
+  const { commandId, reason } = req.body;
+  if (!commandId) {
+    return res.status(400).json({ error: "Missing 'commandId' payload." });
+  }
+  const cancelled = jarvisExecutionEngine.cancelCommand(commandId, reason);
+  res.json({
+    status: cancelled ? "SUCCESS" : "NOT_FOUND",
+    commandId,
+    cancelled,
+    message: cancelled ? "Command execution cancelled successfully." : "Active command context not found or already completed."
+  });
+});
+
+// Canonical /api/v1/jarvis/cancel Endpoint
+app.post("/api/v1/jarvis/cancel", (req, res) => {
+  const { commandId, reason } = req.body;
+  if (!commandId) {
+    return res.status(400).json({ error: "Missing 'commandId' payload." });
+  }
+  const cancelled = jarvisExecutionEngine.cancelCommand(commandId, reason);
+  res.json({
+    status: cancelled ? "SUCCESS" : "NOT_FOUND",
+    commandId,
+    cancelled,
+    message: cancelled ? "Command execution cancelled successfully." : "Active command context not found or already completed."
+  });
+});
+
 // Canonical /api/world endpoint (Hierarchical UAE World Model State)
 app.get("/api/world", (req, res) => {
   const bms = {
@@ -753,12 +760,23 @@ app.post("/api/world/query", (req, res) => {
   }
 });
 
+import { agentRegistry } from "./server/agentFabric";
+
 // Specialist Agents Registry Endpoint
 app.get("/api/v1/agents", (req, res) => {
+  const registered = agentRegistry.listAvailable();
   res.json({
     status: "SUCCESS",
-    count: SPECIALIST_AGENTS.length,
-    agents: SPECIALIST_AGENTS,
+    count: registered.length,
+    agents: registered.map(a => ({
+      id: a.id,
+      name: a.name,
+      version: a.version,
+      domain: a.domain,
+      capabilities: a.capabilities,
+      permissions: a.permissions,
+      description: a.description
+    })),
     timestamp: new Date().toISOString()
   });
 });
@@ -794,13 +812,14 @@ app.post("/api/v1/jarvis/ask", async (req, res) => {
 
 // Action Gate Status & Pending Consequential Operations
 app.get("/api/v1/governance/action-gate", (req, res) => {
-  const pending = Array.from(nodeActionGate.pending.values());
+  const pending = actionGateStore.getPending();
+  const history = actionGateStore.getHistory(50);
   res.json({
     status: "SUCCESS",
     pendingCount: pending.length,
     pending,
-    historyCount: nodeActionGate.history.length,
-    history: nodeActionGate.history.slice(-50),
+    historyCount: history.length,
+    history,
     timestamp: new Date().toISOString()
   });
 });
@@ -808,23 +827,21 @@ app.get("/api/v1/governance/action-gate", (req, res) => {
 // Action Gate Consequential Sign-off Endpoint
 app.post("/api/v1/governance/approve", (req, res) => {
   const { actionId, approver = "operator" } = req.body;
-  if (!actionId || !nodeActionGate.pending.has(actionId)) {
+  if (!actionId) {
     return res.status(404).json({ error: "Action ID not found or already processed." });
   }
 
-  const action = nodeActionGate.pending.get(actionId)!;
-  nodeActionGate.pending.delete(actionId);
-  action.approvalState = "APPROVED";
-  action.approvedBy = approver;
-  action.policyDecision = "ALLOWED";
-  action.result = {
+  const result = {
     status: "SUCCESS",
     executedAt: new Date().toISOString(),
     signedBy: approver,
     signatureProof: `0x${nodeCrypto.randomBytes(16).toString("hex")}`
   };
-  nodeActionGate.history.push(action);
-  nodeActionGate.audit.push({ ...action, auditEvent: "ACTION_APPROVED_AND_EXECUTED" });
+
+  const action = actionGateStore.approve(actionId, approver, result);
+  if (!action) {
+    return res.status(404).json({ error: "Action ID not found or already processed." });
+  }
 
   res.json({
     status: "SUCCESS",
@@ -836,10 +853,11 @@ app.post("/api/v1/governance/approve", (req, res) => {
 
 // Governance Audit Trail
 app.get("/api/v1/governance/audit", (req, res) => {
+  const audit = actionGateStore.getAudit(100);
   res.json({
     status: "SUCCESS",
-    count: nodeActionGate.audit.length,
-    audit_trail: nodeActionGate.audit.slice(-100),
+    count: audit.length,
+    audit_trail: audit,
     timestamp: new Date().toISOString()
   });
 });
@@ -971,16 +989,10 @@ app.post("/api/v1/auth/login/verify", (req, res) => {
   const attachment = credential?.authenticatorAttachment || "platform";
 
   // Create sovereign HMAC/JWT session token
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(JSON.stringify({
+  const jwt = signHs256Jwt({
     sub: username,
-    enclave: "ARCHOS_SOVEREIGN_ENCLAVE",
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600
-  })).toString("base64url");
-  const secret = process.env.JWT_SECRET || "archos_sovereign_jwt_secret_key_2026_qkd";
-  const signature = nodeCrypto.createHmac("sha256", secret).update(`${header}.${payload}`).digest("base64url");
-  const jwt = `${header}.${payload}.${signature}`;
+    enclave: "ARCHOS_SOVEREIGN_ENCLAVE"
+  }, 3600);
 
   // Issue rotating refresh token
   const refreshToken = nodeCrypto.randomBytes(32).toString("base64url");
@@ -1010,16 +1022,10 @@ app.post("/api/v1/auth/session", (req, res) => {
     return res.status(401).json({ error: "No active enclave session" });
   }
 
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(JSON.stringify({
+  const jwt = signHs256Jwt({
     sub: "operator",
-    enclave: "ARCHOS_SOVEREIGN_ENCLAVE",
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 900
-  })).toString("base64url");
-  const secret = process.env.JWT_SECRET || "archos_sovereign_jwt_secret_key_2026_qkd";
-  const signature = nodeCrypto.createHmac("sha256", secret).update(`${header}.${payload}`).digest("base64url");
-  const jwt = `${header}.${payload}.${signature}`;
+    enclave: "ARCHOS_SOVEREIGN_ENCLAVE"
+  }, 900);
 
   res.json({
     jwt,

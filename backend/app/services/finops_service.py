@@ -13,7 +13,7 @@ class TenantUsageRepository:
             "tenant-sovereign-dgm": {"tokens_used": 1420500, "compute_units": 380.5, "burn_rate_aed_hr": 48.2, "requests_today": 1240},
             "tenant-dewa-grid": {"tokens_used": 890200, "compute_units": 210.0, "burn_rate_aed_hr": 29.5, "requests_today": 890},
             "tenant-rta-mobility": {"tokens_used": 540000, "compute_units": 140.2, "burn_rate_aed_hr": 18.0, "requests_today": 620},
-            "tenant-enterprise-damac": {"tokens_used": 412000, "compute_units": 95.0, "burn_rate_aed_hr": 14.2, "requests_today": 430},
+            "tenant-enterprise-damac": {"tokens_used": 412000, "compute_units": 95.0, "burn_rate_aed_hr": 14.8, "requests_today": 430},
             "tenant-community-sandbox": {"tokens_used": 48000, "compute_units": 12.0, "burn_rate_aed_hr": 1.5, "requests_today": 85}
         }
         self._tenant_limits: Dict[str, Dict[str, Any]] = {

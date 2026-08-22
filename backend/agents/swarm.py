@@ -7,7 +7,8 @@ from .specialists import (
     PerceptionAgent, WorldModelAgent, ResearchAgent, ReasoningAgent,
     PlanningAgent, RiskAgent, VerificationAgent, ExecutionAgent,
 )
-from ..core.event_fabric import fabric
+from .authoritative_world_model_agent import AuthoritativeWorldModelAgent
+from app.services.event_fabric import app_event_fabric as fabric
 
 
 class Swarm:
@@ -199,7 +200,7 @@ class Swarm:
 def create_canonical_swarm() -> Swarm:
     swarm_instance = Swarm()
     swarm_instance.register(PerceptionAgent())
-    swarm_instance.register(WorldModelAgent())
+    swarm_instance.register(AuthoritativeWorldModelAgent())
     swarm_instance.register(ResearchAgent())
     swarm_instance.register(ReasoningAgent())
     swarm_instance.register(PlanningAgent())

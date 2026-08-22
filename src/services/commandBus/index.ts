@@ -82,6 +82,21 @@ class UnifiedCommandBus {
     }
   }
 
+  public async cancelCommand(commandId: string, reason?: string): Promise<boolean> {
+    try {
+      const response = await fetch('/api/v1/jarvis/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commandId, reason: reason || 'User cancellation from UI' })
+      });
+      const data = await response.json();
+      return data.cancelled === true;
+    } catch (err) {
+      console.error('[CommandBus] Cancel failed:', err);
+      return false;
+    }
+  }
+
   public handleSystemEvent = (event: ArchOSCommand): void => {
     switch (event.type) {
       case 'AUTH_SUCCESS':

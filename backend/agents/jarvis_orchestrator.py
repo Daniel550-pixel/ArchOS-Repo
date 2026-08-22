@@ -17,7 +17,7 @@ from .base import (
     InterAgentMessage,
 )
 from .swarm import swarm
-from ..core.event_fabric import fabric
+from app.services.event_fabric import app_event_fabric as fabric
 
 
 class JarvisOrchestrator:

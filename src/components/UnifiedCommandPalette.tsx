@@ -18,6 +18,7 @@ export const UnifiedCommandPalette: React.FC<UnifiedCommandPaletteProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<any>(null);
   const [recentEvents, setRecentEvents] = useState<ArchOSEvent[]>([]);
   const [activeCorrelationId, setActiveCorrelationId] = useState<string | null>(null);
@@ -34,11 +35,20 @@ export const UnifiedCommandPalette: React.FC<UnifiedCommandPaletteProps> = ({
 
   if (!isOpen) return null;
 
+  const handleCancel = async () => {
+    if (activeCommandId) {
+      await commandBus.cancelCommand(activeCommandId, 'Operator cancelled in Command Palette');
+      setIsExecuting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || isExecuting) return;
 
     const query = inputText.trim();
+    const cmdId = `cmd_${Date.now().toString(36)}`;
+    setActiveCommandId(cmdId);
     setIsExecuting(true);
     setLastResult(null);
 
@@ -61,6 +71,8 @@ export const UnifiedCommandPalette: React.FC<UnifiedCommandPaletteProps> = ({
 
   const handleQuickCommand = async (text: string) => {
     setInputText(text);
+    const cmdId = `cmd_${Date.now().toString(36)}`;
+    setActiveCommandId(cmdId);
     setIsExecuting(true);
     setLastResult(null);
 
@@ -129,6 +141,16 @@ export const UnifiedCommandPalette: React.FC<UnifiedCommandPaletteProps> = ({
             {isExecuting ? <Activity className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             <span>{isExecuting ? 'Reasoning...' : 'Dispatch'}</span>
           </button>
+          {isExecuting && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-3.5 py-2.5 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 text-[#ef4444] border border-[#ef4444]/40 font-mono-tech text-xs font-bold uppercase flex items-center gap-1 cursor-pointer rounded-xs transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Stop</span>
+            </button>
+          )}
         </form>
 
         {/* Preset Voice & Intelligence Queries */}

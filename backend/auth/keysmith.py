@@ -25,7 +25,7 @@ except Exception:
     PQ_ALG = "UNAVAILABLE"
 
 from ..core.secrets import secret
-from ..core.event_fabric import fabric
+from app.services.event_fabric import app_event_fabric as fabric
 from ..app.core.config import settings
 from .webauthn import USERS
 
