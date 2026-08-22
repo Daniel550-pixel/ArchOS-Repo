@@ -76,6 +76,8 @@ export class SpatialEngine {
   private readonly modulePositionScratch = new THREE.Vector3();
   private readonly previousPositions = new Map<string, THREE.Vector3>();
   private readonly incomingEntityIds = new Set<string>();
+  private readonly nextEdgeIds = new Set<string>();
+  private readonly degreeByNode = new Map<string, number>();
   private readonly indexEntries: Array<{ id: string; position: THREE.Vector3; activity: number; moduleId: string }> = [];
   private readonly snapshotNodes: SpatialNode[] = [];
   private readonly snapshotEdges: SpatialEdge[] = [];
@@ -269,22 +271,31 @@ export class SpatialEngine {
   }
 
   private rebuildGraph(): void {
-    this.edges.clear();
-    const core = this.nodes.get('core');
-    if (!core) this.ensureCore();
+    this.nextEdgeIds.clear();
+    this.degreeByNode.clear();
 
+    const ensureEdge = (source: string, target: string, strength: number, type: SpatialEdge['type']): boolean => {
+      const id = `${source}::${target}`;
+      this.nextEdgeIds.add(id);
+      const existing = this.edges.get(id);
+      if (existing) {
+        existing.strength = strength;
+        existing.type = type;
+      } else {
+        this.edges.set(id, { id, source, target, strength, type });
+        this.topologyDirty = true;
+      }
+      return true;
+    };
+
+    // Core links are authoritative and intentionally exempt from the local
+    // neighbor budget: every module must remain visibly connected to TON 618.
     for (const module of SPATIAL_MODULES) {
       const id = `module:${module.id}`;
       const node = this.nodes.get(id);
       if (!node) continue;
       const strength = THREE.MathUtils.clamp(0.55 + node.activity * 0.45, 0, 1);
-      this.edges.set(`core::${id}`, {
-        id: `core::${id}`,
-        source: 'core',
-        target: id,
-        strength,
-        type: 'core',
-      });
+      ensureEdge('core', id, strength, 'core');
     }
 
     for (const node of this.nodes.values()) {
@@ -295,20 +306,25 @@ export class SpatialEngine {
         if (neighbor.id === node.id || neighbor.id === 'core') continue;
         const other = this.nodes.get(neighbor.id);
         if (!other) continue;
-        const a = node.id < other.id ? node.id : other.id;
-        const b = node.id < other.id ? other.id : node.id;
-        const id = `${a}::${b}`;
-        if (this.edges.has(id)) continue;
-        this.edges.set(id, {
-          id,
-          source: a,
-          target: b,
-          strength: THREE.MathUtils.clamp(neighbor.strength, 0, 1),
-          type: 'spatial',
-        });
+        const source = node.id < other.id ? node.id : other.id;
+        const target = node.id < other.id ? other.id : node.id;
+        const sourceDegree = this.degreeByNode.get(source) ?? 0;
+        const targetDegree = this.degreeByNode.get(target) ?? 0;
+        if (sourceDegree >= this.options.maxEdgesPerNode || targetDegree >= this.options.maxEdgesPerNode) continue;
+
+        const strength = THREE.MathUtils.clamp(neighbor.strength, 0, 1);
+        ensureEdge(source, target, strength, 'spatial');
+        this.degreeByNode.set(source, sourceDegree + 1);
+        this.degreeByNode.set(target, targetDegree + 1);
       }
     }
-    this.topologyDirty = true;
+
+    for (const id of this.edges.keys()) {
+      if (!this.nextEdgeIds.has(id)) {
+        this.edges.delete(id);
+        this.topologyDirty = true;
+      }
+    }
   }
 
   private propagateActivity(): void {
