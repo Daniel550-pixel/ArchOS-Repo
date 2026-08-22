@@ -2,9 +2,8 @@ import * as THREE from 'three';
 import {
   CORE_ID,
   SPATIAL_MODULES,
-  modulePositionAtTime,
+  modulePositionAtTimeInto,
   normalizedActivity,
-  type SpatialModule,
 } from './SpatialRuntime';
 import { SpatialHashIndex } from './SpatialIndex';
 import type { SpatialEntity } from './WorldModelSpatialBridge';
@@ -74,10 +73,32 @@ export class SpatialEngine {
   private readonly index: SpatialHashIndex;
   private readonly options: Required<EngineOptions>;
   private readonly scratch = new THREE.Vector3();
+  private readonly modulePositionScratch = new THREE.Vector3();
   private readonly previousPositions = new Map<string, THREE.Vector3>();
+  private readonly incomingEntityIds = new Set<string>();
+  private readonly indexEntries: Array<{ id: string; position: THREE.Vector3; activity: number; moduleId: string }> = [];
+  private readonly snapshotNodes: SpatialNode[] = [];
+  private readonly snapshotEdges: SpatialEdge[] = [];
+  private readonly snapshotMetrics: SpatialMetrics = {
+    nodes: 0,
+    edges: 0,
+    activeNodes: 0,
+    fullLod: 0,
+    reducedLod: 0,
+    pointLod: 0,
+    spatialRebuilds: 0,
+    graphRebuilds: 0,
+  };
+  private readonly snapshotCache: SpatialSnapshot = {
+    time: 0,
+    nodes: this.snapshotNodes,
+    edges: this.snapshotEdges,
+    metrics: this.snapshotMetrics,
+    focusedNode: null,
+  };
   private focusedNode: string | null = null;
   private pendingEntities: SpatialEntity[] = [];
-  private snapshotCache: SpatialSnapshot | null = null;
+  private topologyDirty = true;
   private lastSpatialRebuild = -Infinity;
   private lastGraphRebuild = -Infinity;
   private spatialRebuilds = 0;
@@ -91,7 +112,7 @@ export class SpatialEngine {
 
   setEntities(entities: SpatialEntity[]): void {
     this.pendingEntities = entities;
-    this.snapshotCache = null;
+    this.snapshotCache.time = 0;
   }
 
   tick(time: number, entities: SpatialEntity[] = this.pendingEntities): SpatialSnapshot {
@@ -113,12 +134,11 @@ export class SpatialEngine {
     }
 
     this.updateLod();
-    this.snapshotCache = this.snapshot(time);
-    return this.snapshotCache;
+    return this.snapshot(time);
   }
 
   getSnapshot(): SpatialSnapshot {
-    return this.snapshotCache ?? this.snapshot(0);
+    return this.snapshotCache;
   }
 
   getNode(id: string): SpatialNode | undefined {
@@ -127,7 +147,7 @@ export class SpatialEngine {
 
   setFocus(id: string | null): void {
     this.focusedNode = id && this.nodes.has(id) ? id : null;
-    this.snapshotCache = null;
+    this.snapshotCache.focusedNode = this.focusedNode;
   }
 
   getFocusId(): string | null {
@@ -149,11 +169,11 @@ export class SpatialEngine {
   }
 
   private syncEntities(entities: SpatialEntity[]): void {
-    const incoming = new Set<string>();
+    this.incomingEntityIds.clear();
 
     for (const entity of entities) {
       const id = `entity:${entity.id}`;
-      incoming.add(id);
+      this.incomingEntityIds.add(id);
       const existing = this.nodes.get(id);
       if (existing) {
         existing.moduleId = entity.moduleId;
@@ -172,17 +192,22 @@ export class SpatialEngine {
           radius: Math.max(0.8, entity.radius ?? 1),
           lod: 'reduced',
         });
+        this.topologyDirty = true;
       }
     }
 
     for (const [id, node] of this.nodes) {
-      if (node.kind === 'entity' && !incoming.has(id)) {
+      if (node.kind === 'entity' && !this.incomingEntityIds.has(id)) {
         this.nodes.delete(id);
         this.previousPositions.delete(id);
+        this.topologyDirty = true;
       }
     }
 
-    if (this.focusedNode && !this.nodes.has(this.focusedNode)) this.focusedNode = null;
+    if (this.focusedNode && !this.nodes.has(this.focusedNode)) {
+      this.focusedNode = null;
+      this.snapshotCache.focusedNode = null;
+    }
   }
 
   private updateMotion(time: number): void {
@@ -204,7 +229,7 @@ export class SpatialEngine {
 
     for (const module of SPATIAL_MODULES) {
       const id = `module:${module.id}`;
-      const position = modulePositionAtTime(module, time);
+      const position = modulePositionAtTimeInto(module, time, this.modulePositionScratch);
       const activity = normalizedActivity(module, time);
       const existing = this.nodes.get(id);
 
@@ -225,17 +250,22 @@ export class SpatialEngine {
           radius: 4,
           lod: 'full',
         });
+        this.topologyDirty = true;
       }
     }
   }
 
   private rebuildSpatialIndex(): void {
-    this.index.rebuild([...this.nodes.values()].map((node) => ({
-      id: node.id,
-      position: node.position,
-      activity: node.activity,
-      moduleId: node.moduleId,
-    })));
+    this.indexEntries.length = 0;
+    for (const node of this.nodes.values()) {
+      this.indexEntries.push({
+        id: node.id,
+        position: node.position,
+        activity: node.activity,
+        moduleId: node.moduleId,
+      });
+    }
+    this.index.rebuild(this.indexEntries);
   }
 
   private rebuildGraph(): void {
@@ -243,8 +273,6 @@ export class SpatialEngine {
     const core = this.nodes.get('core');
     if (!core) this.ensureCore();
 
-    // The World Model is one intelligence field: every registered module has a
-    // first-class connection to the TON 618 / ULTRON core.
     for (const module of SPATIAL_MODULES) {
       const id = `module:${module.id}`;
       const node = this.nodes.get(id);
@@ -280,6 +308,7 @@ export class SpatialEngine {
         });
       }
     }
+    this.topologyDirty = true;
   }
 
   private propagateActivity(): void {
@@ -314,6 +343,14 @@ export class SpatialEngine {
   }
 
   private snapshot(time: number): SpatialSnapshot {
+    if (this.topologyDirty) {
+      this.snapshotNodes.length = 0;
+      this.snapshotEdges.length = 0;
+      for (const node of this.nodes.values()) this.snapshotNodes.push(node);
+      for (const edge of this.edges.values()) this.snapshotEdges.push(edge);
+      this.topologyDirty = false;
+    }
+
     let activeNodes = 0;
     let fullLod = 0;
     let reducedLod = 0;
@@ -326,21 +363,16 @@ export class SpatialEngine {
       else pointLod += 1;
     }
 
-    return {
-      time,
-      nodes: [...this.nodes.values()],
-      edges: [...this.edges.values()],
-      focusedNode: this.focusedNode,
-      metrics: {
-        nodes: this.nodes.size,
-        edges: this.edges.size,
-        activeNodes,
-        fullLod,
-        reducedLod,
-        pointLod,
-        spatialRebuilds: this.spatialRebuilds,
-        graphRebuilds: this.graphRebuilds,
-      },
-    };
+    this.snapshotMetrics.nodes = this.nodes.size;
+    this.snapshotMetrics.edges = this.edges.size;
+    this.snapshotMetrics.activeNodes = activeNodes;
+    this.snapshotMetrics.fullLod = fullLod;
+    this.snapshotMetrics.reducedLod = reducedLod;
+    this.snapshotMetrics.pointLod = pointLod;
+    this.snapshotMetrics.spatialRebuilds = this.spatialRebuilds;
+    this.snapshotMetrics.graphRebuilds = this.graphRebuilds;
+    this.snapshotCache.time = time;
+    this.snapshotCache.focusedNode = this.focusedNode;
+    return this.snapshotCache;
   }
 }
