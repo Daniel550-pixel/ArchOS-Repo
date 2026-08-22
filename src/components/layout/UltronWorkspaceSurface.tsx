@@ -1,25 +1,24 @@
 import React from 'react';
-import { Activity, ArrowUpRight, Brain, Globe2, Layers3, Radio, ShieldCheck, Sparkles } from 'lucide-react';
+import { Activity, ArrowUpRight, Globe2, Layers3, Radio, ShieldCheck, Sparkles } from 'lucide-react';
 import type { ActiveTab } from './HeaderBar';
 import type { AIOSRuntimeState } from '../../aios/runtime';
 
 type Props = {
   activeTab: ActiveTab;
   runtime: AIOSRuntimeState;
-  onSelect: (tab: ActiveTab) => void;
 };
 
 const signals = [
-  ['Dubai mobility', 'Network pressure remains contained', '94%'],
-  ['UAE non-oil trade', 'Positive momentum across key corridors', '91%'],
-  ['Abu Dhabi development', 'Construction activity above baseline', '89%'],
+  ['Mobility signal', 'Awaiting live World Model correlation', '—'],
+  ['Economic signal', 'Awaiting verified intelligence feed', '—'],
+  ['Development signal', 'Awaiting verified intelligence feed', '—'],
 ];
 
 const cityNodes = [
-  ['Dubai', 'HIGH ACTIVITY'],
-  ['Abu Dhabi', 'STABLE'],
-  ['Sharjah', 'RISING'],
-  ['Fujairah', 'STABLE'],
+  ['Dubai', 'LIVE CONTEXT'],
+  ['Abu Dhabi', 'LIVE CONTEXT'],
+  ['Sharjah', 'LIVE CONTEXT'],
+  ['Fujairah', 'LIVE CONTEXT'],
 ];
 
 const SurfaceShell: React.FC<{ eyebrow: string; title: string; description: string; children: React.ReactNode }> = ({ eyebrow, title, description, children }) => (
@@ -89,11 +88,11 @@ const WorldSurface: React.FC = () => (
       </div>
       <aside className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-5">
         <div className="text-[9px] uppercase tracking-[0.22em] text-white/30">World model</div>
-        <div className="mt-2 text-lg font-light">UAE / live</div>
+        <div className="mt-2 text-lg font-light">UAE / connected</div>
         <div className="mt-5 space-y-3">
-          {['Spatial entities', 'Active signals', 'Temporal revisions', 'Confidence coverage'].map((label, i) => (
+          {['Spatial entities', 'Active signals', 'Temporal revisions', 'Confidence coverage'].map((label) => (
             <div key={label} className="flex items-center justify-between border-b border-white/[0.06] pb-3 text-xs">
-              <span className="text-white/45">{label}</span><span className="text-white/75">{['12,480', '248', '1,204', '96.2%'][i]}</span>
+              <span className="text-white/45">{label}</span><span className="text-white/40">LIVE FEED</span>
             </div>
           ))}
         </div>
@@ -109,20 +108,20 @@ const IntelSurface: React.FC = () => (
   <SurfaceShell eyebrow="INTELLIGENCE / SIGNAL" title="Signal intelligence" description="The intelligence layer is intentionally quiet: only material signals, confidence and assessment are surfaced by default.">
     <div className="grid gap-4 lg:grid-cols-[1fr_330px]">
       <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02]">
-        {signals.map(([title, detail, confidence], i) => (
+        {signals.map(([title, detail, confidence]) => (
           <article key={title} className="group flex items-center gap-5 border-b border-white/[0.06] px-5 py-5 last:border-0 hover:bg-white/[0.025]">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.025] text-cyan-200/70"><Radio className="h-4 w-4" /></div>
             <div className="min-w-0 flex-1"><h2 className="text-sm text-white/85">{title}</h2><p className="mt-1 truncate text-xs text-white/35">{detail}</p></div>
-            <div className="text-right"><div className="text-sm text-white/80">{confidence}</div><div className="mt-1 text-[8px] uppercase tracking-[0.16em] text-white/25">confidence</div></div>
+            <div className="text-right"><div className="text-sm text-white/40">{confidence}</div><div className="mt-1 text-[8px] uppercase tracking-[0.16em] text-white/25">confidence</div></div>
           </article>
         ))}
       </div>
       <aside className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-5">
         <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.2em] text-white/30"><ShieldCheck className="h-3.5 w-3.5 text-emerald-300/60" /> assessment integrity</div>
-        <div className="mt-6 text-5xl font-light tracking-[-0.05em] text-white">94<span className="text-xl text-white/25">%</span></div>
-        <p className="mt-2 text-xs leading-5 text-white/35">High-confidence signal coverage across the active intelligence set.</p>
-        <div className="mt-6 h-1 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full w-[94%] rounded-full bg-cyan-200/70 shadow-[0_0_12px_rgba(103,232,249,.4)]" /></div>
-        <div className="mt-5 flex items-center gap-2 text-[9px] uppercase tracking-[0.16em] text-white/30"><Sparkles className="h-3.5 w-3.5" /> verified context</div>
+        <div className="mt-6 text-5xl font-light tracking-[-0.05em] text-white">—</div>
+        <p className="mt-2 text-xs leading-5 text-white/35">Confidence becomes visible when verified intelligence is present in the active feed.</p>
+        <div className="mt-6 h-1 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full w-0 rounded-full bg-cyan-200/70" /></div>
+        <div className="mt-5 flex items-center gap-2 text-[9px] uppercase tracking-[0.16em] text-white/30"><Sparkles className="h-3.5 w-3.5" /> awaiting verified context</div>
       </aside>
     </div>
   </SurfaceShell>
@@ -141,7 +140,7 @@ const ExperienceSurface: React.FC = () => (
   </SurfaceShell>
 );
 
-export const UltronWorkspaceSurface: React.FC<Props> = ({ activeTab, runtime, onSelect }) => {
+export const UltronWorkspaceSurface: React.FC<Props> = ({ activeTab, runtime }) => {
   if (activeTab === 'orb') return <CoreSurface runtime={runtime} />;
   if (activeTab === 'world') return <WorldSurface />;
   if (activeTab === 'intelligence') return <IntelSurface />;
