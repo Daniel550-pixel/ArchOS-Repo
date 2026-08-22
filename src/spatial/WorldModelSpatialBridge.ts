@@ -14,7 +14,7 @@ export type WorldModelEntity = {
   metadata?: Record<string, unknown>;
 };
 
-export type SpatialEntity = WorldModelEntity & {
+export type SpatialEntity = Omit<WorldModelEntity, 'position' | 'activity' | 'moduleId' | 'radius'> & {
   position: THREE.Vector3;
   activity: number;
   moduleId: string;
@@ -47,7 +47,10 @@ export function projectWorldEntity(entity: WorldModelEntity, index = 0): Spatial
     : moduleAnchor.clone().multiplyScalar(.72).add(new THREE.Vector3(Math.cos(theta) * radius, vertical, Math.sin(theta) * radius));
 
   return {
-    ...entity,
+    id: entity.id,
+    label: entity.label,
+    kind: entity.kind,
+    metadata: entity.metadata,
     position,
     activity: THREE.MathUtils.clamp(entity.activity ?? module.activity, 0, 1),
     radius: Math.max(.8, entity.radius ?? 1),
