@@ -13,6 +13,7 @@
     "test:governance": "node scripts/verify-governance.mjs",
     "test:a3": "node scripts/verify-a3-engine.mjs",
     "test:a4": "node scripts/verify-a4-fabric.mjs",
+    "test:hand": "tsx src/lib/interaction/SpatialInteractionRuntime.test.ts",
     "bench:spatial": "node scripts/spatial-benchmark.mjs"
   },
   "dependencies": {
@@ -32,7 +33,6 @@
     "express": "^4.21.2",
     "framer-motion": "^13.1.0",
     "leaflet": "^1.9.4",
-    "lucide-react": "^0.546.0",
     "maplibre-gl": "^6.4.1",
     "motion": "^12.23.24",
     "mqtt": "^5.15.2",
@@ -45,11 +45,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/express": "^4.17.21",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
-    "tailwindcss": "^4.1.14",
+    "tailwindcss": "^4.1.0",
     "typescript": "~5.8.2",
-    "tsx": "^4.21.0",
-    "@types/express": "^4.17.21"
+    "tsx": "^4.21.0"
   }
 }
