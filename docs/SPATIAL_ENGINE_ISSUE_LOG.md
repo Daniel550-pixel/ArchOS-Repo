@@ -32,9 +32,9 @@ This document records defects found and repaired during the TON 618 spatial-runt
 - **Resolution:** Render, spatial-index, and graph cadences are separated.
 
 ### 006 — Repeated GPU geometry allocation
-- **Symptom:** Edge geometry could be regenerated unnecessarily during graph changes.
-- **Impact:** Garbage collection pressure and frame-time spikes.
-- **Resolution:** Persistent GPU buffers are reused and updated only when topology changes.
+- **Symptom:** Edge geometry was regenerated and replaced when topology changed.
+- **Impact:** Avoidable garbage-collection pressure and frame-time spikes.
+- **Resolution:** The renderer now allocates one fixed-capacity Float32 GPU buffer and reuses it across frames.
 
 ### 007 — Missing bounded graph growth
 - **Symptom:** Entity relationships could grow without a strict per-node edge budget.
@@ -51,6 +51,16 @@ This document records defects found and repaired during the TON 618 spatial-runt
 - **Impact:** UI could look connected without the runtime actually expressing those relationships.
 - **Resolution:** Core/module relationships are represented in the spatial graph and renderer.
 
+### 010 — Whole-object frustum culling was insufficient
+- **Symptom:** The renderer's `frustumCulled` flag operated on the complete line object, not individual spatial edges.
+- **Impact:** Off-screen graph segments could remain in the GPU submission when the living field was only partially visible.
+- **Resolution:** Added per-edge camera-frustum filtering plus LOD pruning before draw-range submission.
+
+### 011 — Edge buffer capacity was allocation-driven
+- **Symptom:** Buffer capacity followed current edge count, causing repeated typed-array allocations as topology changed.
+- **Impact:** Unnecessary allocation churn during graph rebuilds.
+- **Resolution:** Fixed-capacity typed buffer is allocated once and reused with `setDrawRange`.
+
 ## Current target
 
 `World Model → Spatial Runtime → TON 618 Core → Module Graph → LOD/Culling → GPU Renderer`
@@ -60,10 +70,9 @@ The runtime must preserve this as a single coherent spatial model rather than la
 ## Next iteration queue
 
 1. Typed-array entity storage for hot-path spatial data.
-2. Camera-frustum culling before GPU submission.
-3. Cluster-level LOD for large World Model populations.
-4. Incremental graph updates instead of full rebuilds where possible.
-5. GPU instancing for repeated module/entity visual primitives.
-6. Frame-time instrumentation and adaptive quality scaling.
-7. Deterministic spatial simulation for reproducible debugging.
-8. Automated TypeScript/build validation after every runtime change.
+2. Cluster-level LOD for large World Model populations.
+3. Incremental graph updates instead of full rebuilds where possible.
+4. GPU instancing for repeated module/entity visual primitives.
+5. Frame-time instrumentation and adaptive quality scaling.
+6. Deterministic spatial simulation for reproducible debugging.
+7. Automated TypeScript/build validation after every runtime change.
