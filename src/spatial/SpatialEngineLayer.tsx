@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DynamicDrawUsage, LineBasicMaterial, Matrix4, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, DynamicDrawUsage, LineBasicMaterial, Matrix4, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
 import { SpatialEngine, type SpatialTemporalState } from './SpatialEngine';
 import type { SpatialEntity } from './WorldModelSpatialBridge';
 
@@ -77,27 +77,25 @@ export function SpatialEngineLayer({ entities, temporalState = 'current', tempor
     }
   });
 
-  const entityColor = new Color('#f3fbff');
-  const moduleColor = new Color('#a9e7ff');
-
   return (
     <group>
       <lineSegments geometry={geometry} material={material} />
-      <instancedMesh ref={moduleRef} args={[nodeGeometry, moduleMaterial, moduleCount]} frustumCulled={false}>
-        <primitive attach="instanceColor" object={moduleColor} />
-      </instancedMesh>
-      <instancedMesh ref={entityRef} args={[nodeGeometry, nodeMaterial, Math.max(entities.length, 1)]} frustumCulled={false} onClick={(event) => {
-        event.stopPropagation();
-        const hit = event.instanceId;
-        if (hit == null) return;
-        const entity = entities[hit];
-        if (entity) {
-          engine.setFocus(`entity:${entity.id}`);
-          onFocusChange?.(entity.id);
-        }
-      }}>
-        <primitive attach="instanceColor" object={entityColor} />
-      </instancedMesh>
+      <instancedMesh ref={moduleRef} args={[nodeGeometry, moduleMaterial, moduleCount]} frustumCulled={false} />
+      <instancedMesh
+        ref={entityRef}
+        args={[nodeGeometry, nodeMaterial, Math.max(entities.length, 1)]}
+        frustumCulled={false}
+        onClick={(event) => {
+          event.stopPropagation();
+          const hit = event.instanceId;
+          if (hit == null) return;
+          const entity = entities[hit];
+          if (entity) {
+            engine.setFocus(`entity:${entity.id}`);
+            onFocusChange?.(entity.id);
+          }
+        }}
+      />
     </group>
   );
 }
