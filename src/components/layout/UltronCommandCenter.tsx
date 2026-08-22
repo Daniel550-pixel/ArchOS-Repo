@@ -1,7 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Activity, AudioLines, Brain, ChevronDown, Command, Eye, Globe2, Layers3, LayoutGrid, Mic, MonitorCog, MoreHorizontal, Orbit, Radio, Search, ShieldCheck, X } from 'lucide-react';
+import {
+  Activity,
+  AudioLines,
+  Brain,
+  ChevronDown,
+  Command,
+  Eye,
+  Globe2,
+  Layers3,
+  LayoutGrid,
+  Mic,
+  MonitorCog,
+  MoreHorizontal,
+  Orbit,
+  Radio,
+  Search,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
 import type { ActiveTab } from './HeaderBar';
+import { aiosRuntime } from '../../aios/runtime';
+import type { AIOSRuntimeState } from '../../aios/runtime';
 
 const primary: Array<{ id: ActiveTab; label: string; icon: React.ElementType; hint: string }> = [
   { id: 'orb', label: 'Core', icon: Orbit, hint: 'System center' },
@@ -11,19 +31,26 @@ const primary: Array<{ id: ActiveTab; label: string; icon: React.ElementType; hi
 ];
 
 const secondary: Array<{ id: ActiveTab; label: string }> = [
-  { id: 'rsi_agi', label: 'RSI / AGI Matrix' }, { id: 'design', label: 'Design Studio' },
-  { id: 'prove', label: 'Prove Sandbox' }, { id: 'build', label: 'Build 4D' },
-  { id: 'pulse', label: 'Pulse & Carbon' }, { id: 'skyway', label: 'Skyway Dispatch' },
-  { id: 'weather', label: 'Weather Radar' }, { id: 'valuation', label: 'Real Estate Valuation' },
-  { id: 'connectivity', label: 'Connectivity Matrix' }, { id: 'marketplace', label: 'Marketplace Hub' },
-  { id: 'finops', label: 'FinOps & Router' }, { id: 'live', label: 'Live Operations' },
+  { id: 'rsi_agi', label: 'RSI / AGI Matrix' },
+  { id: 'design', label: 'Design Studio' },
+  { id: 'prove', label: 'Prove Sandbox' },
+  { id: 'build', label: 'Build 4D' },
+  { id: 'pulse', label: 'Pulse & Carbon' },
+  { id: 'skyway', label: 'Skyway Dispatch' },
+  { id: 'weather', label: 'Weather Radar' },
+  { id: 'valuation', label: 'Real Estate Valuation' },
+  { id: 'connectivity', label: 'Connectivity Matrix' },
+  { id: 'marketplace', label: 'Marketplace Hub' },
+  { id: 'finops', label: 'FinOps & Router' },
+  { id: 'live', label: 'Live Operations' },
 ];
 
 const clickButton = (predicate: (button: HTMLButtonElement) => boolean) => {
   Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(predicate)?.click();
 };
 
-const findNavButton = (label: string) => clickButton((button) => button.textContent?.trim().toLowerCase().includes(label.toLowerCase()) ?? false);
+const findNavButton = (label: string) =>
+  clickButton((button) => button.textContent?.trim().toLowerCase().includes(label.toLowerCase()) ?? false);
 
 export const UltronCommandCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('orb');
@@ -31,13 +58,23 @@ export const UltronCommandCenter: React.FC = () => {
   const [listening, setListening] = useState(false);
   const [camera, setCamera] = useState(false);
   const [copilot, setCopilot] = useState(true);
-  const [systemState, setSystemState] = useState('IDLE');
+  const [runtime, setRuntime] = useState<AIOSRuntimeState>(() => aiosRuntime.getState());
   const [time, setTime] = useState('');
+
+  useEffect(() => aiosRuntime.subscribe(setRuntime), []);
 
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      const formatted = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(now).toUpperCase();
+      const formatted = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Dubai',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(now).toUpperCase();
       setTime(`${formatted} GST`);
     };
     update();
@@ -52,8 +89,12 @@ export const UltronCommandCenter: React.FC = () => {
     const subHeader = header?.nextElementSibling as HTMLElement | null;
     const main = appRoot.querySelector<HTMLElement>(':scope > main');
     const bottom = main?.nextElementSibling as HTMLElement | null;
-    [header, subHeader, bottom].forEach((element) => { if (element) element.dataset.ultronLegacyChrome = 'hidden'; });
-    return () => [header, subHeader, bottom].forEach((element) => { if (element) delete element.dataset.ultronLegacyChrome; });
+    [header, subHeader, bottom].forEach((element) => {
+      if (element) element.dataset.ultronLegacyChrome = 'hidden';
+    });
+    return () => [header, subHeader, bottom].forEach((element) => {
+      if (element) delete element.dataset.ultronLegacyChrome;
+    });
   }, []);
 
   const activeSecondary = useMemo(() => secondary.find((item) => item.id === activeTab), [activeTab]);
@@ -61,17 +102,23 @@ export const UltronCommandCenter: React.FC = () => {
   const select = (tab: ActiveTab) => {
     setActiveTab(tab);
     setMoreOpen(false);
+    aiosRuntime.setContext(tab, runtime.activeEntityId ?? undefined, 'workspace');
+    window.dispatchEvent(new CustomEvent('archos:navigate', { detail: { tab } }));
     findNavButton(tab === 'orb' ? 'Orb Core' : secondary.find((x) => x.id === tab)?.label || primary.find((x) => x.id === tab)?.label || tab);
   };
 
   const openCommand = () => {
+    aiosRuntime.setContext(activeTab, runtime.activeEntityId ?? undefined, 'command');
     clickButton((button) => (button.getAttribute('title') || '').toLowerCase().includes('command palette'));
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
   };
 
   const toggleVoice = () => {
     setListening((v) => !v);
-    clickButton((button) => { const title = (button.getAttribute('title') || '').toLowerCase(); return title.includes('listen') || title.includes('voice'); });
+    clickButton((button) => {
+      const title = (button.getAttribute('title') || '').toLowerCase();
+      return title.includes('listen') || title.includes('voice');
+    });
   };
 
   const toggleVision = () => {
@@ -84,6 +131,9 @@ export const UltronCommandCenter: React.FC = () => {
     clickButton((button) => button.textContent?.toUpperCase().includes('COPILOT DOCK') ?? false);
   };
 
+  const stateLabel = runtime.systemState || 'IDLE';
+  const isLive = stateLabel !== 'IDLE';
+
   return <>
     <header className="ultron-chrome-top" aria-label="ULTRON command center">
       <button className="ultron-brand" onClick={() => select('orb')} aria-label="Open ULTRON core">
@@ -91,16 +141,40 @@ export const UltronCommandCenter: React.FC = () => {
         <span className="ultron-brand-copy"><strong>ULTRON</strong><small>ARCHOS INTELLIGENCE OS</small></span>
       </button>
       <nav className="ultron-primary-nav" aria-label="Primary workspaces">
-        {primary.map(({ id, label, icon: Icon, hint }) => <button key={id} className={`ultron-nav-item ${activeTab === id ? 'is-active' : ''}`} onClick={() => select(id)} title={hint}><Icon /><span>{label}</span></button>)}
-        <button className={`ultron-nav-item ${activeSecondary ? 'is-active' : ''}`} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}><MoreHorizontal /><span>{activeSecondary?.label ?? 'More'}</span><ChevronDown className="ultron-nav-chevron" /></button>
+        {primary.map(({ id, label, icon: Icon, hint }) => (
+          <button key={id} className={`ultron-nav-item ${activeTab === id ? 'is-active' : ''}`} onClick={() => select(id)} title={hint}>
+            <Icon /><span>{label}</span>
+          </button>
+        ))}
+        <button className={`ultron-nav-item ${activeSecondary ? 'is-active' : ''}`} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
+          <MoreHorizontal /><span>{activeSecondary?.label ?? 'More'}</span><ChevronDown className="ultron-nav-chevron" />
+        </button>
       </nav>
-      <div className="ultron-top-status"><span className="ultron-status-dot" /><span className="ultron-status-label">{systemState}</span><span className="ultron-time">{time}</span></div>
+      <div className="ultron-top-status">
+        <span className={`ultron-status-dot ${isLive ? 'is-live' : ''}`} />
+        <span className="ultron-status-label">{stateLabel}</span>
+        <span className="ultron-context-label">{runtime.activeView ? runtime.activeView.toUpperCase() : 'CORE'}</span>
+        <span className="ultron-time">{time}</span>
+      </div>
     </header>
 
-    <AnimatePresence>{moreOpen && <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="ultron-more-menu">
-      <div className="ultron-more-head"><div><span className="ultron-eyebrow">WORKSPACES</span><strong>Intelligence surfaces</strong></div><button onClick={() => setMoreOpen(false)} aria-label="Close workspace menu"><X /></button></div>
-      <div className="ultron-more-grid">{secondary.map(({ id, label }) => <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => select(id)}><span>{label}</span><span>↗</span></button>)}</div>
-    </motion.div>}</AnimatePresence>
+    <AnimatePresence>
+      {moreOpen && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="ultron-more-menu">
+          <div className="ultron-more-head">
+            <div><span className="ultron-eyebrow">WORKSPACES</span><strong>Intelligence surfaces</strong></div>
+            <button onClick={() => setMoreOpen(false)} aria-label="Close workspace menu"><X /></button>
+          </div>
+          <div className="ultron-more-grid">
+            {secondary.map(({ id, label }) => (
+              <button key={id} className={activeTab === id ? 'is-active' : ''} onClick={() => select(id)}>
+                <span>{label}</span><span>↗</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
 
     <aside className="ultron-command-rail" aria-label="ULTRON controls">
       <button className="ultron-rail-command" onClick={openCommand} title="Command palette"><Command /><span>⌘K</span></button>
@@ -112,8 +186,12 @@ export const UltronCommandCenter: React.FC = () => {
     </aside>
 
     <div className="ultron-command-dock">
-      <button className="ultron-dock-search" onClick={openCommand}><Search /><span>Ask ULTRON anything</span><kbd>⌘ K</kbd></button>
-      <div className="ultron-dock-context"><span><Activity /> LIVE</span><span><ShieldCheck /> GOVERNED</span><span><MonitorCog /> AIOS</span></div>
+      <button className="ultron-dock-search" onClick={openCommand}>
+        <Search /><span>Ask ULTRON anything</span><kbd>⌘ K</kbd>
+      </button>
+      <div className="ultron-dock-context">
+        <span><Activity /> LIVE</span><span><ShieldCheck /> GOVERNED</span><span><MonitorCog /> AIOS</span>
+      </div>
       <button className="ultron-dock-grid" onClick={() => setMoreOpen((v) => !v)} title="Open workspaces"><LayoutGrid /></button>
     </div>
   </>;
