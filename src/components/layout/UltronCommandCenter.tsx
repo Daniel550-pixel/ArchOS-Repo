@@ -22,6 +22,7 @@ import {
 import type { ActiveTab } from './HeaderBar';
 import { aiosRuntime } from '../../aios/runtime';
 import type { AIOSRuntimeState } from '../../aios/runtime';
+import { UltronWorkspaceSurface } from './UltronWorkspaceSurface';
 
 const primary: Array<{ id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string; size?: number }>; hint: string }> = [
   { id: 'orb', label: 'Core', icon: Orbit, hint: 'System center' },
@@ -157,6 +158,8 @@ export const UltronCommandCenter: React.FC = () => {
         <span className="ultron-time">{time}</span>
       </div>
     </header>
+
+    <UltronWorkspaceSurface activeTab={activeTab} runtime={runtime} onSelect={select} />
 
     <AnimatePresence>
       {moreOpen && (
