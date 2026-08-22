@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { AdditiveBlending, BufferGeometry, LineBasicMaterial, Vector3 } from 'three';
+import { AdditiveBlending, BufferGeometry, Float32BufferAttribute, LineBasicMaterial, Vector3 } from 'three';
 import { SpatialEngine, type SpatialEdge } from './SpatialEngine';
 import type { SpatialEntity } from './WorldModelSpatialBridge';
 
 function EdgeField({ engine, edges }: { engine: SpatialEngine; edges: SpatialEdge[] }) {
   const geometry = useMemo(() => new BufferGeometry(), []);
   const material = useMemo(() => new LineBasicMaterial({ color: '#9bdcff', transparent: true, opacity: 0.055, blending: AdditiveBlending }), []);
-  const scratch = useMemo(() => new Vector3(), []);
 
   useEffect(() => () => { geometry.dispose(); material.dispose(); }, [geometry, material]);
 
@@ -19,17 +18,12 @@ function EdgeField({ engine, edges }: { engine: SpatialEngine; edges: SpatialEdg
       if (!source || !target) continue;
       vertices.push(source.x, source.y, source.z, target.x, target.y, target.z);
     }
-    geometry.setAttribute('position', new Float32BufferAttributeSafe(vertices));
+    geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+    geometry.computeBoundingSphere();
     material.opacity = 0.028 + (Math.sin(clock.elapsedTime * 0.9) * 0.5 + 0.5) * 0.035;
   });
 
   return <lineSegments geometry={geometry} material={material} />;
-}
-
-class Float32BufferAttributeSafe extends Float32Array {
-  itemSize = 3;
-  count = this.length / 3;
-  constructor(values: number[]) { super(values); }
 }
 
 export function SpatialEngineLayer({ entities }: { entities: SpatialEntity[] }) {
@@ -41,8 +35,8 @@ export function SpatialEngineLayer({ entities }: { entities: SpatialEntity[] }) 
     edges.current = engine.getSnapshot().edges;
   }, [engine, entities]);
 
-  useFrame(({ clock }, dt) => {
-    engine.tick(clock.elapsedTime, dt);
+  useFrame(({ clock }) => {
+    engine.tick(clock.elapsedTime);
     edges.current = engine.getSnapshot().edges;
   });
 
