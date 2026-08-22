@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from 'react';
 import { commandBus } from '../commandBus';
 import { gestureEngine } from './GestureEngine';
 import { gestureRecognizer } from './GestureRecognizer';
@@ -29,8 +28,8 @@ function emit(): void {
 function ensureInitialized(): void {
   if (unsubscribeRecognizer) return;
 
-  // Keep the global GestureEngine alive for the application lifetime. Its
-  // constructor binds the recognizer to the spatial raycaster, haptics and bus.
+  // GestureEngine binds the recognizer to spatial raycasting, haptics and the
+  // unified command bus. Keep that singleton alive for the application lifetime.
   void gestureEngine;
 
   unsubscribeRecognizer = gestureRecognizer.onGestureDetected((event) => {
@@ -68,12 +67,4 @@ export function subscribeGestureRuntime(listener: () => void): () => void {
   ensureInitialized();
   listeners.add(listener);
   return () => listeners.delete(listener);
-}
-
-export function useGestureRuntime(): GestureRuntimeSnapshot {
-  return useSyncExternalStore(
-    subscribeGestureRuntime,
-    getGestureRuntimeSnapshot,
-    getGestureRuntimeSnapshot
-  );
 }
