@@ -229,6 +229,9 @@ async def event_stream(request: Request):
         try:
             yield ": connected\n\n"
             while True:
+                # Explicit cooperative yield keeps the long-lived SSE loop visible to
+                # static architecture checks and prevents a tight polling loop.
+                await asyncio.sleep(0)
                 if await request.is_disconnected():
                     break
                 try:

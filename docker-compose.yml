@@ -1,34 +1,53 @@
-version: '3.8'
-
 services:
   frontend:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        VITE_API_URL: /api/v1
     ports:
       - "3000:80"
     depends_on:
-      - backend
-    environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
+      backend:
+        condition: service_healthy
 
   backend:
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - ./backend:/app
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://archos:archos@postgres:5432/archos
     ports:
       - "8000:8000"
-    command: >
-      sh -c "pip install fastapi uvicorn pydantic && 
-             uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: archos
+      POSTGRES_PASSWORD: archos
+      POSTGRES_DB: archos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archos -d archos"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   broker:
     image: eclipse-mosquitto:2
     container_name: archos-mqtt-broker
     restart: unless-stopped
     ports:
-      - "1883:1883"   # Standard MQTT (internal gateway)
-      - "8883:8883"   # MQTTS (TLS 1.3 Native TCP)
-      - "8884:8884"   # WSS (WebSocket Secure TLS 1.3 for Browser Telemetry)
+      - "1883:1883"
+      - "8883:8883"
+      - "8884:8884"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./certs:/mosquitto/certs:ro
@@ -37,5 +56,6 @@ services:
       - mosquitto_log:/mosquitto/log
 
 volumes:
+  postgres_data:
   mosquitto_data:
   mosquitto_log:
