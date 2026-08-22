@@ -40,6 +40,12 @@ export type ULTRONEventMap = {
     timestamp: number;
     payload?: unknown;
   };
+  'module.lifecycle': {
+    moduleId: string;
+    status: 'focused' | 'opened' | 'closed';
+    timestamp: number;
+    payload?: unknown;
+  };
 };
 
 export type ULTRONEventName = keyof ULTRONEventMap;
@@ -52,7 +58,6 @@ class ULTRONEventBus {
     const listeners = this.listeners.get(name) ?? new Set<(event: any) => void>();
     listeners.add(handler as (event: any) => void);
     this.listeners.set(name, listeners);
-
     return () => this.off(name, handler);
   }
 
