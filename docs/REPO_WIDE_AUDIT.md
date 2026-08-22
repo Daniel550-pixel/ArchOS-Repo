@@ -1,43 +1,53 @@
 # ArchOS Repository-Wide Audit
 
-## Scope
+## Active branch
 
-Audit pass covering the active TON 618 branch across spatial runtime, renderer, World Model bridge, frontend containerization, backend orchestration, CI, and production configuration consistency.
+`feat/spatial-runtime-ton618`
 
-## Fixed in prior pass
+## Executed engineering passes
 
-- Snapshot allocation churn in the spatial hot path.
-- Per-frame module-position allocations.
-- Repeated entity synchronization allocations.
-- Stable graph edge object churn.
-- True per-node spatial degree enforcement.
-- Backend Docker Compose runtime drift.
-- Missing PostgreSQL service/health dependency in local orchestration.
-- Frontend Vite API configuration being supplied after static build time.
-- Root/canonical frontend Docker build divergence.
-- CI not running on feature-branch pushes.
-- CI dependency-install fallback masking package-manager state.
+### Pass 1 — repository stabilization
 
-## Latest engineering pass
+- Snapshot allocation churn reduced in the spatial hot path.
+- Per-frame module-position allocations reduced.
+- Repeated entity synchronization allocations reduced.
+- Stable graph edge object churn reduced.
+- Per-node spatial degree enforcement corrected.
+- Backend Docker Compose runtime drift corrected.
+- PostgreSQL service/health dependency added to local orchestration.
+- Frontend Vite API configuration moved to a build-safe path.
+- Root/canonical frontend Docker build divergence corrected.
+- CI feature-branch push coverage corrected.
+- CI dependency-install fallback removed where it could mask package-manager state.
 
-- Added frame-time adaptive spatial quality control with Ultra/High/Balanced/Performance tiers.
-- Added deterministic spatial benchmark harness.
-- Exposed the benchmark through `npm run bench:spatial`.
-- Preserved the existing WebGPU/WebGL2 renderer architecture and TON 618 world-model topology.
+### Pass 2 — frame-time control
 
-## Performance contract
+- Deterministic spatial benchmark harness added.
+- `npm run bench:spatial` added.
+- Frame-time adaptive quality controller added with hysteresis.
+- Quality tiers: Ultra / High / Balanced / Performance.
 
-The controller targets 60 FPS (16.67 ms/frame) and adapts resolution, LOD, and effect quality only after sustained frame-time evidence. It does not fabricate GPU FPS measurements.
+### Pass 3 — spatial runtime foundation
 
-## Validation
+- Added `SpatialRuntime`: contiguous `Float32Array` position/radius storage and `Uint8Array` activity state.
+- Added allocation-light distance culling returning reusable `Uint32Array` visible IDs.
+- Added stable coarse spatial cell keys for incremental cluster scheduling.
+- Added `FrameQualityController` as the frame-time governor.
+- Added `src/lib/spatial/index.ts` as the public spatial-engine API.
 
-Automated GitHub Actions validation remains the production gate. CPU benchmark results do not constitute GPU 4K/60 FPS proof; browser/GPU timing must be measured on the actual rendering path.
+## Engineering contract
 
-## Next implementation layer
+The spatial runtime is designed to feed the existing renderer without requiring one JavaScript object per entity per frame. The quality governor reacts to measured frame time and uses hysteresis; it never fabricates GPU measurements.
 
-- Typed-array entity state in the spatial runtime.
-- Cluster-level LOD and frustum-aware scheduling.
-- Incremental graph mutation buffers.
-- GPU instancing for repeated spatial entities.
-- Deterministic simulation snapshots.
-- Browser-side 4K/60 FPS benchmark with GPU timing where supported.
+A 4K/60 FPS claim remains **unverified until browser/GPU timing is collected on the actual rendering path**.
+
+## Remaining high-value work
+
+1. Wire `SpatialRuntime` into the active renderer's entity lifecycle.
+2. Add frustum-plane culling in addition to distance culling.
+3. Add cluster-level LOD scheduling.
+4. Add GPU instancing for repeated geometry.
+5. Add incremental graph mutation buffers.
+6. Add deterministic simulation snapshots.
+7. Add browser-side GPU timing benchmark and automated regression thresholds.
+8. Validate WebGPU and WebGL2 fallback paths on production hardware.
