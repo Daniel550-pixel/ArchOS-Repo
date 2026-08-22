@@ -2,8 +2,10 @@
 
 ## Performance track
 
-- [ ] Cache/reuse snapshot topology arrays on stable frames.
+- [x] Cache/reuse snapshot topology arrays on stable frames.
 - [ ] Move hot-path entity position/radius/activity data to typed arrays.
+- [x] Add allocation-free module motion updates.
+- [x] Add reusable spatial-index entry storage.
 - [x] Add camera-frustum culling before render submission.
 - [ ] Add cluster-level LOD and visibility aggregation.
 - [ ] Add GPU instancing for repeated primitives.
@@ -30,15 +32,24 @@
 - [ ] Multi-resolution World Model representation.
 - [x] TON 618 core remains the authoritative visual/spatial anchor.
 
+## Infrastructure track
+
+- [x] Align Docker Compose with the authoritative backend runtime.
+- [x] Add health-gated PostgreSQL dependency for local orchestration.
+- [x] Make frontend API configuration explicit at build time.
+- [x] Unify root and canonical frontend container build paths.
+- [x] Execute CI on every branch push.
+
 ## Validation track
 
-- [ ] TypeScript validation.
-- [ ] Production build validation.
-- [ ] Runtime smoke test.
+- [ ] TypeScript validation confirmed by CI.
+- [ ] Production build validation confirmed by CI.
+- [ ] Runtime smoke test confirmed by CI.
 - [ ] Verify no duplicate UI layer is mounted over the canonical interface.
 - [ ] Verify all modules resolve to spatial graph nodes.
 - [x] Verify renderer consumes one spatial snapshot.
 - [ ] Verify 4K viewport scaling without proportional entity-count explosion.
+- [ ] Add automated spatial performance benchmark suite.
 
 ## Rule
 
