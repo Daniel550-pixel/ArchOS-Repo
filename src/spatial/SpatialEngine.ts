@@ -1,11 +1,17 @@
 import * as THREE from 'three';
-import { SPATIAL_MODULES, modulePositionAtTime, normalizedActivity, type SpatialModule } from './SpatialRuntime';
+import {
+  CORE_ID,
+  SPATIAL_MODULES,
+  modulePositionAtTime,
+  normalizedActivity,
+  type SpatialModule,
+} from './SpatialRuntime';
 import { SpatialHashIndex } from './SpatialIndex';
 import type { SpatialEntity } from './WorldModelSpatialBridge';
 
 export type SpatialNode = {
   id: string;
-  kind: 'module' | 'entity';
+  kind: 'core' | 'module' | 'entity';
   moduleId: string;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -20,6 +26,7 @@ export type SpatialEdge = {
   source: string;
   target: string;
   strength: number;
+  type: 'core' | 'spatial';
 };
 
 export type SpatialMetrics = {
@@ -47,6 +54,8 @@ type EngineOptions = {
   maxEdgesPerNode?: number;
   propagationIterations?: number;
   propagationFactor?: number;
+  neighborRadius?: number;
+  cellSize?: number;
 };
 
 const DEFAULTS: Required<EngineOptions> = {
@@ -55,16 +64,20 @@ const DEFAULTS: Required<EngineOptions> = {
   maxEdgesPerNode: 8,
   propagationIterations: 2,
   propagationFactor: 0.22,
+  neighborRadius: 5.5,
+  cellSize: 1.5,
 };
 
 export class SpatialEngine {
   private readonly nodes = new Map<string, SpatialNode>();
   private readonly edges = new Map<string, SpatialEdge>();
-  private readonly index = new SpatialHashIndex(120);
+  private readonly index: SpatialHashIndex;
   private readonly options: Required<EngineOptions>;
   private readonly scratch = new THREE.Vector3();
   private readonly previousPositions = new Map<string, THREE.Vector3>();
   private focusedNode: string | null = null;
+  private pendingEntities: SpatialEntity[] = [];
+  private snapshotCache: SpatialSnapshot | null = null;
   private lastSpatialRebuild = -Infinity;
   private lastGraphRebuild = -Infinity;
   private spatialRebuilds = 0;
@@ -72,9 +85,17 @@ export class SpatialEngine {
 
   constructor(options: EngineOptions = {}) {
     this.options = { ...DEFAULTS, ...options };
+    this.index = new SpatialHashIndex(this.options.cellSize);
+    this.ensureCore();
   }
 
-  tick(time: number, entities: SpatialEntity[] = []): SpatialSnapshot {
+  setEntities(entities: SpatialEntity[]): void {
+    this.pendingEntities = entities;
+    this.snapshotCache = null;
+  }
+
+  tick(time: number, entities: SpatialEntity[] = this.pendingEntities): SpatialSnapshot {
+    this.pendingEntities = entities;
     this.syncEntities(entities);
     this.updateMotion(time);
 
@@ -92,15 +113,39 @@ export class SpatialEngine {
     }
 
     this.updateLod();
-    return this.snapshot(time);
+    this.snapshotCache = this.snapshot(time);
+    return this.snapshotCache;
+  }
+
+  getSnapshot(): SpatialSnapshot {
+    return this.snapshotCache ?? this.snapshot(0);
+  }
+
+  getNode(id: string): SpatialNode | undefined {
+    return this.nodes.get(id);
   }
 
   setFocus(id: string | null): void {
     this.focusedNode = id && this.nodes.has(id) ? id : null;
+    this.snapshotCache = null;
   }
 
   getFocusId(): string | null {
     return this.focusedNode;
+  }
+
+  private ensureCore(): void {
+    this.nodes.set('core', {
+      id: 'core',
+      kind: 'core',
+      moduleId: CORE_ID,
+      position: new THREE.Vector3(0, 0, 0),
+      velocity: new THREE.Vector3(),
+      activity: 1,
+      propagatedActivity: 1,
+      radius: 7,
+      lod: 'full',
+    });
   }
 
   private syncEntities(entities: SpatialEntity[]): void {
@@ -112,19 +157,20 @@ export class SpatialEngine {
       const existing = this.nodes.get(id);
       if (existing) {
         existing.moduleId = entity.moduleId;
-        existing.activity = normalizedActivity(entity.activity ?? 0);
+        existing.activity = THREE.MathUtils.clamp(entity.activity, 0, 1);
         existing.radius = Math.max(0.8, entity.radius ?? 1);
+        existing.position.copy(entity.position);
       } else {
         this.nodes.set(id, {
           id,
           kind: 'entity',
           moduleId: entity.moduleId,
-          position: new THREE.Vector3(entity.position.x, entity.position.y, entity.position.z),
+          position: entity.position.clone(),
           velocity: new THREE.Vector3(),
-          activity: normalizedActivity(entity.activity ?? 0),
-          propagatedActivity: normalizedActivity(entity.activity ?? 0),
+          activity: THREE.MathUtils.clamp(entity.activity, 0, 1),
+          propagatedActivity: THREE.MathUtils.clamp(entity.activity, 0, 1),
           radius: Math.max(0.8, entity.radius ?? 1),
-          lod: 'full',
+          lod: 'reduced',
         });
       }
     }
@@ -140,26 +186,33 @@ export class SpatialEngine {
   }
 
   private updateMotion(time: number): void {
+    const core = this.nodes.get('core');
+    if (core) {
+      core.position.set(0, 0, 0);
+      core.velocity.set(0, 0, 0);
+      core.activity = 1;
+    }
+
     for (const node of this.nodes.values()) {
-      if (node.kind === 'module') continue;
+      if (node.kind !== 'entity') continue;
       const previous = this.previousPositions.get(node.id);
-      if (previous) {
-        node.velocity.set(node.position.x - previous.x, node.position.y - previous.y, node.position.z - previous.z);
-      } else {
-        node.velocity.set(0, 0, 0);
-      }
-      this.previousPositions.set(node.id, node.position.clone());
+      if (previous) node.velocity.copy(node.position).sub(previous);
+      else node.velocity.set(0, 0, 0);
+      if (previous) previous.copy(node.position);
+      else this.previousPositions.set(node.id, node.position.clone());
     }
 
     for (const module of SPATIAL_MODULES) {
       const id = `module:${module.id}`;
       const position = modulePositionAtTime(module, time);
+      const activity = normalizedActivity(module, time);
       const existing = this.nodes.get(id);
+
       if (existing) {
         this.scratch.copy(position).sub(existing.position);
         existing.velocity.copy(this.scratch);
         existing.position.copy(position);
-        existing.activity = normalizedActivity(module.activity);
+        existing.activity = activity;
       } else {
         this.nodes.set(id, {
           id,
@@ -167,8 +220,8 @@ export class SpatialEngine {
           moduleId: module.id,
           position: position.clone(),
           velocity: new THREE.Vector3(),
-          activity: normalizedActivity(module.activity),
-          propagatedActivity: normalizedActivity(module.activity),
+          activity,
+          propagatedActivity: activity,
           radius: 4,
           lod: 'full',
         });
@@ -177,36 +230,54 @@ export class SpatialEngine {
   }
 
   private rebuildSpatialIndex(): void {
-    this.index.clear();
-    for (const node of this.nodes.values()) this.index.insert(node.id, node.position);
+    this.index.rebuild([...this.nodes.values()].map((node) => ({
+      id: node.id,
+      position: node.position,
+      activity: node.activity,
+      moduleId: node.moduleId,
+    })));
   }
 
   private rebuildGraph(): void {
     this.edges.clear();
-    const radius = this.index.getCellSize() * 1.75;
+    const core = this.nodes.get('core');
+    if (!core) this.ensureCore();
+
+    // The World Model is one intelligence field: every registered module has a
+    // first-class connection to the TON 618 / ULTRON core.
+    for (const module of SPATIAL_MODULES) {
+      const id = `module:${module.id}`;
+      const node = this.nodes.get(id);
+      if (!node) continue;
+      const strength = THREE.MathUtils.clamp(0.55 + node.activity * 0.45, 0, 1);
+      this.edges.set(`core::${id}`, {
+        id: `core::${id}`,
+        source: 'core',
+        target: id,
+        strength,
+        type: 'core',
+      });
+    }
 
     for (const node of this.nodes.values()) {
-      const nearby = this.index.queryRadius(node.position, radius);
-      const candidates: Array<{ id: string; strength: number }> = [];
+      if (node.kind === 'core') continue;
+      const nearby = this.index.queryRadius(node.position, this.options.neighborRadius, this.options.maxEdgesPerNode + 1);
 
-      for (const id of nearby) {
-        if (id === node.id) continue;
-        const other = this.nodes.get(id);
+      for (const neighbor of nearby) {
+        if (neighbor.id === node.id || neighbor.id === 'core') continue;
+        const other = this.nodes.get(neighbor.id);
         if (!other) continue;
-        const distance = node.position.distanceTo(other.position);
-        if (distance > radius) continue;
-        const strength = (1 / (1 + distance)) * (0.25 + 0.75 * Math.max(node.activity, other.activity));
-        candidates.push({ id, strength });
-      }
-
-      candidates.sort((a, b) => b.strength - a.strength);
-      for (const candidate of candidates.slice(0, this.options.maxEdgesPerNode)) {
-        const a = node.id < candidate.id ? node.id : candidate.id;
-        const b = node.id < candidate.id ? candidate.id : node.id;
+        const a = node.id < other.id ? node.id : other.id;
+        const b = node.id < other.id ? other.id : node.id;
         const id = `${a}::${b}`;
-        if (!this.edges.has(id)) {
-          this.edges.set(id, { id, source: a, target: b, strength: candidate.strength });
-        }
+        if (this.edges.has(id)) continue;
+        this.edges.set(id, {
+          id,
+          source: a,
+          target: b,
+          strength: THREE.MathUtils.clamp(neighbor.strength, 0, 1),
+          type: 'spatial',
+        });
       }
     }
   }
@@ -215,31 +286,30 @@ export class SpatialEngine {
     for (const node of this.nodes.values()) node.propagatedActivity = node.activity;
 
     for (let iteration = 0; iteration < this.options.propagationIterations; iteration += 1) {
-      const next = new Map<string, number>();
-      for (const node of this.nodes.values()) next.set(node.id, node.propagatedActivity);
-
       for (const edge of this.edges.values()) {
         const source = this.nodes.get(edge.source);
         const target = this.nodes.get(edge.target);
         if (!source || !target) continue;
-        const transfer = Math.min(1, edge.strength) * this.options.propagationFactor;
-        next.set(target.id, Math.max(next.get(target.id) ?? 0, target.propagatedActivity + source.propagatedActivity * transfer));
-        next.set(source.id, Math.max(next.get(source.id) ?? 0, source.propagatedActivity + target.propagatedActivity * transfer));
+        const transfer = edge.strength * this.options.propagationFactor;
+        const sourceValue = source.propagatedActivity;
+        const targetValue = target.propagatedActivity;
+        source.propagatedActivity = Math.min(1, Math.max(sourceValue, sourceValue + targetValue * transfer));
+        target.propagatedActivity = Math.min(1, Math.max(targetValue, targetValue + sourceValue * transfer));
       }
-
-      for (const node of this.nodes.values()) node.propagatedActivity = Math.min(1, next.get(node.id) ?? node.activity);
     }
   }
 
   private updateLod(): void {
-    const focus = this.focusedNode ? this.nodes.get(this.focusedNode) : undefined;
+    const focus = this.focusedNode ? this.nodes.get(this.focusedNode) : this.nodes.get('core');
+    if (!focus) return;
+
     for (const node of this.nodes.values()) {
-      if (!focus) {
-        node.lod = node.kind === 'module' ? 'full' : 'reduced';
+      if (node.kind === 'core' || node.kind === 'module') {
+        node.lod = 'full';
         continue;
       }
       const distance = node.position.distanceTo(focus.position);
-      node.lod = distance < 250 ? 'full' : distance < 650 ? 'reduced' : 'point';
+      node.lod = distance < 5 ? 'full' : distance < 11 ? 'reduced' : 'point';
     }
   }
 
