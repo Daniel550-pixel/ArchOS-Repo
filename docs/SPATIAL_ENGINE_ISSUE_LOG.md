@@ -61,10 +61,45 @@ This document records defects found and repaired during the TON 618 spatial-runt
 - **Impact:** Unnecessary allocation churn during graph rebuilds.
 - **Resolution:** Fixed-capacity typed buffer is allocated once and reused with `setDrawRange`.
 
-### 012 — Snapshot allocation churn identified
-- **Symptom:** `SpatialEngine.tick()` currently reconstructs node/edge arrays and a snapshot object on every render frame, even when topology is unchanged.
+### 012 — Snapshot allocation churn
+- **Symptom:** `SpatialEngine.tick()` reconstructed node/edge arrays and a snapshot object on every render frame.
 - **Impact:** Avoidable JavaScript allocation and garbage-collection pressure directly on the 60 FPS hot path.
-- **Status:** Identified; queued for the next runtime optimization pass. No claim of resolution until the implementation and validation are complete.
+- **Resolution:** Snapshot arrays, metrics, and snapshot object are now persistent and updated in place; topology arrays are rebuilt only when topology changes.
+
+### 013 — Per-frame module position allocation
+- **Symptom:** Every spatial tick allocated a new `THREE.Vector3` for each animated module.
+- **Impact:** Repeated short-lived allocations on the render hot path.
+- **Resolution:** Added `modulePositionAtTimeInto()` and a reusable module-position scratch vector.
+
+### 014 — Reusable entity synchronization state
+- **Symptom:** Entity synchronization allocated a new `Set` on every tick.
+- **Impact:** Avoidable GC pressure proportional to frame rate.
+- **Resolution:** Reused a persistent entity-ID set and persistent spatial-index entry buffer.
+
+### 015 — Docker Compose backend drift
+- **Symptom:** Compose installed only a minimal subset of Python packages at container startup and launched `main:app --reload` instead of the authoritative backend runtime.
+- **Impact:** Local deployment could diverge materially from CI/production and could fail when required backend modules were imported.
+- **Resolution:** Compose now builds the canonical backend image, launches `app.main:app`, adds PostgreSQL, uses health-gated dependencies, and removes development reload behavior.
+
+### 016 — Frontend API configuration was runtime-only
+- **Symptom:** `VITE_API_URL` was supplied as a container environment variable after the static Vite bundle had already been built.
+- **Impact:** The value could not reliably reach client code in the generated frontend.
+- **Resolution:** API configuration is now a Docker build argument/environment variable at Vite build time; Compose uses the canonical `/api/v1` reverse-proxy path.
+
+### 017 — Root and canonical frontend Docker builds diverged
+- **Symptom:** The root `Dockerfile` and canonical `docker/Dockerfile.frontend` used different build assumptions and Nginx configurations.
+- **Impact:** `docker build .` and Compose could produce materially different frontend containers.
+- **Resolution:** Root and canonical frontend images now use the same build/runtime contract and canonical Nginx configuration.
+
+### 018 — CI did not execute on the active feature branch
+- **Symptom:** Push validation was restricted to `main` and `develop` while the spatial runtime was being developed on `feat/spatial-runtime-ton618`.
+- **Impact:** Runtime changes could be pushed without automatic repository validation.
+- **Resolution:** CI now runs on every branch push and additionally executes web-app, governance, A3, A4, TypeScript, build, backend, OpenAPI, and route validation.
+
+### 019 — CI dependency-install fallback masked package-manager state
+- **Symptom:** `npm ci || npm install` silently fell back because the repository carries `bun.lock` rather than a committed npm lockfile.
+- **Impact:** Dependency reproducibility was obscured and CI could behave differently from container builds.
+- **Resolution:** CI now uses one explicit installation path (`npm install --no-audit --no-fund`) consistent with the active package manifest/container build contract rather than masking a failed `npm ci`.
 
 ## Current target
 
@@ -72,13 +107,17 @@ This document records defects found and repaired during the TON 618 spatial-runt
 
 The runtime must preserve this as a single coherent spatial model rather than layering independent visualizations over one another.
 
-## Next iteration queue
+## Remaining engineering queue
 
-1. Cache/reuse immutable topology arrays and update only changed snapshot metadata.
-2. Typed-array entity storage for hot-path spatial data.
-3. Cluster-level LOD for large World Model populations.
-4. Incremental graph updates instead of full rebuilds where possible.
-5. GPU instancing for repeated module/entity visual primitives.
-6. Frame-time instrumentation and adaptive quality scaling.
-7. Deterministic spatial simulation for reproducible debugging.
-8. Automated TypeScript/build validation after every runtime change.
+1. Typed-array entity storage for hot-path spatial data.
+2. Cluster-level LOD and visibility aggregation.
+3. Incremental graph updates instead of full rebuilds where possible.
+4. GPU instancing for repeated module/entity visual primitives.
+5. Frame-time instrumentation and adaptive quality scaling.
+6. Deterministic spatial simulation for reproducible debugging.
+7. Automated runtime performance benchmarks, including 4K/60 FPS targets.
+8. End-to-end production deployment validation after CI completes successfully.
+
+## Scan policy
+
+The repository is treated as one system: frontend, spatial runtime, renderer, backend, CI, Docker, and deployment configuration are audited together. An issue is marked fixed only after the corresponding source/configuration change is committed; runtime/production claims remain pending until automated validation confirms them.
