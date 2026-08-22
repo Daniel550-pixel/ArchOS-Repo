@@ -59,10 +59,20 @@ export function normalizedActivity(module: SpatialModule, time: number): number 
   return THREE.MathUtils.clamp(module.activity * (.78 + wave * .22), 0, 1);
 }
 
-export function modulePositionAtTime(module: SpatialModule, time: number): THREE.Vector3 {
+/** Writes a time-varying module position into an existing Vector3 to avoid per-frame allocations. */
+export function modulePositionAtTimeInto(module: SpatialModule, time: number, target: THREE.Vector3): THREE.Vector3 {
   const orbit = Math.sin(time * .035 + module.angle) * .08;
   const radius = module.radius + orbit;
-  return new THREE.Vector3(Math.cos(module.angle) * radius, Math.sin(time * .28 + module.angle) * .08, Math.sin(module.angle) * radius);
+  target.set(
+    Math.cos(module.angle) * radius,
+    Math.sin(time * .28 + module.angle) * .08,
+    Math.sin(module.angle) * radius,
+  );
+  return target;
+}
+
+export function modulePositionAtTime(module: SpatialModule, time: number): THREE.Vector3 {
+  return modulePositionAtTimeInto(module, time, new THREE.Vector3());
 }
 
 export function createEngineState(): SpatialEngineState {
