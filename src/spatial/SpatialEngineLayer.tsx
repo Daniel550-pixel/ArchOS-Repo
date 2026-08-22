@@ -7,6 +7,7 @@ import type { SpatialEntity } from './WorldModelSpatialBridge';
 function EdgeField({ engine, edges }: { engine: SpatialEngine; edges: SpatialEdge[] }) {
   const geometry = useMemo(() => new BufferGeometry(), []);
   const material = useMemo(() => new LineBasicMaterial({ color: '#9bdcff', transparent: true, opacity: 0.055, blending: AdditiveBlending }), []);
+  const scratch = useMemo(() => new Vector3(), []);
 
   useEffect(() => () => { geometry.dispose(); material.dispose(); }, [geometry, material]);
 
