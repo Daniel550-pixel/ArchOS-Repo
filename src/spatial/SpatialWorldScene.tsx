@@ -1,0 +1,66 @@
+import React, { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Float, Sparkles, Text } from '@react-three/drei';
+import { AdditiveBlending, Color, DoubleSide, MathUtils, Mesh, Vector3 } from 'three';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
+import { SPATIAL_MODULES, modulePosition } from './SpatialRuntime';
+
+function Core(){
+  const group=useRef<THREE.Group>(null!);
+  useFrame((_,dt)=>{group.current.rotation.y+=dt*.06;});
+  return <group ref={group}>
+    <mesh><sphereGeometry args={[.72,64,64]}/><meshBasicMaterial color="#000000"/></mesh>
+    <mesh rotation={[Math.PI/2,0,0]}><torusGeometry args={[.9,.075,24,128]}/><meshBasicMaterial color="#ffe1a3" transparent opacity={.9} blending={AdditiveBlending}/></mesh>
+    <mesh rotation={[Math.PI/2,0,0]}><torusGeometry args={[1.12,.055,20,128]}/><meshBasicMaterial color="#ff8a35" transparent opacity={.34} blending={AdditiveBlending}/></mesh>
+    <pointLight color="#ff9a45" intensity={18} distance={9} decay={2}/>
+    <Text position={[0,-1.35,0]} fontSize={.24} color="#fff2dc" anchorX="center" anchorY="middle" letterSpacing={.12}>ULTRON</Text>
+    <Text position={[0,-1.62,0]} fontSize={.095} color="#9aa4b4" anchorX="center" anchorY="middle" letterSpacing={.18}>AIOS · WORLD MODEL CORE</Text>
+  </group>;
+}
+
+function Accretion(){
+  const points=useMemo(()=>Array.from({length:1400},()=>({a:Math.random()*Math.PI*2,r:.95+Math.pow(Math.random(),.7)*3.5,y:(Math.random()-.5)*.18,s:.5+Math.random()*1.7})),[]);
+  const ref=useRef<THREE.Group>(null!);
+  useFrame((_,dt)=>{ref.current.rotation.y+=dt*.16;});
+  return <group ref={ref} rotation={[Math.PI*.08,0,0]}>
+    {points.map((p,i)=><mesh key={i} position={[Math.cos(p.a)*p.r,p.y*(1+p.r*.25),Math.sin(p.a)*p.r]} scale={p.s*.018}>
+      <sphereGeometry args={[1,6,6]}/><meshBasicMaterial color={new Color().setHSL(.08+(1-p.r/4.5)*.08,.9,.52+.25*(1-p.r/4.5))} transparent opacity={.22+.45*(1-p.r/4.5)} blending={AdditiveBlending}/>
+    </mesh>)}
+  </group>;
+}
+
+function ModuleNode({module,onSelect}:{module:typeof SPATIAL_MODULES[number];onSelect?:(id:string)=>void}){
+  const pos=modulePosition(module,.05);
+  const ref=useRef<Mesh>(null!);
+  useFrame(({clock})=>{const pulse=1+Math.sin(clock.elapsedTime*2.2+module.angle)*.08;ref.current.scale.setScalar(pulse);});
+  return <group position={pos}>
+    <mesh ref={ref} onClick={(e)=>{e.stopPropagation();onSelect?.(module.id);}}>
+      <sphereGeometry args={[.13,16,16]}/><meshBasicMaterial color={module.color} transparent opacity={.95} blending={AdditiveBlending}/>
+    </mesh>
+    <mesh><sphereGeometry args={[.28,12,12]}/><meshBasicMaterial color={module.color} transparent opacity={.045} blending={AdditiveBlending}/></mesh>
+    <Text position={[0,.25,0]} fontSize={.105} color="#cbd3df" anchorX="center" anchorY="bottom" outlineWidth={.006} outlineColor="#000000">{module.label}</Text>
+  </group>;
+}
+
+function Connections(){
+  const positions=useMemo(()=>SPATIAL_MODULES.map(m=>modulePosition(m,.05)),[]);
+  const core=new Vector3(0,.05,0);
+  const vertices=useMemo(()=>{const a:number[]=[];positions.forEach(p=>a.push(core.x,core.y,core.z,p.x,p.y,p.z));return new Float32Array(a);},[positions]);
+  return <lineSegments><bufferGeometry><bufferAttribute attach="attributes-position" args={[vertices,3]}/></bufferGeometry><lineBasicMaterial color="#75cfff" transparent opacity={.17} blending={AdditiveBlending}/></lineSegments>;
+}
+
+function OrbitField(){return <>
+  {[2.1,2.8,3.55,4.25].map((r,i)=><mesh key={r} rotation={[Math.PI/2,0,0]}><torusGeometry args={[r,.006,6,180]}/><meshBasicMaterial color={i%2?'#5b8dff':'#ffb86b'} transparent opacity={.08} blending={AdditiveBlending}/></mesh>)}
+</>;}
+
+export function SpatialWorldScene({onModuleSelect}:{onModuleSelect?:(id:string)=>void}){
+  return <>
+    <color attach="background" args={['#010206']}/>
+    <ambientLight intensity={.08}/>
+    <Sparkles count={1800} scale={[18,8,18]} size={1.4} speed={.18} opacity={.5} color="#b9d8ff"/>
+    <Float speed={.35} rotationIntensity={.04} floatIntensity={.12}><Accretion/><Core/></Float>
+    <OrbitField/><Connections/>
+    {SPATIAL_MODULES.map(m=><ModuleNode key={m.id} module={m} onSelect={onModuleSelect}/>)}
+    <EffectComposer multisampling={0}><Bloom intensity={1.65} luminanceThreshold={.18} luminanceSmoothing={.55} mipmapBlur/></EffectComposer>
+  </>;
+}
