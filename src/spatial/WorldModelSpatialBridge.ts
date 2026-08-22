@@ -9,6 +9,7 @@ export type WorldModelEntity = {
   kind: WorldModelEntityKind;
   position?: [number, number, number];
   activity?: number;
+  radius?: number;
   moduleId?: string;
   metadata?: Record<string, unknown>;
 };
@@ -17,6 +18,7 @@ export type SpatialEntity = WorldModelEntity & {
   position: THREE.Vector3;
   activity: number;
   moduleId: string;
+  radius: number;
 };
 
 const DEFAULT_MODULE = SPATIAL_MODULES[0];
@@ -48,6 +50,7 @@ export function projectWorldEntity(entity: WorldModelEntity, index = 0): Spatial
     ...entity,
     position,
     activity: THREE.MathUtils.clamp(entity.activity ?? module.activity, 0, 1),
+    radius: Math.max(.8, entity.radius ?? 1),
     moduleId: module.id,
   };
 }
