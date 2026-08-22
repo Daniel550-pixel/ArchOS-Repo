@@ -2,6 +2,7 @@
 
 ## Performance track
 
+- [ ] Cache/reuse snapshot topology arrays on stable frames.
 - [ ] Move hot-path entity position/radius/activity data to typed arrays.
 - [x] Add camera-frustum culling before render submission.
 - [ ] Add cluster-level LOD and visibility aggregation.
