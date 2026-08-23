@@ -2,7 +2,7 @@
 
 > **An early-stage open-source AIOS / JARVIS-style software architecture for multimodal intelligence, reusable experiences, world-model services, simulation, and governed agent execution.**
 
-ArchOS is being developed as a modular AI operating-system-style platform. The repository currently combines backend orchestration and intelligence services with a multimodal 3D experience layer. The project is intentionally transparent about its maturity: it is early-stage, actively developed, and does **not** currently claim large-scale adoption or production-critical status.
+ArchOS is being developed as a modular AI operating-system-style platform. The repository combines backend orchestration and intelligence services with a multimodal 3D experience layer. The project is intentionally transparent about its maturity: it is early-stage, actively developed, and does **not** currently claim large-scale adoption or production-critical status.
 
 ## What is currently here
 
@@ -16,6 +16,7 @@ ArchOS is being developed as a modular AI operating-system-style platform. The r
 - Voice, vision, gesture, keyboard, mouse, touch, and API command inputs
 - Docker and GitHub Actions infrastructure
 - Project-specific linting, E2E, governance, and architecture verification commands
+- **Public Python SDK** for integrating with JARVIS and governed-action APIs
 
 ## Architecture
 
@@ -47,6 +48,26 @@ ArchOS is being developed as a modular AI operating-system-style platform. The r
 ```
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the detailed architectural model and boundaries.
+
+## Public integration surface
+
+ArchOS is being developed as a platform, not only as a standalone UI. The first public integration surface is the Python SDK under [`sdk/python`](sdk/python), which provides a thin typed client for the JARVIS and governed-action APIs.
+
+```python
+from archos_sdk import ArchOSClient
+
+with ArchOSClient("http://localhost:8000", token="YOUR_TOKEN") as archos:
+    health = archos.health()
+    result = archos.ask("Inspect the current runtime health and summarize anomalies.")
+    decision = archos.submit_action(
+        actor="operator",
+        agent="ops-agent",
+        target="runtime",
+        requested_operation="read_health",
+    )
+```
+
+The SDK intentionally does **not** bypass server-side identity, policy, risk, approval, audit, or execution controls. See [`sdk/python/README.md`](sdk/python/README.md) and [`docs/INTEGRATION.md`](docs/INTEGRATION.md).
 
 ## Current experience: Motion / Form
 
@@ -100,7 +121,7 @@ npm run build
 npm start
 ```
 
-Available verification commands are defined in `package.json`, including TypeScript checking and project-specific web, governance, A3, and A4 verification.
+For the backend, install `backend/requirements.txt` and run the authoritative FastAPI application exposed through `backend.main:app`.
 
 ## Configuration and secrets
 
@@ -110,7 +131,7 @@ The repository's `.gitignore` excludes environment files while explicitly retain
 
 ## Open-source project status
 
-ArchOS is MIT licensed and publicly developed. It is an early-stage project, so its current adoption and contributor base are limited. The project roadmap focuses first on reproducibility, automated verification, security, stable AIOS/JARVIS interfaces, world-model contracts, multimodal experience modules, and an organically growing contributor ecosystem.
+ArchOS is MIT licensed and publicly developed. It is an early-stage project, so its current adoption and contributor base are limited. The project roadmap focuses first on reproducibility, automated verification, security, stable AIOS/JARVIS interfaces, world-model contracts, multimodal experience modules, reusable integration surfaces, and an organically growing contributor ecosystem.
 
 See [`ROADMAP.md`](ROADMAP.md) for the current direction.
 
