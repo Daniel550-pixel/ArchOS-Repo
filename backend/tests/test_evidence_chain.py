@@ -68,6 +68,25 @@ async def test_changed_digest_fails_chain(db_session):
 
 
 @pytest.mark.asyncio
+async def test_broken_predecessor_fails_chain(db_session):
+    await postgres_evidence_store.append(db_session, make_entry())
+    second = make_entry(entry_id="entry-b", digest="b" * 64)
+    await postgres_evidence_store.append(db_session, second)
+    await tamper(db_session, "previous_digest", "broken")
+    result = await postgres_evidence_store.verify_chain(db_session)
+    assert result["valid"] is False
+
+
+@pytest.mark.asyncio
+async def test_wrong_chain_head_fails_chain_state(db_session):
+    await postgres_evidence_store.append(db_session, make_entry())
+    await db_session.execute(text("UPDATE archos_evidence_chain_state SET latest_digest = 'wrong' WHERE chain_name = 'default'"))
+    await db_session.commit()
+    result = await postgres_evidence_store.verify_chain(db_session)
+    assert result["valid"] is False
+
+
+@pytest.mark.asyncio
 async def test_append_only_rejects_update(db_session):
     await postgres_evidence_store.append(db_session, make_entry())
     row = (await db_session.execute(select(EvidenceRecordModel).where(EvidenceRecordModel.entry_id == "entry-a"))).scalar_one()
