@@ -1,5 +1,5 @@
 -- ArchOS evidence chain migration 0005
--- Rebuilds chain digests using the language-neutral framed representation
+-- Rebuilds chain digests using the exact language-neutral framed representation
 -- implemented by backend/agents/evidence_persistence.py.
 
 DO $$
@@ -9,6 +9,8 @@ DECLARE
     calculated VARCHAR(64);
     evidence_framed TEXT;
     canonical TEXT;
+    confidence_text TEXT;
+    timestamp_text TEXT;
 BEGIN
     FOR r IN
         SELECT id, entry_id, task_id, agent_id, source, claim, evidence,
@@ -18,11 +20,14 @@ BEGIN
         FOR UPDATE
     LOOP
         SELECT COALESCE(string_agg(
-            length(value)::text || ':' || value,
+            length(convert_to(value, 'UTF8'))::text || ':' || value,
             '' ORDER BY ordinality
         ), '')
         INTO evidence_framed
         FROM jsonb_array_elements_text(COALESCE(r.evidence::jsonb, '[]'::jsonb)) WITH ORDINALITY;
+
+        confidence_text := to_char(round(r.confidence::numeric, 12), 'FM999999999999990.000000000000');
+        timestamp_text := to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
 
         canonical :=
             length(convert_to(r.entry_id, 'UTF8'))::text || ':' || r.entry_id ||
@@ -31,9 +36,9 @@ BEGIN
             length(convert_to(r.source, 'UTF8'))::text || ':' || r.source ||
             length(convert_to(r.claim, 'UTF8'))::text || ':' || r.claim ||
             evidence_framed ||
-            length(convert_to(to_char(round(r.confidence::numeric, 12), 'FM999999999999990D999999999999'), 'UTF8'))::text || ':' || to_char(round(r.confidence::numeric, 12), 'FM999999999999990D999999999999') ||
+            length(convert_to(confidence_text, 'UTF8'))::text || ':' || confidence_text ||
             length(convert_to(r.reality, 'UTF8'))::text || ':' || r.reality ||
-            length(convert_to(r.created_at::text, 'UTF8'))::text || ':' || r.created_at::text ||
+            length(convert_to(timestamp_text, 'UTF8'))::text || ':' || timestamp_text ||
             length(convert_to(r.digest, 'UTF8'))::text || ':' || r.digest ||
             length(convert_to(COALESCE(previous, ''), 'UTF8'))::text || ':' || COALESCE(previous, '');
 
