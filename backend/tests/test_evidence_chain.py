@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from backend.agents.base import RealityLevel
 from backend.agents.evidence_ledger import EvidenceEntry
@@ -24,6 +24,13 @@ def make_entry(entry_id: str = "entry-a", digest: str = "a" * 64) -> EvidenceEnt
     )
 
 
+async def tamper(db_session, column: str, value: str):
+    await db_session.execute(text("ALTER TABLE archos_evidence_ledger DISABLE TRIGGER trg_archos_evidence_no_update"))
+    await db_session.execute(text(f"UPDATE archos_evidence_ledger SET {column} = :value WHERE entry_id = 'entry-a'"), {"value": value})
+    await db_session.execute(text("ALTER TABLE archos_evidence_ledger ENABLE TRIGGER trg_archos_evidence_no_update"))
+    await db_session.commit()
+
+
 @pytest.mark.asyncio
 async def test_valid_chain(db_session):
     await postgres_evidence_store.append(db_session, make_entry())
@@ -35,9 +42,7 @@ async def test_valid_chain(db_session):
 @pytest.mark.asyncio
 async def test_changed_claim_fails_chain(db_session):
     await postgres_evidence_store.append(db_session, make_entry())
-    row = (await db_session.execute(select(EvidenceRecordModel).where(EvidenceRecordModel.entry_id == "entry-a"))).scalar_one()
-    row.claim = "tampered"
-    await db_session.commit()
+    await tamper(db_session, "claim", "tampered")
     result = await postgres_evidence_store.verify_chain(db_session)
     assert result["valid"] is False
     assert result["failures"]
@@ -46,9 +51,7 @@ async def test_changed_claim_fails_chain(db_session):
 @pytest.mark.asyncio
 async def test_changed_evidence_fails_chain(db_session):
     await postgres_evidence_store.append(db_session, make_entry())
-    row = (await db_session.execute(select(EvidenceRecordModel).where(EvidenceRecordModel.entry_id == "entry-a"))).scalar_one()
-    row.evidence = ["tampered"]
-    await db_session.commit()
+    await tamper(db_session, "evidence", '["tampered"]')
     result = await postgres_evidence_store.verify_chain(db_session)
     assert result["valid"] is False
 
@@ -56,9 +59,7 @@ async def test_changed_evidence_fails_chain(db_session):
 @pytest.mark.asyncio
 async def test_changed_digest_fails_chain(db_session):
     await postgres_evidence_store.append(db_session, make_entry())
-    row = (await db_session.execute(select(EvidenceRecordModel).where(EvidenceRecordModel.entry_id == "entry-a"))).scalar_one()
-    row.digest = "b" * 64
-    await db_session.commit()
+    await tamper(db_session, "digest", "b" * 64)
     result = await postgres_evidence_store.verify_chain(db_session)
     assert result["valid"] is False
 
