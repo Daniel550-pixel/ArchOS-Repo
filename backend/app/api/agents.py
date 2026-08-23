@@ -9,6 +9,7 @@ from backend.agents.swarm import swarm
 from backend.agents.verification import agent_result_verifier
 from backend.agents.evidence_ledger import evidence_ledger
 from backend.agents.evidence_persistence import postgres_evidence_store
+from backend.agents.evidence_chain import verify_evidence_chain
 from app.services.event_fabric import app_event_fabric as fabric
 from app.core.database import AsyncSessionLocal
 from app.core.config import settings
@@ -59,6 +60,20 @@ async def register_agent(request: AgentRegistration):
 @router.get("")
 async def list_agents():
     return {"agents": list(_registry.values()), "count": len(_registry)}
+
+@router.get("/evidence/verify")
+async def verify_persistent_evidence_chain():
+    if not settings.DATABASE_URL:
+        raise HTTPException(status_code=503, detail="Persistent evidence database is not configured")
+    async with AsyncSessionLocal() as session:
+        result = await verify_evidence_chain(session)
+    return {
+        "valid": result.valid,
+        "entries_checked": result.entries_checked,
+        "latest_digest": result.latest_digest,
+        "state_matches": result.state_matches,
+        "failures": list(result.failures),
+    }
 
 @router.get("/{agent_id}")
 async def get_agent(agent_id: str):
