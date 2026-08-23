@@ -28,13 +28,7 @@ class RuntimeAdapterRegistry:
 
     def list_bindings(self) -> list[dict[str, Any]]:
         return [
-            {
-                "agent_id": agent_id,
-                "runtime_id": adapter.descriptor.runtime_id,
-                "version": adapter.descriptor.version,
-                "protocol": adapter.descriptor.protocol,
-                "capabilities": list(adapter.descriptor.capabilities),
-            }
+            {"agent_id": agent_id, "runtime_id": adapter.descriptor.runtime_id, "version": adapter.descriptor.version, "protocol": adapter.descriptor.protocol, "capabilities": list(adapter.descriptor.capabilities)}
             for agent_id, adapter in self._adapters.items()
         ]
 
@@ -53,11 +47,10 @@ class RuntimeAdapterRegistry:
         self._adapters.clear()
 
 
+runtime_registry = RuntimeAdapterRegistry()
+
+
 async def bind_canonical_swarm(swarm: Any) -> None:
     """Bind every canonical agent to an adapter at runtime startup."""
-    registry = runtime_registry
     for agent_id, agent in swarm.agents.items():
-        await registry.bind_if_missing(agent_id, InProcessRuntimeAdapter(agent))
-
-
-runtime_registry = RuntimeAdapterRegistry()
+        await runtime_registry.bind_if_missing(agent_id, InProcessRuntimeAdapter(agent))
