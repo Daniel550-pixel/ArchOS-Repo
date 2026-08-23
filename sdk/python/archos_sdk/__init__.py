@@ -1,5 +1,6 @@
 """Public Python SDK for the ArchOS HTTP API."""
 
+from .agents import AgentCapability, AgentRegistration
 from .client import ArchOSClient, ArchOSError
 from .models import (
     ActionDecision,
@@ -13,6 +14,8 @@ from .models import (
 __all__ = [
     "ArchOSClient",
     "ArchOSError",
+    "AgentCapability",
+    "AgentRegistration",
     "ActionDecision",
     "ActionResult",
     "JarvisResult",
