@@ -17,6 +17,7 @@ class ChainVerificationResult:
 
 
 async def verify_evidence_chain(session: AsyncSession) -> ChainVerificationResult:
+    """Return a structured, fail-closed integrity result."""
     result = await postgres_evidence_store.verify_chain(session)
     return ChainVerificationResult(
         valid=bool(result["valid"]),
