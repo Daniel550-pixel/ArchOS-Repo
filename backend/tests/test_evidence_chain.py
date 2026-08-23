@@ -26,7 +26,10 @@ def make_entry(entry_id: str = "entry-a", digest: str = "a" * 64) -> EvidenceEnt
 
 async def tamper(db_session, column: str, value: str):
     await db_session.execute(text("ALTER TABLE archos_evidence_ledger DISABLE TRIGGER trg_archos_evidence_no_update"))
-    await db_session.execute(text(f"UPDATE archos_evidence_ledger SET {column} = :value WHERE entry_id = 'entry-a'"), {"value": value})
+    if column == "evidence":
+        await db_session.execute(text("UPDATE archos_evidence_ledger SET evidence = CAST(:value AS jsonb) WHERE entry_id = 'entry-a'"), {"value": value})
+    else:
+        await db_session.execute(text(f"UPDATE archos_evidence_ledger SET {column} = :value WHERE entry_id = 'entry-a'"), {"value": value})
     await db_session.execute(text("ALTER TABLE archos_evidence_ledger ENABLE TRIGGER trg_archos_evidence_no_update"))
     await db_session.commit()
 
