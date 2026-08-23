@@ -1,4 +1,4 @@
-"""Public Agent Fabric contract with mandatory cross-agent verification."""
+"""Public Agent Fabric contract with persistent cross-agent verification."""
 from datetime import datetime, timezone
 from typing import Any
 import uuid
@@ -8,7 +8,10 @@ from backend.agents.base import AgentCapability, AgentTask, RiskLevel
 from backend.agents.swarm import swarm
 from backend.agents.verification import agent_result_verifier
 from backend.agents.evidence_ledger import evidence_ledger
+from backend.agents.evidence_persistence import postgres_evidence_store
 from app.services.event_fabric import app_event_fabric as fabric
+from app.core.database import AsyncSessionLocal
+from app.core.config import settings
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 _registry: dict[str, dict[str, Any]] = {}
@@ -87,6 +90,11 @@ async def submit_agent_task(agent_id: str, request: AgentTaskRequest):
     entry = await evidence_ledger.record_result(task, result)
     corroborating = await evidence_ledger.corroborating(task, result)
     report = agent_result_verifier.verify(task, result, corroborating)
+    if settings.DATABASE_URL:
+        async with AsyncSessionLocal() as session:
+            await postgres_evidence_store.append(session, entry)
+            persisted = await postgres_evidence_store.corroborating(session, task.task_id, result.agent_id)
+            report = agent_result_verifier.verify(task, result, persisted)
     final_status = report.status.value
     _tasks[task.task_id].update({"status": result.status, "result": result.output, "confidence": result.confidence, "reality": result.reality.value, "provenance": result.provenance, "evidence": result.evidence, "execution_time_ms": result.execution_time_ms, "error": result.error, "evidence_entry_id": entry.entry_id, "verification": {"status": final_status, "confidence": report.confidence, "checks": list(report.checks), "reasons": list(report.reasons), "corroborated": bool(report.evidence and report.evidence.corroborated), "sources": list(report.evidence.sources) if report.evidence else []}})
     await fabric.publish("AGENT_RESULT_VERIFIED", {"task_id": task.task_id, "agent_id": agent_id, "verification_status": final_status, "confidence": report.confidence, "corroborated": bool(report.evidence and report.evidence.corroborated), "correlation_id": task.correlation_id}, source="verification")
@@ -101,4 +109,7 @@ async def get_agent_task(task_id: str):
 
 @router.get("/evidence/{task_id}")
 async def get_task_evidence(task_id: str):
+    if settings.DATABASE_URL:
+        async with AsyncSessionLocal() as session:
+            return {"task_id": task_id, "entries": await postgres_evidence_store.history(session, task_id)}
     return {"task_id": task_id, "entries": await evidence_ledger.history(task_id)}
