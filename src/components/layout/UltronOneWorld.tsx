@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Camera, Command, Mic, Search, ShieldCheck, Sparkles, Volume2, VolumeX, X, Zap } from 'lucide-react';
+import { Camera, Command, Mic, Search, ShieldCheck, Sparkles, Volume2, X, Zap } from 'lucide-react';
 import { aiosRuntime, type AIOSRuntimeState } from '../../aios/runtime';
 import { speechService } from '../../services/voice/speechService';
 import { Ton618Canvas } from './Ton618Canvas';
 import { ModuleConstellation } from './ModuleConstellation';
+import { UltronCommandDeck } from './UltronCommandDeck';
 import './UltronOneWorld.css';
 import './UltronOneWorld.expansion.css';
 
@@ -18,9 +19,9 @@ const allStars=[...generatedStars,...stars];
 
 export const UltronOneWorld: React.FC = () => {
   const [runtime,setRuntime]=useState<AIOSRuntimeState>(()=>aiosRuntime.getState());
-  const [selected,setSelected]=useState<Star|null>(null); const [query,setQuery]=useState(''); const [listening,setListening]=useState(false); const [speaking,setSpeaking]=useState(false); const [muted,setMuted]=useState(true); const [showActions,setShowActions]=useState(false); const [showTimeline,setShowTimeline]=useState(false); const [pulse,setPulse]=useState(0); const [pointer,setPointer]=useState({x:0,y:0}); const inputRef=useRef<HTMLInputElement>(null);
+  const [selected,setSelected]=useState<Star|null>(null); const [query,setQuery]=useState(''); const [listening,setListening]=useState(false); const [speaking,setSpeaking]=useState(false); const [showActions,setShowActions]=useState(false); const [showTimeline,setShowTimeline]=useState(false); const [pulse,setPulse]=useState(0); const [pointer,setPointer]=useState({x:0,y:0}); const inputRef=useRef<HTMLInputElement>(null);
   useEffect(()=>aiosRuntime.subscribe(setRuntime),[]);
-  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();inputRef.current?.focus();}if(e.key==='Escape'){setSelected(null);setShowActions(false);setShowTimeline(false);inputRef.current?.blur();}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[]);
+  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();inputRef.current?.focus();}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='j'){e.preventDefault();window.dispatchEvent(new CustomEvent('archos:command-deck'));}if(e.key==='Escape'){setSelected(null);setShowActions(false);setShowTimeline(false);inputRef.current?.blur();}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[]);
   useEffect(()=>{const id=window.setInterval(()=>setPulse(p=>p+1),5200);return()=>window.clearInterval(id);},[]);
   const visibleStars=useMemo(()=>{const q=query.trim().toLowerCase();return q?allStars.filter(s=>s.name.toLowerCase().includes(q)):allStars;},[query]);
   const focusStar=(star:Star)=>{setSelected(star);aiosRuntime.setContext('world',star.id,'world-model');speechService.speak(`${star.name} selected.`);};
@@ -32,6 +33,7 @@ export const UltronOneWorld: React.FC = () => {
   return <div className={`one-world ${pulse%2?'world-pulse':''}`} onPointerMove={e=>{const r=e.currentTarget.getBoundingClientRect();setPointer({x:(e.clientX-r.left)/r.width-.5,y:(e.clientY-r.top)/r.height-.5});}} onPointerLeave={()=>setPointer({x:0,y:0})}>
     <Ton618Canvas />
     <ModuleConstellation />
+    <UltronCommandDeck />
     <div className="one-world-field" aria-hidden="true"/><div className="world-ambient-scan" aria-hidden="true"/>
     <div className="one-world-stars" style={{transform:`translate3d(${pointer.x*-10}px,${pointer.y*-7}px,0)`}}>{visibleStars.map(star=><button key={star.id} className={`world-star world-star-${star.type} ${selected?.id===star.id?'is-selected':''}`} style={{left:`${star.x}%`,top:`${star.y}%`,'--star-size':`${star.size}px`,'--star-depth':star.depth} as React.CSSProperties} onClick={()=>focusStar(star)} aria-label={`Select ${star.name}`}><span className="world-star-core"/>{selected?.id===star.id&&<span className="world-star-ring"/>}{star.importance>.75&&<span className="world-star-label">{star.name}</span>}</button>)}</div>
     <svg className="world-connections" aria-hidden="true"><line x1="63%" y1="43%" x2="55%" y2="49%"/><line x1="39%" y1="58%" x2="42%" y2="51%"/><line x1="69%" y1="31%" x2="71%" y2="45%"/></svg>
