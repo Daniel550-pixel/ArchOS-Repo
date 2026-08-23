@@ -1,7 +1,7 @@
 """Public Agent Fabric contract.
 
 Registration advertises capabilities; it does not grant execution authority.
-Actual execution remains inside the governed runtime.
+Actual execution remains inside the governed runtime and canonical swarm.
 """
 from datetime import datetime, timezone
 from typing import Any
@@ -9,6 +9,8 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from backend.agents.base import AgentCapability, AgentTask, RiskLevel
+from backend.agents.swarm import swarm
+from app.services.event_fabric import app_event_fabric as fabric
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 _registry: dict[str, dict[str, Any]] = {}
@@ -50,6 +52,7 @@ async def register_agent(request: AgentRegistration):
     record = request.model_dump()
     record.update({"agent_id": agent_id, "status": "REGISTERED", "registered_at": datetime.now(timezone.utc).isoformat()})
     _registry[agent_id] = record
+    await fabric.publish("AGENT_REGISTERED", {"agent_id": agent_id, "name": request.name, "version": request.version, "capabilities": [c.name.value for c in request.capabilities]}, source="agent_fabric")
     return record
 
 @router.get("")
@@ -72,10 +75,16 @@ async def submit_agent_task(agent_id: str, request: AgentTaskRequest):
     required = {cap.value for cap in request.required_capabilities}
     if required and not required.issubset(available):
         raise HTTPException(status_code=422, detail="Registered agent does not satisfy required capabilities")
-    declared_permissions = set(agent["required_permissions"])
     required_permissions = set(request.required_permissions)
-    if required_permissions and not required_permissions.issubset(declared_permissions):
+    if required_permissions and not required_permissions.issubset(set(agent["required_permissions"])):
         raise HTTPException(status_code=403, detail="Agent does not satisfy required permissions")
+
+    # External registrations are metadata only. The executable identity must
+    # already exist in the canonical swarm; arbitrary remote code is never run.
+    runtime_agent = swarm.get_agent(agent_id)
+    if runtime_agent is None:
+        raise HTTPException(status_code=409, detail="Agent has no executable runtime binding")
+
     task = AgentTask(
         task_id=f"task-{uuid.uuid4().hex[:12]}", intent=request.intent, payload=request.payload,
         actor=request.actor, tenant_id=request.tenant_id, timeout_sec=request.timeout_sec,
@@ -83,10 +92,18 @@ async def submit_agent_task(agent_id: str, request: AgentTaskRequest):
         risk_level=request.risk_level, verification_required=request.verification_required,
     )
     _tasks[task.task_id] = {
-        "task_id": task.task_id, "agent_id": agent_id, "intent": task.intent, "status": "ACCEPTED",
+        "task_id": task.task_id, "agent_id": agent_id, "intent": task.intent, "status": "RUNNING",
         "correlation_id": task.correlation_id, "risk_level": task.risk_level.value,
         "verification_required": task.verification_required, "created_at": task.created_at,
     }
+    await fabric.publish("AGENT_TASK_ACCEPTED", {"task_id": task.task_id, "agent_id": agent_id, "correlation_id": task.correlation_id}, source="agent_fabric")
+    result = await swarm.dispatch(agent_id, task)
+    _tasks[task.task_id].update({
+        "status": result.status, "result": result.output, "confidence": result.confidence,
+        "reality": result.reality.value, "provenance": result.provenance,
+        "execution_time_ms": result.execution_time_ms, "error": result.error,
+    })
+    await fabric.publish("AGENT_TASK_COMPLETED", {"task_id": task.task_id, "agent_id": agent_id, "status": result.status, "correlation_id": task.correlation_id}, source="agent_fabric")
     return _tasks[task.task_id]
 
 @router.get("/tasks/{task_id}")
