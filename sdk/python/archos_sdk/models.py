@@ -1,15 +1,12 @@
-"""Small response models used by the public ArchOS SDK."""
-
+"""Typed response models for the public ArchOS SDK."""
 from dataclasses import dataclass
 from typing import Any, Mapping
-
 
 @dataclass(frozen=True)
 class JarvisResult:
     task_id: str | None
     verification_status: str | None
     raw: Mapping[str, Any]
-
 
 @dataclass(frozen=True)
 class ActionDecision:
@@ -18,16 +15,13 @@ class ActionDecision:
     approval_state: str | None
     policy_decision: str | None
 
-
 @dataclass(frozen=True)
 class ActionResult:
     action_id: str
     approved: bool
-
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "ActionResult":
         return cls(action_id=str(data.get("action_id", "")), approved=bool(data.get("approved")))
-
 
 @dataclass(frozen=True)
 class WorldModelEntity:
@@ -37,7 +31,6 @@ class WorldModelEntity:
     confidence: float | None
     raw: Mapping[str, Any]
 
-
 @dataclass(frozen=True)
 class WorldModelQuery:
     entity: Mapping[str, Any]
@@ -46,10 +39,19 @@ class WorldModelQuery:
     effective_confidence: float | None
     raw: Mapping[str, Any]
 
-
 @dataclass(frozen=True)
 class RuntimeHealth:
     status: str
     version: str | None
     components: Mapping[str, Any]
+    raw: Mapping[str, Any]
+
+@dataclass(frozen=True)
+class AgentTaskResult:
+    task_id: str
+    agent_id: str
+    status: str
+    correlation_id: str | None
+    risk_level: str | None
+    verification_required: bool
     raw: Mapping[str, Any]
