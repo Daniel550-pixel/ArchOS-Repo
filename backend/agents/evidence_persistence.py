@@ -43,6 +43,7 @@ class EvidenceChainStateModel(EvidenceBase):
 
 
 def canonical_chain_payload(entry: EvidenceEntry, previous_digest: str | None) -> str:
+    """Return the single canonical JSON representation used by app + migrations."""
     payload = {
         "entry_id": entry.entry_id,
         "task_id": entry.task_id,
@@ -56,7 +57,10 @@ def canonical_chain_payload(entry: EvidenceEntry, previous_digest: str | None) -
         "digest": entry.digest,
         "previous_digest": previous_digest,
     }
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    # Keep default JSON separators: PostgreSQL json_build_object::text uses the
+    # same compact JSON values with a space after separators. Key ordering is
+    # deterministic via sort_keys so migration and runtime hashing agree.
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False)
 
 
 def calculate_chain_digest(entry: EvidenceEntry, previous_digest: str | None) -> str:
