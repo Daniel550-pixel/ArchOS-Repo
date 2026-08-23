@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
-          pip install "sqlalchemy>=2" asyncpg
+          pip install "sqlalchemy>=2" asyncpg pytest pytest-asyncio
 
       - name: Apply evidence schema migrations
         run: |
@@ -56,6 +56,9 @@ jobs:
         env:
           PGPASSWORD: archos_ci
           DATABASE_URL: postgresql://archos:archos_ci@localhost:5432/archos_ci
+
+      - name: Run evidence-chain regression tests
+        run: pytest -q backend/tests/test_evidence_chain.py
 
       - name: Verify evidence chain
         run: python backend/migrations/verify_evidence_chain.py
