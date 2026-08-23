@@ -53,6 +53,7 @@ jobs:
           psql "$DATABASE_URL" -f backend/migrations/versions/0002_evidence_ledger_immutability.sql
           psql "$DATABASE_URL" -f backend/migrations/versions/0003_evidence_ledger_chain.sql
           psql "$DATABASE_URL" -f backend/migrations/versions/0004_evidence_chain_backfill.sql
+          psql "$DATABASE_URL" -f backend/migrations/versions/0005_evidence_chain_canonical_rebuild.sql
         env:
           PGPASSWORD: archos_ci
           DATABASE_URL: postgresql://archos:archos_ci@localhost:5432/archos_ci
@@ -65,7 +66,11 @@ jobs:
 
       - name: Validate migration files
         run: |
-          test -s backend/migrations/versions/0001_archos_evidence_ledger.sql
-          test -s backend/migrations/versions/0002_evidence_ledger_immutability.sql
-          test -s backend/migrations/versions/0003_evidence_ledger_chain.sql
-          test -s backend/migrations/versions/0004_evidence_chain_backfill.sql
+          for migration in \
+            backend/migrations/versions/0001_archos_evidence_ledger.sql \
+            backend/migrations/versions/0002_evidence_ledger_immutability.sql \
+            backend/migrations/versions/0003_evidence_ledger_chain.sql \
+            backend/migrations/versions/0004_evidence_chain_backfill.sql \
+            backend/migrations/versions/0005_evidence_chain_canonical_rebuild.sql; do
+            test -s "$migration"
+          done
