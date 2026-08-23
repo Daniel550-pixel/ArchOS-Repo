@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 import httpx
 
+from .agents import AgentRegistration
 from .models import ActionDecision, ActionResult, JarvisResult, RuntimeHealth, WorldModelQuery
 
 
@@ -46,6 +47,14 @@ class ArchOSClient:
         headers = {"X-Request-Id": request_id} if request_id else None
         data = self._request("GET", f"{self.api_prefix}/world-model/query/{entity_id}", params=params, headers=headers)
         return WorldModelQuery(entity=data.get("entity", {}), observations=data.get("observations", []), observation_count=int(data.get("observation_count", 0)), effective_confidence=data.get("effective_confidence"), raw=data)
+
+    def register_agent(self, registration: AgentRegistration) -> Mapping[str, Any]:
+        """Register an external agent with ArchOS.
+
+        The endpoint is intentionally server-governed: registration advertises
+        capabilities but does not grant execution authority.
+        """
+        return self._request("POST", f"{self.api_prefix}/agents/register", json=registration.to_payload())
 
     def submit_action(self, *, actor: str, agent: str, target: str, requested_operation: str, risk_level: str = "LOW_RISK", required_authority: str = "OPERATOR_CLEARANCE", task_id: str = "", provenance: str = "", payload: Mapping[str, Any] | None = None) -> ActionDecision:
         data = self._request("POST", f"{self.api_prefix}/governance/actions", json={"actor": actor, "agent": agent, "task_id": task_id, "target": target, "requested_operation": requested_operation, "risk_level": risk_level, "required_authority": required_authority, "provenance": provenance, "payload": dict(payload or {})})
