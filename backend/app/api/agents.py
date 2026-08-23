@@ -1,4 +1,4 @@
-"""Public Agent Fabric contract with mandatory result verification."""
+"""Public Agent Fabric contract with mandatory cross-agent verification."""
 from datetime import datetime, timezone
 from typing import Any
 import uuid
@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from backend.agents.base import AgentCapability, AgentTask, RiskLevel
 from backend.agents.swarm import swarm
 from backend.agents.verification import agent_result_verifier
+from backend.agents.evidence_ledger import evidence_ledger
 from app.services.event_fabric import app_event_fabric as fabric
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -83,10 +84,12 @@ async def submit_agent_task(agent_id: str, request: AgentTaskRequest):
     await fabric.publish("AGENT_TASK_ACCEPTED", {"task_id": task.task_id, "agent_id": agent_id, "correlation_id": task.correlation_id}, source="agent_fabric")
 
     result = await swarm.dispatch(agent_id, task)
-    report = agent_result_verifier.verify(task, result)
+    entry = await evidence_ledger.record_result(task, result)
+    corroborating = await evidence_ledger.corroborating(task, result)
+    report = agent_result_verifier.verify(task, result, corroborating)
     final_status = report.status.value
-    _tasks[task.task_id].update({"status": result.status, "result": result.output, "confidence": result.confidence, "reality": result.reality.value, "provenance": result.provenance, "evidence": result.evidence, "execution_time_ms": result.execution_time_ms, "error": result.error, "verification": {"status": final_status, "confidence": report.confidence, "checks": list(report.checks), "reasons": list(report.reasons)}})
-    await fabric.publish("AGENT_RESULT_VERIFIED", {"task_id": task.task_id, "agent_id": agent_id, "verification_status": final_status, "confidence": report.confidence, "correlation_id": task.correlation_id}, source="verification")
+    _tasks[task.task_id].update({"status": result.status, "result": result.output, "confidence": result.confidence, "reality": result.reality.value, "provenance": result.provenance, "evidence": result.evidence, "execution_time_ms": result.execution_time_ms, "error": result.error, "evidence_entry_id": entry.entry_id, "verification": {"status": final_status, "confidence": report.confidence, "checks": list(report.checks), "reasons": list(report.reasons), "corroborated": bool(report.evidence and report.evidence.corroborated), "sources": list(report.evidence.sources) if report.evidence else []}})
+    await fabric.publish("AGENT_RESULT_VERIFIED", {"task_id": task.task_id, "agent_id": agent_id, "verification_status": final_status, "confidence": report.confidence, "corroborated": bool(report.evidence and report.evidence.corroborated), "correlation_id": task.correlation_id}, source="verification")
     return _tasks[task.task_id]
 
 @router.get("/tasks/{task_id}")
@@ -95,3 +98,7 @@ async def get_agent_task(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
+
+@router.get("/evidence/{task_id}")
+async def get_task_evidence(task_id: str):
+    return {"task_id": task_id, "entries": await evidence_ledger.history(task_id)}
