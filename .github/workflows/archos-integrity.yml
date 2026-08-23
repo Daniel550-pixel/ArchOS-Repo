@@ -1,0 +1,68 @@
+name: ArchOS Integrity Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  integrity:
+    name: Migration and Evidence Integrity
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: archos
+          POSTGRES_PASSWORD: archos_ci
+          POSTGRES_DB: archos_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U archos -d archos_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://archos:archos_ci@localhost:5432/archos_ci
+      PYTHONPATH: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          pip install "sqlalchemy>=2" asyncpg
+
+      - name: Apply evidence schema migrations
+        run: |
+          psql "$DATABASE_URL" -f backend/migrations/versions/0001_archos_evidence_ledger.sql
+          psql "$DATABASE_URL" -f backend/migrations/versions/0002_evidence_ledger_immutability.sql
+          psql "$DATABASE_URL" -f backend/migrations/versions/0003_evidence_ledger_chain.sql
+          psql "$DATABASE_URL" -f backend/migrations/versions/0004_evidence_chain_backfill.sql
+        env:
+          PGPASSWORD: archos_ci
+          DATABASE_URL: postgresql://archos:archos_ci@localhost:5432/archos_ci
+
+      - name: Verify evidence chain
+        run: python backend/migrations/verify_evidence_chain.py
+
+      - name: Validate migration files
+        run: |
+          test -s backend/migrations/versions/0001_archos_evidence_ledger.sql
+          test -s backend/migrations/versions/0002_evidence_ledger_immutability.sql
+          test -s backend/migrations/versions/0003_evidence_ledger_chain.sql
+          test -s backend/migrations/versions/0004_evidence_chain_backfill.sql
