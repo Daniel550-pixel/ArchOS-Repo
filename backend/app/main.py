@@ -17,6 +17,7 @@ from app.api.scenario_execution import router as scenario_execution_router
 from app.api.scenario_planner import router as scenario_planner_router
 from app.api.scenario_orchestrator import router as scenario_orchestrator_router
 from app.api.integrations import router as integrations_router
+from app.api.agents import router as agents_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
@@ -124,6 +125,7 @@ app.include_router(scenario_execution_router)
 app.include_router(scenario_planner_router)
 app.include_router(scenario_orchestrator_router)
 app.include_router(integrations_router, prefix=settings.API_PREFIX)
+app.include_router(agents_router, prefix=settings.API_PREFIX)
 
 
 class JarvisRequest(BaseModel):
@@ -292,6 +294,7 @@ async def runtime_health():
             "certificate_watchdog": "active",
             "observability": "active",
             "integration_runtime": "active",
+            "agent_fabric": "public_contract",
             "dubai_pulse": "available",
             "modbus_bms": "governed",
             "osm": "available",
@@ -323,6 +326,7 @@ async def root():
         "certificate_monitor": "ACTIVE",
         "observability": "ACTIVE",
         "integration_runtime": "ACTIVE",
+        "agent_fabric": "PUBLIC_CONTRACT",
         "dubai_pulse": "ADAPTER",
         "modbus_bms": "GOVERNED_WRITE_PATH",
         "osm": "ADAPTER",
