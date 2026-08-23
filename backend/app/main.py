@@ -29,6 +29,8 @@ from app.services.security_observability import instrument, metrics_response, op
 from app.services.night_shift import night_shift_runtime
 from backend.agents.action_gate import ActionRequest
 from backend.agents.base import RiskLevel
+from backend.agents.swarm import swarm
+from backend.agents.runtime_registry import runtime_registry, bind_canonical_swarm
 from backend.auth import webauthn as webauthn_runtime
 from backend.auth import keysmith as keysmith_runtime
 from backend.auth.webauthn import router as auth_router
@@ -54,13 +56,14 @@ def validate_security_runtime() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_security_runtime()
+    await bind_canonical_swarm(swarm)
     scheduler.start()
     night_shift_runtime.start()
     rotation_task = asyncio.create_task(rotation_daemon())
     certificate_task = asyncio.create_task(certificate_watchdog())
     await app_event_fabric.publish(
         "runtime.started",
-        {"version": settings.VERSION, "environment": settings.ENVIRONMENT},
+        {"version": settings.VERSION, "environment": settings.ENVIRONMENT, "agent_runtime_bindings": len(runtime_registry.list_bindings())},
         source="app",
     )
     try:
@@ -74,44 +77,23 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 pass
         await night_shift_runtime.stop()
+        await runtime_registry.shutdown()
         await app_event_fabric.publish("runtime.stopping", source="app")
         scheduler.stop()
         if settings.DATABASE_URL:
             await close_database()
 
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description=(
-        "Sovereign UAE News Intelligence & FinOps Authority Router "
-        "for UAE World Model & AIOS runtime."
-    ),
-    lifespan=lifespan,
-)
+app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, description="Sovereign UAE News Intelligence & FinOps Authority Router for UAE World Model & AIOS runtime.", lifespan=lifespan)
 
 
 @app.middleware("http")
 async def observability_middleware(request, call_next):
     return await instrument(request, call_next)
 
-
 app.add_middleware(CostRiskMiddleware, finops_service=finops_service)
 app.add_middleware(IdentityMiddleware)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=bool(settings.CORS_ORIGINS),
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "X-Admin-Key",
-        "X-Estimated-Prompt-Length",
-        "X-Request-Id",
-    ],
-)
+app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_credentials=bool(settings.CORS_ORIGINS), allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Admin-Key", "X-Estimated-Prompt-Length", "X-Request-Id"])
 
 app.include_router(auth_router)
 app.include_router(sessions_router)
@@ -154,11 +136,7 @@ class ActionApprovalRequest(BaseModel):
 async def jarvis_ask(request: JarvisRequest):
     try:
         result = await jarvis_runtime_bridge.run(request.model_dump())
-        await app_event_fabric.publish(
-            "jarvis.completed",
-            {"task_id": result.get("task_id"), "verification_status": result.get("verification_status")},
-            source="jarvis",
-        )
+        await app_event_fabric.publish("jarvis.completed", {"task_id": result.get("task_id"), "verification_status": result.get("verification_status")}, source="jarvis")
         return result
     except Exception as exc:
         await app_event_fabric.publish("jarvis.failed", {"error": type(exc).__name__}, source="jarvis")
@@ -176,29 +154,10 @@ async def submit_governed_action(request: ActionSubmitRequest):
         risk_level = RiskLevel(request.risk_level)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid risk_level") from exc
-    action = ActionRequest(
-        actor=request.actor,
-        agent=request.agent,
-        task_id=request.task_id,
-        target=request.target,
-        requested_operation=request.requested_operation,
-        risk_level=risk_level,
-        required_authority=request.required_authority,
-        provenance=request.provenance,
-        payload=request.payload,
-    )
+    action = ActionRequest(actor=request.actor, agent=request.agent, task_id=request.task_id, target=request.target, requested_operation=request.requested_operation, risk_level=risk_level, required_authority=request.required_authority, provenance=request.provenance, payload=request.payload)
     decision = await governance_bridge.evaluate_and_submit(action)
-    await app_event_fabric.publish(
-        "governance.action_evaluated",
-        {"action_id": action.action_id, "decision": decision.value, "risk_level": risk_level.value},
-        source="governance",
-    )
-    return {
-        "action_id": action.action_id,
-        "decision": decision.value,
-        "approval_state": action.approval_state,
-        "policy_decision": action.policy_decision.value,
-    }
+    await app_event_fabric.publish("governance.action_evaluated", {"action_id": action.action_id, "decision": decision.value, "risk_level": risk_level.value}, source="governance")
+    return {"action_id": action.action_id, "decision": decision.value, "approval_state": action.approval_state, "policy_decision": action.policy_decision.value}
 
 
 @app.post("/api/v1/governance/actions/{action_id}/approve")
@@ -206,11 +165,7 @@ async def approve_governed_action(action_id: str, request: ActionApprovalRequest
     approved = await governance_bridge.approve(action_id, request.approver)
     if not approved:
         raise HTTPException(status_code=403, detail="Action approval rejected")
-    await app_event_fabric.publish(
-        "governance.action_approved",
-        {"action_id": action_id, "approver": request.approver},
-        source="governance",
-    )
+    await app_event_fabric.publish("governance.action_approved", {"action_id": action_id, "approver": request.approver}, source="governance")
     return {"action_id": action_id, "approved": True}
 
 
@@ -224,9 +179,7 @@ async def event_history(limit: int = 100):
 
 @app.get("/api/v1/events/stream")
 async def event_stream(request: Request):
-    """Stream canonical Event Fabric events to UI clients over SSE."""
     queue = await app_event_fabric.subscribe(max_queue=100)
-
     async def generate():
         try:
             yield ": connected\n\n"
@@ -241,16 +194,7 @@ async def event_stream(request: Request):
                     yield ": heartbeat\n\n"
         finally:
             await app_event_fabric.unsubscribe(queue)
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return StreamingResponse(generate(), media_type="text/event-stream", headers={"Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no"})
 
 
 @app.get("/metrics")
@@ -276,64 +220,19 @@ async def run_night_shift():
         raise HTTPException(status_code=503, detail="Night Shift execution failed") from exc
 
 
+@app.get("/api/v1/agents/runtime")
+async def agent_runtime_status():
+    return {"bindings": runtime_registry.list_bindings(), "health": await runtime_registry.health()}
+
+
 @app.get("/api/v1/health/runtime")
 async def runtime_health():
-    return {
-        "status": "operational",
-        "version": settings.VERSION,
-        "components": {
-            "world_model": "active",
-            "simulation": "active",
-            "causal_graph": "active",
-            "jarvis": "bridged",
-            "governance": "bridged",
-            "event_fabric": "active",
-            "webauthn": "active",
-            "sessions": "active",
-            "keysmith": "active",
-            "certificate_watchdog": "active",
-            "observability": "active",
-            "integration_runtime": "active",
-            "agent_fabric": "public_contract",
-            "dubai_pulse": "available",
-            "modbus_bms": "governed",
-            "osm": "available",
-            "night_shift": "active",
-        },
-    }
+    return {"status": "operational", "version": settings.VERSION, "components": {"world_model": "active", "simulation": "active", "causal_graph": "active", "jarvis": "bridged", "governance": "bridged", "event_fabric": "active", "webauthn": "active", "sessions": "active", "keysmith": "active", "certificate_watchdog": "active", "observability": "active", "integration_runtime": "active", "agent_fabric": "public_contract", "agent_runtime": "bound", "dubai_pulse": "available", "modbus_bms": "governed", "osm": "available", "night_shift": "active"}}
 
 
 @app.get("/")
 async def root():
-    return {
-        "system": "UAE News Intelligence & FinOps Foundation Layer",
-        "status": "OPERATIONAL",
-        "finops_router": "ACTIVE",
-        "authority_separation": "ENFORCED",
-        "identity_boundary": "ACTIVE",
-        "world_model": "PERSISTENT_POSTGRESQL",
-        "simulation_engine": "ISOLATED_BRANCHES",
-        "scenario_intelligence": "CAUSAL_PROPAGATION",
-        "causal_knowledge_graph": "TEMPORAL_POSTGRESQL",
-        "scenario_execution": "AUDITABLE_END_TO_END",
-        "scenario_planner": "JARVIS_INTENT_TO_PLAN",
-        "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED",
-        "jarvis_runtime": "BRIDGED",
-        "governance_runtime": "BRIDGED",
-        "event_fabric": "CANONICAL",
-        "event_stream": "SSE",
-        "security_runtime": "WEBAUTHN_KEYSMITH",
-        "certificate_monitor": "ACTIVE",
-        "observability": "ACTIVE",
-        "integration_runtime": "ACTIVE",
-        "agent_fabric": "PUBLIC_CONTRACT",
-        "dubai_pulse": "ADAPTER",
-        "modbus_bms": "GOVERNED_WRITE_PATH",
-        "osm": "ADAPTER",
-        "night_shift": "AUTHORITATIVE",
-        "docs_url": "/docs",
-        "api_prefix": settings.API_PREFIX,
-    }
+    return {"system": "UAE News Intelligence & FinOps Foundation Layer", "status": "OPERATIONAL", "finops_router": "ACTIVE", "authority_separation": "ENFORCED", "identity_boundary": "ACTIVE", "world_model": "PERSISTENT_POSTGRESQL", "simulation_engine": "ISOLATED_BRANCHES", "scenario_intelligence": "CAUSAL_PROPAGATION", "causal_knowledge_graph": "TEMPORAL_POSTGRESQL", "scenario_execution": "AUDITABLE_END_TO_END", "scenario_planner": "JARVIS_INTENT_TO_PLAN", "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED", "jarvis_runtime": "BRIDGED", "governance_runtime": "BRIDGED", "event_fabric": "CANONICAL", "event_stream": "SSE", "security_runtime": "WEBAUTHN_KEYSMITH", "certificate_monitor": "ACTIVE", "observability": "ACTIVE", "integration_runtime": "ACTIVE", "agent_fabric": "PUBLIC_CONTRACT", "agent_runtime": "BOUND", "dubai_pulse": "ADAPTER", "modbus_bms": "GOVERNED_WRITE_PATH", "osm": "ADAPTER", "night_shift": "AUTHORITATIVE", "docs_url": "/docs", "api_prefix": settings.API_PREFIX}
 
 
 if __name__ == "__main__":
