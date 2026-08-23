@@ -1,5 +1,5 @@
 """PostgreSQL persistence adapter with tamper-evident evidence chaining."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 import hashlib
 
@@ -42,16 +42,22 @@ class EvidenceChainStateModel(EvidenceBase):
 
 
 def _frame(value: str) -> str:
-    """Length-prefix a UTF-8 string so delimiters cannot create ambiguity."""
     return f"{len(value.encode('utf-8'))}:{value}"
 
 
+def _canonical_timestamp(value: str | datetime) -> str:
+    dt = datetime.fromisoformat(value) if isinstance(value, str) else value
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
 def canonical_chain_payload(entry: EvidenceEntry, previous_digest: str | None) -> bytes:
-    """Return language-neutral canonical bytes shared by runtime and SQL migrations."""
-    confidence = format(round(float(entry.confidence), 12), ".12g")
+    """Language-neutral framed canonical bytes shared by runtime and SQL migrations."""
+    confidence = f"{round(float(entry.confidence), 12):.12f}"
     fields = (
         entry.entry_id, entry.task_id, entry.agent_id, entry.source, entry.claim,
-        *entry.evidence, confidence, entry.reality.value, entry.created_at,
+        *entry.evidence, confidence, entry.reality.value, _canonical_timestamp(entry.created_at),
         entry.digest, previous_digest or "",
     )
     return "".join(_frame(str(value)) for value in fields).encode("utf-8")
@@ -74,7 +80,7 @@ class PostgresEvidenceStore:
             return existing.chain_digest
         state = await session.scalar(select(EvidenceChainStateModel).where(EvidenceChainStateModel.chain_name == "default").with_for_update())
         if state is None:
-            state = EvidenceChainStateModel(chain_name="default", latest_digest=None, updated_at=datetime.now().astimezone())
+            state = EvidenceChainStateModel(chain_name="default", latest_digest=None, updated_at=datetime.now(timezone.utc))
             session.add(state)
             await session.flush()
             await session.refresh(state)
@@ -88,7 +94,7 @@ class PostgresEvidenceStore:
             previous_digest=previous_digest, chain_digest=chain_digest,
         ))
         state.latest_digest = chain_digest
-        state.updated_at = datetime.now().astimezone()
+        state.updated_at = datetime.now(timezone.utc)
         await session.commit()
         return chain_digest
 
