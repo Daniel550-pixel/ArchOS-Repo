@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "archos-sdk"
+version = "0.1.0"
+description = "Python SDK for the ArchOS governed AIOS runtime"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ArchOS contributors" }]
+dependencies = ["httpx>=0.27,<1"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["archos_sdk*"]
