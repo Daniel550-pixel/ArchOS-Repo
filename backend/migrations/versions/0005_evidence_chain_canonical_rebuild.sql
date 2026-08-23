@@ -1,13 +1,13 @@
 -- ArchOS evidence chain migration 0005
--- Rebuilds chain digests using the exact canonical representation used by
--- backend/agents/evidence_persistence.py. This corrects legacy backfill
--- serialization differences without rewriting evidence content.
+-- Rebuilds chain digests using the language-neutral framed representation
+-- implemented by backend/agents/evidence_persistence.py.
 
 DO $$
 DECLARE
     r RECORD;
     previous VARCHAR(64) := NULL;
     calculated VARCHAR(64);
+    evidence_framed TEXT;
     canonical TEXT;
 BEGIN
     FOR r IN
@@ -17,35 +17,32 @@ BEGIN
         ORDER BY id ASC
         FOR UPDATE
     LOOP
-        canonical := json_build_object(
-            'agent_id', r.agent_id,
-            'claim', r.claim,
-            'confidence', round(r.confidence::numeric, 12),
-            'created_at', r.created_at,
-            'digest', r.digest,
-            'entry_id', r.entry_id,
-            'evidence', COALESCE(r.evidence, '[]'::jsonb),
-            'previous_digest', previous,
-            'reality', r.reality,
-            'source', r.source,
-            'task_id', r.task_id
-        )::text;
+        SELECT COALESCE(string_agg(
+            length(value)::text || ':' || value,
+            '' ORDER BY ordinality
+        ), '')
+        INTO evidence_framed
+        FROM jsonb_array_elements_text(COALESCE(r.evidence::jsonb, '[]'::jsonb)) WITH ORDINALITY;
 
-        -- json_build_object emits stable key insertion order here, matching
-        -- the canonical field order expected by the persistence adapter's
-        -- migration-compatible representation.
-        calculated := encode(digest(canonical, 'sha256'), 'hex');
+        canonical :=
+            length(convert_to(r.entry_id, 'UTF8'))::text || ':' || r.entry_id ||
+            length(convert_to(r.task_id, 'UTF8'))::text || ':' || r.task_id ||
+            length(convert_to(r.agent_id, 'UTF8'))::text || ':' || r.agent_id ||
+            length(convert_to(r.source, 'UTF8'))::text || ':' || r.source ||
+            length(convert_to(r.claim, 'UTF8'))::text || ':' || r.claim ||
+            evidence_framed ||
+            length(convert_to(to_char(round(r.confidence::numeric, 12), 'FM999999999999990D999999999999'), 'UTF8'))::text || ':' || to_char(round(r.confidence::numeric, 12), 'FM999999999999990D999999999999') ||
+            length(convert_to(r.reality, 'UTF8'))::text || ':' || r.reality ||
+            length(convert_to(r.created_at::text, 'UTF8'))::text || ':' || r.created_at::text ||
+            length(convert_to(r.digest, 'UTF8'))::text || ':' || r.digest ||
+            length(convert_to(COALESCE(previous, ''), 'UTF8'))::text || ':' || COALESCE(previous, '');
 
-        UPDATE archos_evidence_ledger
-        SET previous_digest = previous,
-            chain_digest = calculated
-        WHERE id = r.id;
-
+        calculated := encode(digest(convert_to(canonical, 'UTF8'), 'sha256'), 'hex');
+        UPDATE archos_evidence_ledger SET previous_digest = previous, chain_digest = calculated WHERE id = r.id;
         previous := calculated;
     END LOOP;
 
     UPDATE archos_evidence_chain_state
-    SET latest_digest = previous,
-        updated_at = NOW()
+    SET latest_digest = previous, updated_at = NOW()
     WHERE chain_name = 'default';
 END $$;
