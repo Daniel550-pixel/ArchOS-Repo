@@ -12,6 +12,7 @@ export interface IntelligenceTelemetryState {
   agentCount: number;
   eventCount: number;
   verificationState: 'UNKNOWN' | 'PENDING' | 'VERIFIED' | 'FAILED';
+  lastTraceId: string | null;
   lastError: string | null;
 }
 
@@ -24,6 +25,7 @@ const initialState: IntelligenceTelemetryState = {
   agentCount: 0,
   eventCount: 0,
   verificationState: 'UNKNOWN',
+  lastTraceId: null,
   lastError: null,
 };
 
@@ -52,6 +54,7 @@ export const intelligenceTelemetry = {
           completedAt: complete,
           elapsedMs: start && complete ? Math.max(0, complete - start) : state.elapsedMs,
           eventCount: state.eventCount + 1,
+          lastTraceId: event.traceId ?? state.lastTraceId,
           verificationState: event.phase === 'verification'
             ? event.status === 'completed' ? 'VERIFIED' : event.status === 'failed' ? 'FAILED' : 'PENDING'
             : state.verificationState,
@@ -60,9 +63,16 @@ export const intelligenceTelemetry = {
       }),
       ultronEventBus.on('agent.lifecycle', event => {
         const delta = event.status === 'created' ? 1 : event.status === 'failed' || event.status === 'completed' ? -1 : 0;
-        publish({ agentCount: Math.max(0, state.agentCount + delta), eventCount: state.eventCount + 1 });
+        publish({
+          agentCount: Math.max(0, state.agentCount + delta),
+          eventCount: state.eventCount + 1,
+          lastTraceId: event.traceId ?? state.lastTraceId,
+        });
       }),
-      ultronEventBus.on('world.update', () => publish({ eventCount: state.eventCount + 1 })),
+      ultronEventBus.on('world.update', event => publish({
+        eventCount: state.eventCount + 1,
+        lastTraceId: event.traceId ?? state.lastTraceId,
+      })),
     ];
   },
   shutdown(): void {
