@@ -1,5 +1,5 @@
 import type { CommandSource, SystemState, UnifiedCommand } from '../types';
-import { ultronEventBus } from './events';
+import { createAIOSTraceId, ultronEventBus } from './events';
 
 export interface AIOSRuntimeState {
   systemState: SystemState;
@@ -7,6 +7,7 @@ export interface AIOSRuntimeState {
   activeEntityId: string | null;
   lastCommand: UnifiedCommand | null;
   lastCommandSource: CommandSource | null;
+  lastTraceId: string | null;
   lastTransitionAt: number;
 }
 
@@ -16,6 +17,7 @@ const initialState: AIOSRuntimeState = {
   activeEntityId: null,
   lastCommand: null,
   lastCommandSource: null,
+  lastTraceId: null,
   lastTransitionAt: Date.now(),
 };
 
@@ -35,16 +37,21 @@ export const aiosRuntime = {
     initialized = true;
 
     disposers = [
-      ultronEventBus.on('input.command', ({ command, source }) => {
-        publish({ lastCommand: command, lastCommandSource: source });
+      ultronEventBus.on('input.command', ({ command, source, traceId }) => {
+        publish({
+          lastCommand: command,
+          lastCommandSource: source,
+          lastTraceId: traceId ?? null,
+        });
       }),
-      ultronEventBus.on('system.state', ({ state: nextState }) => {
-        publish({ systemState: nextState });
+      ultronEventBus.on('system.state', ({ state: nextState, traceId }) => {
+        publish({ systemState: nextState, lastTraceId: traceId ?? state.lastTraceId });
       }),
-      ultronEventBus.on('system.context', ({ view, entityId }) => {
+      ultronEventBus.on('system.context', ({ view, entityId, traceId }) => {
         publish({
           ...(view === undefined ? {} : { activeView: view }),
           ...(entityId === undefined ? {} : { activeEntityId: entityId }),
+          ...(traceId === undefined ? {} : { lastTraceId: traceId }),
         });
       }),
     ];
@@ -66,29 +73,41 @@ export const aiosRuntime = {
     return state;
   },
 
-  dispatch(command: UnifiedCommand, source: CommandSource = 'system'): void {
+  dispatch(command: UnifiedCommand, source: CommandSource = 'system', parentTraceId?: string): string {
+    const traceId = createAIOSTraceId();
     ultronEventBus.emit('input.command', {
       command,
       source,
+      traceId,
+      parentTraceId,
       timestamp: Date.now(),
     });
+    return traceId;
   },
 
-  setSystemState(nextState: SystemState): void {
+  setSystemState(nextState: SystemState, parentTraceId?: string): string {
     const previousState = state.systemState;
+    const traceId = createAIOSTraceId();
     ultronEventBus.emit('system.state', {
       state: nextState,
       previousState,
+      traceId,
+      parentTraceId,
       timestamp: Date.now(),
     });
+    return traceId;
   },
 
-  setContext(view?: string, entityId?: string, mode?: string): void {
+  setContext(view?: string, entityId?: string, mode?: string, parentTraceId?: string): string {
+    const traceId = createAIOSTraceId();
     ultronEventBus.emit('system.context', {
       view,
       entityId,
       mode,
+      traceId,
+      parentTraceId,
       timestamp: Date.now(),
     });
+    return traceId;
   },
 };
