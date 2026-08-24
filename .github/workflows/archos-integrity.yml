@@ -30,7 +30,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+asyncpg://archos:archos_ci@localhost:5432/archos_ci
-      PYTHONPATH: .
+      PYTHONPATH: .:./backend
 
     steps:
       - name: Checkout
