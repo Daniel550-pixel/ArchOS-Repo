@@ -18,6 +18,7 @@ jobs:
           node-version: '24'
       - run: npm ci || npm install
       - run: npm run lint
+      - run: npm run test:aios-hardening
       - run: npm run build
 
   sdk-contracts:
