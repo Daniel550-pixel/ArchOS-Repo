@@ -1,40 +1,45 @@
 import type { CommandSource, HandGestureState, SystemState, UnifiedCommand } from '../types';
 
+export interface AIOSTraceContext {
+  traceId?: string;
+  parentTraceId?: string;
+}
+
 export type ULTRONEventMap = {
-  'input.command': {
+  'input.command': AIOSTraceContext & {
     command: UnifiedCommand;
     source: CommandSource;
     timestamp: number;
   };
-  'input.gesture': {
+  'input.gesture': AIOSTraceContext & {
     gesture: HandGestureState['currentGesture'];
     state: HandGestureState;
     timestamp: number;
   };
-  'system.state': {
+  'system.state': AIOSTraceContext & {
     state: SystemState;
     previousState?: SystemState;
     timestamp: number;
   };
-  'system.context': {
+  'system.context': AIOSTraceContext & {
     view?: string;
     entityId?: string;
     mode?: string;
     timestamp: number;
   };
-  'world.update': {
+  'world.update': AIOSTraceContext & {
     entityId?: string;
     kind: 'entity' | 'spatial' | 'temporal' | 'simulation';
     timestamp: number;
     payload?: unknown;
   };
-  'agent.lifecycle': {
+  'agent.lifecycle': AIOSTraceContext & {
     agentId: string;
     status: 'created' | 'started' | 'completed' | 'failed';
     timestamp: number;
     payload?: unknown;
   };
-  'intelligence.lifecycle': {
+  'intelligence.lifecycle': AIOSTraceContext & {
     phase: 'intent' | 'reasoning' | 'planning' | 'verification';
     status: 'started' | 'completed' | 'failed';
     timestamp: number;
@@ -74,3 +79,11 @@ class ULTRONEventBus {
 }
 
 export const ultronEventBus = new ULTRONEventBus();
+
+export function createAIOSTraceId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `trace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
