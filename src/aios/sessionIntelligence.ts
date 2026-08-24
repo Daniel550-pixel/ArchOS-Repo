@@ -55,6 +55,12 @@ let disposers: Array<() => void> = [];
 let initialized = false;
 const subscribers = new Set<(session: SessionIntelligence) => void>();
 
+function notify(session: SessionIntelligence): void {
+  [...subscribers].forEach(listener => {
+    try { listener(session); } catch (error) { console.error('[sessionIntelligence] subscriber failed', error); }
+  });
+}
+
 function createSession(title = 'Untitled AIOS Session'): SessionIntelligence {
   const now = Date.now();
   return { id: createAIOSTraceId(), startedAt: now, lastActivityAt: now, status: 'ACTIVE', title, commandCount: 0, agentCount: 0, intelligenceEventCount: 0, worldUpdateCount: 0, verificationFailures: 0, records: [] };
@@ -63,15 +69,20 @@ function createSession(title = 'Untitled AIOS Session'): SessionIntelligence {
 function getOrCreateActiveSession(): SessionIntelligence {
   const existing = activeSessionId ? sessions.find(session => session.id === activeSessionId) : undefined;
   if (existing && Date.now() - existing.lastActivityAt <= SESSION_IDLE_MS && existing.status === 'ACTIVE') return existing;
-  if (existing) existing.status = 'COMPLETED';
+  if (existing) {
+    const completed = { ...existing, status: 'COMPLETED' as const };
+    sessions = sessions.map(session => session.id === completed.id ? completed : session);
+    notify(completed);
+  }
   const session = createSession();
   sessions = [...sessions, session].slice(-MAX_SESSIONS);
   activeSessionId = session.id;
+  notify(session);
   return session;
 }
 
 function toRecord<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEventMap[K]): SessionIntelligenceRecord | null {
-  if (!event.traceId) return null;
+  if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
   const base = { id: createAIOSTraceId(), timestamp: event.timestamp, traceId: event.traceId, parentTraceId: event.parentTraceId, payload: 'payload' in event ? event.payload : undefined };
   switch (eventName) {
     case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
@@ -84,7 +95,16 @@ function toRecord<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEve
 }
 
 function applyRecord(session: SessionIntelligence, record: SessionIntelligenceRecord): SessionIntelligence {
-  const next = { ...session, lastActivityAt: record.timestamp, commandCount: session.commandCount + (record.kind === 'command' ? 1 : 0), agentCount: session.agentCount + (record.kind === 'agent' && record.status === 'started' ? 1 : 0), intelligenceEventCount: session.intelligenceEventCount + (record.kind === 'intelligence' ? 1 : 0), worldUpdateCount: session.worldUpdateCount + (record.kind === 'world' ? 1 : 0), verificationFailures: session.verificationFailures + (record.kind === 'verification' && record.status === 'failed' ? 1 : 0), records: [...session.records, record].slice(-MAX_RECORDS_PER_SESSION) };
+  const next = {
+    ...session,
+    lastActivityAt: record.timestamp,
+    commandCount: session.commandCount + (record.kind === 'command' ? 1 : 0),
+    agentCount: session.agentCount + (record.kind === 'agent' && record.status === 'started' ? 1 : 0),
+    intelligenceEventCount: session.intelligenceEventCount + (record.kind === 'intelligence' ? 1 : 0),
+    worldUpdateCount: session.worldUpdateCount + (record.kind === 'world' ? 1 : 0),
+    verificationFailures: session.verificationFailures + (record.kind === 'verification' && record.status === 'failed' ? 1 : 0),
+    records: [...session.records, record].slice(-MAX_RECORDS_PER_SESSION),
+  };
   if (record.kind === 'command' && record.command?.type === 'REQUEST_EXECUTION') next.title = record.command.payload.title || next.title;
   next.status = record.kind === 'verification' && record.status === 'failed' ? 'FAILED' : 'ACTIVE';
   return next;
@@ -96,7 +116,7 @@ function consume<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEven
   const session = getOrCreateActiveSession();
   const next = applyRecord(session, record);
   sessions = sessions.map(item => item.id === next.id ? next : item);
-  subscribers.forEach(listener => listener(next));
+  notify(next);
 }
 
 export const sessionIntelligence = {
@@ -105,10 +125,22 @@ export const sessionIntelligence = {
     initialized = true;
     disposers = (['input.command', 'agent.lifecycle', 'intelligence.lifecycle', 'world.update', 'system.state'] as const).map(eventName => ultronEventBus.on(eventName, event => consume(eventName, event)));
   },
-  shutdown(): void { disposers.forEach(dispose => dispose()); disposers = []; initialized = false; },
-  start(title?: string): string { const session = createSession(title); sessions = [...sessions, session].slice(-MAX_SESSIONS); activeSessionId = session.id; subscribers.forEach(listener => listener(session)); return session.id; },
-  complete(sessionId = activeSessionId): void { if (!sessionId) return; sessions = sessions.map(session => session.id === sessionId ? { ...session, status: 'COMPLETED' } : session); if (activeSessionId === sessionId) activeSessionId = null; },
-  fail(sessionId = activeSessionId): void { if (!sessionId) return; sessions = sessions.map(session => session.id === sessionId ? { ...session, status: 'FAILED' } : session); if (activeSessionId === sessionId) activeSessionId = null; },
+  shutdown(): void { disposers.splice(0).forEach(dispose => dispose()); initialized = false; },
+  start(title?: string): string { const session = createSession(title); sessions = [...sessions, session].slice(-MAX_SESSIONS); activeSessionId = session.id; notify(session); return session.id; },
+  complete(sessionId = activeSessionId): void {
+    if (!sessionId) return;
+    sessions = sessions.map(session => session.id === sessionId ? { ...session, status: 'COMPLETED' as const } : session);
+    const completed = sessions.find(session => session.id === sessionId);
+    if (activeSessionId === sessionId) activeSessionId = null;
+    if (completed) notify(completed);
+  },
+  fail(sessionId = activeSessionId): void {
+    if (!sessionId) return;
+    sessions = sessions.map(session => session.id === sessionId ? { ...session, status: 'FAILED' as const } : session);
+    const failed = sessions.find(session => session.id === sessionId);
+    if (activeSessionId === sessionId) activeSessionId = null;
+    if (failed) notify(failed);
+  },
   subscribe(listener: (session: SessionIntelligence) => void): () => void { subscribers.add(listener); return () => subscribers.delete(listener); },
   getActive(): SessionIntelligence | null { return activeSessionId ? sessions.find(session => session.id === activeSessionId) ?? null : null; },
   get(sessionId: string): SessionIntelligence | null { return sessions.find(session => session.id === sessionId) ?? null; },
