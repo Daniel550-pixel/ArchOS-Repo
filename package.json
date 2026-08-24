@@ -12,7 +12,8 @@
     "test:webapp": "node scripts/e2e-webapp.mjs",
     "test:governance": "node scripts/verify-governance.mjs",
     "test:a3": "node scripts/verify-a3-engine.mjs",
-    "test:a4": "node scripts/verify-a4-fabric.mjs"
+    "test:a4": "node scripts/verify-a4-fabric.mjs",
+    "test:aios-memory": "tsx scripts/verify-aios-memory.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -38,7 +39,6 @@
     "postprocessing": "^6.39.4",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "react-leaflet": "^5.0.0",
     "recharts": "^3.10.1",
     "three": "^0.185.1",
     "vite": "^6.2.3"
@@ -46,7 +46,6 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "tsx": "^4.21.0",
