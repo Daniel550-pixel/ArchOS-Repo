@@ -57,11 +57,26 @@ function recordFromEvent<K extends keyof ULTRONEventMap>(eventName: K, event: UL
   if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
   const base = { id: createAIOSTraceId(), traceId: event.traceId, parentTraceId: event.parentTraceId, timestamp: event.timestamp, payload: 'payload' in event ? event.payload : undefined };
   switch (eventName) {
-    case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
-    case 'agent.lifecycle': return { ...base, kind: 'agent', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', agentId: event.agentId };
-    case 'intelligence.lifecycle': return { ...base, kind: 'intelligence', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', phase: event.phase };
-    case 'world.update': return { ...base, kind: 'world', status: 'updated', worldEntityId: event.entityId, worldUpdateKind: event.kind };
-    case 'system.state': return { ...base, kind: 'verification', status: event.state === 'ERROR' ? 'failed' : 'updated' };
+    case 'input.command': {
+      const commandEvent = event as ULTRONEventMap['input.command'];
+      return { ...base, kind: 'command', status: 'started', source: commandEvent.source, command: commandEvent.command };
+    }
+    case 'agent.lifecycle': {
+      const lifecycle = event as ULTRONEventMap['agent.lifecycle'];
+      return { ...base, kind: 'agent', status: lifecycle.status === 'started' ? 'started' : lifecycle.status === 'failed' ? 'failed' : 'completed', agentId: lifecycle.agentId };
+    }
+    case 'intelligence.lifecycle': {
+      const lifecycle = event as ULTRONEventMap['intelligence.lifecycle'];
+      return { ...base, kind: 'intelligence', status: lifecycle.status === 'started' ? 'started' : lifecycle.status === 'failed' ? 'failed' : 'completed', phase: lifecycle.phase };
+    }
+    case 'world.update': {
+      const world = event as ULTRONEventMap['world.update'];
+      return { ...base, kind: 'world', status: 'updated', worldEntityId: world.entityId, worldUpdateKind: world.kind };
+    }
+    case 'system.state': {
+      const system = event as ULTRONEventMap['system.state'];
+      return { ...base, kind: 'verification', status: system.state === 'ERROR' ? 'failed' : 'updated' };
+    }
     default: return null;
   }
 }
@@ -84,16 +99,7 @@ export function validateExecutionTraceRecords(input: readonly ExecutionTraceReco
     if (record.parentTraceId && !known.has(record.parentTraceId)) unresolvedParentTraceIds++;
   });
 
-  return {
-    totalRecords: input.length,
-    uniqueTraceIds: traceIds.size,
-    unresolvedParentTraceIds,
-    retainedTraceIds: traceIds.size,
-    invalidTimestamps,
-    duplicateRecordIds,
-    monotonic,
-    retentionBounded: input.length >= MAX_RECORDS,
-  };
+  return { totalRecords: input.length, uniqueTraceIds: traceIds.size, unresolvedParentTraceIds, retainedTraceIds: traceIds.size, invalidTimestamps, duplicateRecordIds, monotonic, retentionBounded: input.length >= MAX_RECORDS };
 }
 
 export const executionTrace = {
