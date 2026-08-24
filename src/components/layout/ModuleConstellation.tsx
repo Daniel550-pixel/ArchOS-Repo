@@ -20,6 +20,10 @@ const PHASE_LABEL: Record<FlowPhase, string> = {
   command: 'COMMAND', agent: 'AGENT FABRIC', reasoning: 'REASONING', planning: 'PLANNING', verification: 'VERIFICATION', result: 'RESULT',
 };
 
+const PHASE_DURATION: Record<FlowPhase, number> = {
+  command: 900, agent: 1200, reasoning: 1400, planning: 1400, verification: 1500, result: 900,
+};
+
 export const ModuleConstellation: React.FC = () => {
   const modules = useMemo(() => Object.entries(MODULES), []);
   const [runtime, setRuntime] = useState<AIOSRuntimeState>(() => aiosRuntime.getState());
@@ -32,8 +36,7 @@ export const ModuleConstellation: React.FC = () => {
       ultronEventBus.on('input.command', () => setFlow({ phase: 'command', key: Date.now() })),
       ultronEventBus.on('agent.lifecycle', ({ status, agentId }) => {
         if (status === 'started') setFlow({ phase: 'agent', key: Date.now(), agentId });
-        if (status === 'completed') setFlow({ phase: 'result', key: Date.now(), agentId });
-        if (status === 'failed') setFlow({ phase: 'result', key: Date.now(), agentId });
+        if (status === 'completed' || status === 'failed') setFlow({ phase: 'result', key: Date.now(), agentId });
       }),
       ultronEventBus.on('intelligence.lifecycle', ({ phase, status }) => {
         if (status === 'started' && (phase === 'reasoning' || phase === 'planning' || phase === 'verification')) {
@@ -52,6 +55,7 @@ export const ModuleConstellation: React.FC = () => {
 
   const activePosition = activeIndex >= 0 ? POSITIONS[activeIndex % POSITIONS.length] : [50, 12];
   const systemActive = ACTIVE_STATES.has(runtime.systemState);
+  const routePath = `M 50 50 C 50 50, ${50 + (activePosition[0] - 50) * 0.48} ${50 + (activePosition[1] - 50) * 0.48}, ${activePosition[0]} ${activePosition[1]}`;
 
   return (
     <div
@@ -71,8 +75,12 @@ export const ModuleConstellation: React.FC = () => {
           const [x, y] = POSITIONS[index % POSITIONS.length];
           return <line key={id} x1="50" y1="50" x2={x} y2={y} className={`module-connection ${index === activeIndex ? 'is-active' : ''}`} filter="url(#module-line-glow)" />;
         })}
-        <line className="module-flow-route" x1="50" y1="50" x2={activePosition[0]} y2={activePosition[1]} filter="url(#module-flow-glow)" />
-        <circle className="module-flow-packet" key={flow.key} cx="50" cy="50" r="0.8" />
+        <path className="module-flow-route" d={routePath} filter="url(#module-flow-glow)" />
+        {flow.key > 0 && (
+          <circle className="module-flow-packet" key={flow.key} r="0.8">
+            <animateMotion dur={`${PHASE_DURATION[flow.phase]}ms`} path={routePath} rotate="auto" fill="freeze" />
+          </circle>
+        )}
       </svg>
       <div className="module-orbit module-orbit-a" />
       <div className="module-orbit module-orbit-b" />
