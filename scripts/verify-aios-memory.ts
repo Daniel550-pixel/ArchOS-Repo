@@ -10,18 +10,29 @@ function testCommand() {
 }
 
 async function main() {
+  executionTrace.clear();
+  sessionIntelligence.clear();
+  ultronEventBus.clear();
   executionTrace.initialize();
   sessionIntelligence.initialize();
   aiosRuntime.initialize();
 
   const sessionId = sessionIntelligence.start('AIOS memory verification');
+  const observerFailures: string[] = [];
   const throwingObserver = ultronEventBus.on('input.command', () => { throw new Error('synthetic observer failure'); });
+  const sessionObserver = sessionIntelligence.subscribe(() => { throw new Error('synthetic session observer failure'); });
 
   const traceId = aiosRuntime.dispatch(testCommand(), 'system');
   throwingObserver();
 
   assert.equal(traceId.length > 0, true, 'dispatch must return a trace id');
   assert.equal(executionTrace.getRecords(traceId).length, 1, 'command must be recorded despite observer failure');
+
+  const traceHealth = executionTrace.health();
+  assert.equal(traceHealth.invalidTimestamps, 0, 'trace timestamps must remain valid');
+  assert.equal(traceHealth.duplicateRecordIds, 0, 'trace record ids must remain unique');
+  assert.equal(traceHealth.orphanedParentTraceIds, 0, 'trace parents must resolve');
+  assert.equal(traceHealth.monotonic, true, 'trace timestamps must remain monotonic');
 
   const session = sessionIntelligence.get(sessionId);
   assert(session, 'session must exist');
@@ -31,13 +42,17 @@ async function main() {
   const replay = missionReplay.getSession(sessionId);
   assert(replay, 'mission replay session must exist');
   assert.equal(replay.missingTraceIds.length, 0, 'replay must reconcile against execution trace');
+  assert.equal(replay.integrityValid, true, 'replay integrity must be valid');
   assert.equal(replay.frames.length, 1, 'replay must expose one command frame');
   assert.equal(missionReplay.reconcile(sessionId)?.valid, true, 'reconciliation must be valid');
-  assert.equal(missionReplay.seek(sessionId, 1)?.current?.record.traceId, traceId, 'seek must resolve the trace');
+  assert.equal(missionReplay.seek(sessionId, Number.NaN)?.current?.record.traceId, traceId, 'invalid seek progress must normalize safely');
+  assert.equal(missionReplay.at(sessionId, Number.POSITIVE_INFINITY)?.frameIndex, 0, 'invalid frame index must normalize safely');
 
   sessionIntelligence.complete(sessionId);
   assert.equal(sessionIntelligence.get(sessionId)?.status, 'COMPLETED', 'completed session must remain completed');
+  assert.equal(observerFailures.length, 0, 'observer isolation must not leak failures');
 
+  sessionObserver();
   aiosRuntime.shutdown();
   sessionIntelligence.shutdown();
   executionTrace.shutdown();
@@ -45,9 +60,10 @@ async function main() {
 
   console.log('AIOS memory verification: PASS');
   console.log(`  traceId=${traceId}`);
-  console.log('  execution trace: PASS');
+  console.log('  execution trace health: PASS');
   console.log('  session intelligence: PASS');
-  console.log('  mission replay reconciliation: PASS');
+  console.log('  mission replay integrity: PASS');
+  console.log('  cursor normalization: PASS');
   console.log('  observer isolation: PASS');
 }
 
