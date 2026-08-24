@@ -7,6 +7,7 @@ import { Ton618Canvas } from './Ton618Canvas';
 import { ModuleConstellation } from './ModuleConstellation';
 import { UltronCommandDeck } from './UltronCommandDeck';
 import { UltronVisualLayer } from './UltronVisualLayer';
+import { AIOSCommandTrace } from './AIOSCommandTrace';
 import './UltronOneWorld.css';
 import './UltronOneWorld.expansion.css';
 
@@ -36,6 +37,7 @@ export const UltronOneWorld: React.FC = () => {
     <ModuleConstellation />
     <UltronVisualLayer />
     <UltronCommandDeck />
+    <AIOSCommandTrace />
     <div className="one-world-field" aria-hidden="true"/><div className="world-ambient-scan" aria-hidden="true"/>
     <div className="one-world-stars" style={{transform:`translate3d(${pointer.x*-10}px,${pointer.y*-7}px,0)`}}>{visibleStars.map(star=><button key={star.id} className={`world-star world-star-${star.type} ${selected?.id===star.id?'is-selected':''}`} style={{left:`${star.x}%`,top:`${star.y}%`,'--star-size':`${star.size}px`,'--star-depth':star.depth} as React.CSSProperties} onClick={()=>focusStar(star)} aria-label={`Select ${star.name}`}><span className="world-star-core"/>{selected?.id===star.id&&<span className="world-star-ring"/>}{star.importance>.75&&<span className="world-star-label">{star.name}</span>}</button>)}</div>
     <svg className="world-connections" aria-hidden="true"><line x1="63%" y1="43%" x2="55%" y2="49%"/><line x1="39%" y1="58%" x2="42%" y2="51%"/><line x1="69%" y1="31%" x2="71%" y2="45%"/></svg>
