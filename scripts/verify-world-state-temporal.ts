@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { createAIOSTraceId, ultronEventBus } from '../src/aios/events';
+import { executionTrace } from '../src/aios/executionTrace';
+import { sessionIntelligence } from '../src/aios/sessionIntelligence';
+import { aiosRuntime } from '../src/aios/runtime';
+import { missionReplay } from '../src/aios/missionReplay';
+import { temporalControlPlane } from '../src/aios/temporalControlPlane';
+import { worldStateTemporal } from '../src/aios/worldStateTemporal';
+
+async function main() {
+  executionTrace.clear(); sessionIntelligence.clear(); ultronEventBus.clear();
+  executionTrace.initialize(); sessionIntelligence.initialize(); aiosRuntime.initialize();
+  const sessionId = sessionIntelligence.start('World state temporal verification');
+  const root = createAIOSTraceId();
+  ultronEventBus.emit('world.update', { entityId: 'uae:dubai', kind: 'spatial', timestamp: 1000, traceId: root, payload: { value: { population: 100 }, kind: 'spatial' } });
+  const child = createAIOSTraceId();
+  ultronEventBus.emit('world.update', { entityId: 'uae:dubai', kind: 'temporal', timestamp: 2000, traceId: child, parentTraceId: root, payload: { value: { population: 101 }, kind: 'temporal' } });
+  const replay = missionReplay.getSession(sessionId);
+  assert(replay && replay.frames.length >= 2, 'world events must become replay frames');
+  const first = worldStateTemporal.reconstruct(sessionId, 0);
+  const second = worldStateTemporal.reconstruct(sessionId, 1);
+  assert(first && second, 'snapshots must reconstruct');
+  assert.equal(first.entities['uae:dubai']?.value && (first.entities['uae:dubai'].value as { population: number }).population, 100);
+  assert.equal(second.entities['uae:dubai']?.value && (second.entities['uae:dubai'].value as { population: number }).population, 101);
+  const diff = worldStateTemporal.diff(first, second); assert.deepEqual(diff.changed, ['uae:dubai']);
+  const branch = temporalControlPlane.branchFrom(sessionId, 1); assert(branch, 'branch must include a valid world snapshot');
+  assert.equal(branch.snapshot.hypothetical, true, 'branch snapshot must be hypothetical');
+  assert.equal(branch.snapshot.sourceSnapshotId, second.id, 'branch must preserve source snapshot provenance');
+  assert.equal(temporalControlPlane.applyBranchWorldState(branch.id, 'uae:dubai', { population: 150 }, 'simulation'), true);
+  const updated = temporalControlPlane.getBranch(branch.id);
+  assert(updated, 'updated branch must exist');
+  assert.equal((updated.snapshot.entities['uae:dubai'].value as { population: number }).population, 150);
+  assert.equal((second.entities['uae:dubai'].value as { population: number }).population, 101, 'canonical snapshot must remain immutable');
+  assert.equal(worldStateTemporal.integrity(second).valid, true, 'canonical snapshot integrity must remain valid');
+  assert.equal(worldStateTemporal.integrity(updated.snapshot).valid, true, 'hypothetical snapshot integrity must remain valid');
+  assert.equal(temporalControlPlane.beginSimulation(branch.id), true, 'branch must enter simulation');
+  assert.equal(temporalControlPlane.completeSimulation(branch.id), true, 'simulation must complete');
+  aiosRuntime.shutdown(); sessionIntelligence.shutdown(); executionTrace.shutdown(); ultronEventBus.clear();
+  console.log('World-state temporal verification: PASS');
+  console.log('  replay reconstruction: PASS');
+  console.log('  snapshot diff: PASS');
+  console.log('  hypothetical fork: PASS');
+  console.log('  canonical immutability: PASS');
+  console.log('  simulation lifecycle: PASS');
+}
+main().catch(error => { console.error('World-state temporal verification: FAIL'); console.error(error); process.exit(1); });
