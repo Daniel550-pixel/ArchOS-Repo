@@ -31,10 +31,12 @@ export interface ExecutionTraceSnapshot {
 export interface ExecutionTraceHealth {
   totalRecords: number;
   uniqueTraceIds: number;
-  orphanedParentTraceIds: number;
+  unresolvedParentTraceIds: number;
+  retainedTraceIds: number;
   invalidTimestamps: number;
   duplicateRecordIds: number;
   monotonic: boolean;
+  retentionBounded: boolean;
 }
 
 const MAX_RECORDS = 500;
@@ -55,13 +57,49 @@ function recordFromEvent<K extends keyof ULTRONEventMap>(eventName: K, event: UL
   if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
   const base = { id: createAIOSTraceId(), traceId: event.traceId, parentTraceId: event.parentTraceId, timestamp: event.timestamp, payload: 'payload' in event ? event.payload : undefined };
   switch (eventName) {
-    case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
-    case 'agent.lifecycle': return { ...base, kind: 'agent', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', agentId: event.agentId };
-    case 'intelligence.lifecycle': return { ...base, kind: 'intelligence', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', phase: event.phase };
-    case 'world.update': return { ...base, kind: 'world', status: 'updated', worldEntityId: event.entityId, worldUpdateKind: event.kind };
-    case 'system.state': return { ...base, kind: 'verification', status: event.state === 'ERROR' ? 'failed' : 'updated' };
+    case 'input.command': {
+      const commandEvent = event as ULTRONEventMap['input.command'];
+      return { ...base, kind: 'command', status: 'started', source: commandEvent.source, command: commandEvent.command };
+    }
+    case 'agent.lifecycle': {
+      const lifecycle = event as ULTRONEventMap['agent.lifecycle'];
+      return { ...base, kind: 'agent', status: lifecycle.status === 'started' ? 'started' : lifecycle.status === 'failed' ? 'failed' : 'completed', agentId: lifecycle.agentId };
+    }
+    case 'intelligence.lifecycle': {
+      const lifecycle = event as ULTRONEventMap['intelligence.lifecycle'];
+      return { ...base, kind: 'intelligence', status: lifecycle.status === 'started' ? 'started' : lifecycle.status === 'failed' ? 'failed' : 'completed', phase: lifecycle.phase };
+    }
+    case 'world.update': {
+      const world = event as ULTRONEventMap['world.update'];
+      return { ...base, kind: 'world', status: 'updated', worldEntityId: world.entityId, worldUpdateKind: world.kind };
+    }
+    case 'system.state': {
+      const system = event as ULTRONEventMap['system.state'];
+      return { ...base, kind: 'verification', status: system.state === 'ERROR' ? 'failed' : 'updated' };
+    }
     default: return null;
   }
+}
+
+export function validateExecutionTraceRecords(input: readonly ExecutionTraceRecord[]): ExecutionTraceHealth {
+  const ids = new Set<string>();
+  const traceIds = new Set<string>();
+  const known = new Set(input.map(record => record.traceId));
+  let duplicateRecordIds = 0;
+  let invalidTimestamps = 0;
+  let unresolvedParentTraceIds = 0;
+  let monotonic = true;
+
+  input.forEach((record, index) => {
+    if (ids.has(record.id)) duplicateRecordIds++;
+    ids.add(record.id);
+    traceIds.add(record.traceId);
+    if (!Number.isFinite(record.timestamp)) invalidTimestamps++;
+    if (index > 0 && record.timestamp < input[index - 1].timestamp) monotonic = false;
+    if (record.parentTraceId && !known.has(record.parentTraceId)) unresolvedParentTraceIds++;
+  });
+
+  return { totalRecords: input.length, uniqueTraceIds: traceIds.size, unresolvedParentTraceIds, retainedTraceIds: traceIds.size, invalidTimestamps, duplicateRecordIds, monotonic, retentionBounded: input.length >= MAX_RECORDS };
 }
 
 export const executionTrace = {
@@ -81,21 +119,11 @@ export const executionTrace = {
   getSnapshot(traceId: string): ExecutionTraceSnapshot | null {
     const traceRecords = records.filter(record => record.traceId === traceId);
     if (!traceRecords.length) return null;
-    const first = traceRecords[0]; const last = traceRecords[traceRecords.length - 1];
+    const first = traceRecords[0];
+    const last = traceRecords[traceRecords.length - 1];
     return { traceId, startedAt: first.timestamp, lastEventAt: last.timestamp, status: last.status, records: traceRecords };
   },
-  health(): ExecutionTraceHealth {
-    const ids = new Set<string>(); const traceIds = new Set<string>(); const known = new Set(records.map(record => record.traceId));
-    let duplicateRecordIds = 0; let invalidTimestamps = 0; let orphanedParentTraceIds = 0; let monotonic = true;
-    records.forEach((record, index) => {
-      if (ids.has(record.id)) duplicateRecordIds++;
-      ids.add(record.id); traceIds.add(record.traceId);
-      if (!Number.isFinite(record.timestamp)) invalidTimestamps++;
-      if (index > 0 && record.timestamp < records[index - 1].timestamp) monotonic = false;
-      if (record.parentTraceId && !known.has(record.parentTraceId)) orphanedParentTraceIds++;
-    });
-    return { totalRecords: records.length, uniqueTraceIds: traceIds.size, orphanedParentTraceIds, invalidTimestamps, duplicateRecordIds, monotonic };
-  },
+  health(): ExecutionTraceHealth { return validateExecutionTraceRecords(records); },
   clear(): void { records = []; },
   size(): number { return records.length; },
 };

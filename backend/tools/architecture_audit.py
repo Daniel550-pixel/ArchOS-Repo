@@ -32,6 +32,7 @@ FABRICATED_MARKERS = {
     "142": "fabricated city count candidate",
     "828.0": "fabricated building height candidate",
 }
+ASYNC_YIELD_CALLS = {"asyncio.sleep", "asyncio.wait_for", "asyncio.wait", "asyncio.gather", "queue.get", "request.is_disconnected"}
 
 
 def python_files():
@@ -48,6 +49,17 @@ def dotted_name(node: ast.AST) -> str | None:
         left = dotted_name(node.value)
         return f"{left}.{node.attr}" if left else node.attr
     return None
+
+
+def has_async_yield(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Await):
+            call = node.value
+            if isinstance(call, ast.Call):
+                called = dotted_name(call.func)
+                if called in ASYNC_YIELD_CALLS or (called and called.startswith("asyncio.")):
+                    return True
+    return False
 
 
 def main() -> int:
@@ -92,11 +104,11 @@ def main() -> int:
                 if re.search(rf"(?<![\w.]){re.escape(marker)}(?![\w.])", text):
                     errors.append(f"fabricated telemetry literal: {rel}: {marker} ({reason})")
 
-        if path.name != "main.py" and re.search(r"(?:from|import)\s+app\.main\b", text):
+        if path.name != "main.py" and re.search(r"^\s*(?:from|import)\s+app\.main\b", text, re.MULTILINE):
             errors.append(f"service/module imports authoritative app entrypoint: {rel}")
 
-        if "while True:" in text and "asyncio.sleep" not in text and "for True" not in text:
-            errors.append(f"unbounded loop without visible async sleep: {rel}")
+        if "while True:" in text and not has_async_yield(tree) and "for True" not in text:
+            errors.append(f"unbounded loop without visible async yield: {rel}")
 
         if re.search(r"^\s*[A-Z][A-Z0-9_]*\s*=\s*\[\]\s*$", text, re.MULTILINE):
             warnings.append(f"process-global list requires bounded-state review: {rel}")

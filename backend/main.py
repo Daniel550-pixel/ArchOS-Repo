@@ -7,6 +7,6 @@ execution path. Existing launch commands using ``backend.main:app`` continue
 to resolve to the authoritative application during migration.
 """
 
-from backend.app.main import app
+from app.main import app
 
 __all__ = ["app"]
