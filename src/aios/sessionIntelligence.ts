@@ -83,21 +83,32 @@ function toRecord<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEve
   if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
   const base = { id: createAIOSTraceId(), timestamp: event.timestamp, traceId: event.traceId, parentTraceId: event.parentTraceId, payload: 'payload' in event ? event.payload : undefined };
   switch (eventName) {
-    case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
-    case 'agent.lifecycle': return { ...base, kind: 'agent', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', agentId: event.agentId };
-    case 'intelligence.lifecycle': return { ...base, kind: 'intelligence', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', phase: event.phase };
-    case 'world.update': return { ...base, kind: 'world', status: 'updated', worldEntityId: event.entityId, worldUpdateKind: event.kind };
-    case 'system.state': return { ...base, kind: 'verification', status: event.state === 'ERROR' ? 'failed' : 'updated' };
+    case 'input.command': {
+      const commandEvent = event as ULTRONEventMap['input.command'];
+      return { ...base, kind: 'command', status: 'started', source: commandEvent.source, command: commandEvent.command };
+    }
+    case 'agent.lifecycle': {
+      const lifecycle = event as ULTRONEventMap['agent.lifecycle'];
+      return { ...base, kind: 'agent', status: lifecycle.status === 'started' ? 'started' : lifecycle.status === 'failed' ? 'failed' : 'completed', agentId: lifecycle.agentId };
+    }
+    case 'intelligence.lifecycle': {
+      const lifecycle = event as ULTRONEventMap['intelligence.lifecycle'];
+      return { ...base, kind: 'intelligence', status: lifecycle.status === 'started' ? 'started' : lifecycle.status === 'failed' ? 'failed' : 'completed', phase: lifecycle.phase };
+    }
+    case 'world.update': {
+      const world = event as ULTRONEventMap['world.update'];
+      return { ...base, kind: 'world', status: 'updated', worldEntityId: world.entityId, worldUpdateKind: world.kind };
+    }
+    case 'system.state': {
+      const system = event as ULTRONEventMap['system.state'];
+      return { ...base, kind: 'verification', status: system.state === 'ERROR' ? 'failed' : 'updated' };
+    }
     default: return null;
   }
 }
 
 function applyRecord(session: SessionIntelligence, record: SessionIntelligenceRecord): SessionIntelligence {
-  const nextStatus = record.kind === 'verification' && record.status === 'failed'
-    ? 'FAILED'
-    : session.status === 'FAILED'
-      ? 'FAILED'
-      : 'ACTIVE';
+  const nextStatus = record.kind === 'verification' && record.status === 'failed' ? 'FAILED' : session.status === 'FAILED' ? 'FAILED' : 'ACTIVE';
   return {
     ...session,
     lastActivityAt: Math.max(session.lastActivityAt, record.timestamp),
@@ -108,9 +119,7 @@ function applyRecord(session: SessionIntelligence, record: SessionIntelligenceRe
     verificationFailures: session.verificationFailures + (record.kind === 'verification' && record.status === 'failed' ? 1 : 0),
     records: [...session.records, record].slice(-MAX_RECORDS_PER_SESSION),
     status: nextStatus,
-    ...(record.kind === 'command' && record.command?.type === 'REQUEST_EXECUTION' && record.command.payload.title
-      ? { title: record.command.payload.title }
-      : {}),
+    ...(record.kind === 'command' && record.command?.type === 'REQUEST_EXECUTION' && record.command.payload.title ? { title: record.command.payload.title } : {}),
   };
 }
 
@@ -130,7 +139,6 @@ export function validateSessionIntelligence(input: readonly SessionIntelligence[
   let duplicateSessionIds = 0;
   let invalidRecordTimestamps = 0;
   let duplicateRecordIds = 0;
-
   input.forEach(session => {
     if (sessionIds.has(session.id)) duplicateSessionIds++;
     sessionIds.add(session.id);
@@ -141,15 +149,7 @@ export function validateSessionIntelligence(input: readonly SessionIntelligence[
       if (!Number.isFinite(record.timestamp)) invalidRecordTimestamps++;
     });
   });
-
-  return {
-    totalSessions: input.length,
-    activeSessionCount: input.filter(session => session.status === 'ACTIVE').length,
-    duplicateSessionIds,
-    invalidRecordTimestamps,
-    duplicateRecordIds,
-    retentionBounded: input.length >= MAX_SESSIONS || input.some(session => session.records.length >= MAX_RECORDS_PER_SESSION),
-  };
+  return { totalSessions: input.length, activeSessionCount: input.filter(session => session.status === 'ACTIVE').length, duplicateSessionIds, invalidRecordTimestamps, duplicateRecordIds, retentionBounded: input.length >= MAX_SESSIONS || input.some(session => session.records.length >= MAX_RECORDS_PER_SESSION) };
 }
 
 export const sessionIntelligence = {
