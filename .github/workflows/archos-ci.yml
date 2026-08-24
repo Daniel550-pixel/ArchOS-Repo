@@ -31,6 +31,8 @@ jobs:
         run: npm run test:temporal
       - name: World-state temporal verification
         run: npm run test:world-state
+      - name: Projected world simulation verification
+        run: npm run test:world-simulation
       - name: Governance verification
         run: npm run test:governance
       - name: A3 engine verification
