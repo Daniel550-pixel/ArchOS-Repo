@@ -20,15 +20,19 @@ assert.equal(healthy.invalidTimestamps, 0);
 assert.equal(healthy.unresolvedParentTraceIds, 0);
 assert.equal(healthy.monotonic, true);
 
-const unhealthy = validateExecutionTraceRecords([
+const malformed = validateExecutionTraceRecords([
   record(),
   record({ id: 'record-1', parentTraceId: 'missing-parent', timestamp: Number.NaN }),
-  record({ id: 'record-3', traceId: 'trace-3', timestamp: 0 }),
 ]);
-assert.equal(unhealthy.duplicateRecordIds, 1);
-assert.equal(unhealthy.invalidTimestamps, 1);
-assert.equal(unhealthy.unresolvedParentTraceIds, 1);
-assert.equal(unhealthy.monotonic, false);
+assert.equal(malformed.duplicateRecordIds, 1);
+assert.equal(malformed.invalidTimestamps, 1);
+assert.equal(malformed.unresolvedParentTraceIds, 1);
+
+const nonMonotonic = validateExecutionTraceRecords([
+  record({ timestamp: 2 }),
+  record({ id: 'record-2', traceId: 'trace-2', timestamp: 1 }),
+]);
+assert.equal(nonMonotonic.monotonic, false);
 
 const session: SessionIntelligence = {
   id: 'session-1',
