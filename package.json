@@ -13,7 +13,9 @@
     "test:governance": "node scripts/verify-governance.mjs",
     "test:a3": "node scripts/verify-a3-engine.mjs",
     "test:a4": "node scripts/verify-a4-fabric.mjs",
-    "test:aios-memory": "tsx scripts/verify-aios-memory.ts"
+    "test:aios-memory": "tsx scripts/verify-aios-memory.ts",
+    "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
+    "test:world-state": "tsx scripts/verify-world-state-temporal.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
