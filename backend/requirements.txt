@@ -19,3 +19,4 @@ PyJWT>=2.8.0
 prometheus-client>=0.20.0
 cryptography>=42.0.0
 pqcrypto>=0.1.4
+setuptools>=83.0.0
