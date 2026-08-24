@@ -45,6 +45,15 @@ export interface SessionIntelligenceSummary {
   latestTraceId: string | null;
 }
 
+export interface SessionIntelligenceHealth {
+  totalSessions: number;
+  activeSessionCount: number;
+  duplicateSessionIds: number;
+  invalidRecordTimestamps: number;
+  duplicateRecordIds: number;
+  retentionBounded: boolean;
+}
+
 const MAX_SESSIONS = 25;
 const MAX_RECORDS_PER_SESSION = 300;
 const SESSION_IDLE_MS = 30 * 60 * 1000;
@@ -71,7 +80,7 @@ function getOrCreateActiveSession(): SessionIntelligence {
 }
 
 function toRecord<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEventMap[K]): SessionIntelligenceRecord | null {
-  if (!event.traceId) return null;
+  if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
   const base = { id: createAIOSTraceId(), timestamp: event.timestamp, traceId: event.traceId, parentTraceId: event.parentTraceId, payload: 'payload' in event ? event.payload : undefined };
   switch (eventName) {
     case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
@@ -84,10 +93,25 @@ function toRecord<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEve
 }
 
 function applyRecord(session: SessionIntelligence, record: SessionIntelligenceRecord): SessionIntelligence {
-  const next = { ...session, lastActivityAt: record.timestamp, commandCount: session.commandCount + (record.kind === 'command' ? 1 : 0), agentCount: session.agentCount + (record.kind === 'agent' && record.status === 'started' ? 1 : 0), intelligenceEventCount: session.intelligenceEventCount + (record.kind === 'intelligence' ? 1 : 0), worldUpdateCount: session.worldUpdateCount + (record.kind === 'world' ? 1 : 0), verificationFailures: session.verificationFailures + (record.kind === 'verification' && record.status === 'failed' ? 1 : 0), records: [...session.records, record].slice(-MAX_RECORDS_PER_SESSION) };
-  if (record.kind === 'command' && record.command?.type === 'REQUEST_EXECUTION') next.title = record.command.payload.title || next.title;
-  next.status = record.kind === 'verification' && record.status === 'failed' ? 'FAILED' : 'ACTIVE';
-  return next;
+  const nextStatus = record.kind === 'verification' && record.status === 'failed'
+    ? 'FAILED'
+    : session.status === 'FAILED'
+      ? 'FAILED'
+      : 'ACTIVE';
+  return {
+    ...session,
+    lastActivityAt: Math.max(session.lastActivityAt, record.timestamp),
+    commandCount: session.commandCount + (record.kind === 'command' ? 1 : 0),
+    agentCount: session.agentCount + (record.kind === 'agent' && record.status === 'started' ? 1 : 0),
+    intelligenceEventCount: session.intelligenceEventCount + (record.kind === 'intelligence' ? 1 : 0),
+    worldUpdateCount: session.worldUpdateCount + (record.kind === 'world' ? 1 : 0),
+    verificationFailures: session.verificationFailures + (record.kind === 'verification' && record.status === 'failed' ? 1 : 0),
+    records: [...session.records, record].slice(-MAX_RECORDS_PER_SESSION),
+    status: nextStatus,
+    ...(record.kind === 'command' && record.command?.type === 'REQUEST_EXECUTION' && record.command.payload.title
+      ? { title: record.command.payload.title }
+      : {}),
+  };
 }
 
 function consume<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEventMap[K]): void {
@@ -96,7 +120,36 @@ function consume<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEven
   const session = getOrCreateActiveSession();
   const next = applyRecord(session, record);
   sessions = sessions.map(item => item.id === next.id ? next : item);
-  subscribers.forEach(listener => listener(next));
+  [...subscribers].forEach(listener => {
+    try { listener(next); } catch (error) { console.error('[sessionIntelligence] subscriber failed', error); }
+  });
+}
+
+export function validateSessionIntelligence(input: readonly SessionIntelligence[]): SessionIntelligenceHealth {
+  const sessionIds = new Set<string>();
+  let duplicateSessionIds = 0;
+  let invalidRecordTimestamps = 0;
+  let duplicateRecordIds = 0;
+
+  input.forEach(session => {
+    if (sessionIds.has(session.id)) duplicateSessionIds++;
+    sessionIds.add(session.id);
+    const recordIds = new Set<string>();
+    session.records.forEach(record => {
+      if (recordIds.has(record.id)) duplicateRecordIds++;
+      recordIds.add(record.id);
+      if (!Number.isFinite(record.timestamp)) invalidRecordTimestamps++;
+    });
+  });
+
+  return {
+    totalSessions: input.length,
+    activeSessionCount: input.filter(session => session.status === 'ACTIVE').length,
+    duplicateSessionIds,
+    invalidRecordTimestamps,
+    duplicateRecordIds,
+    retentionBounded: input.length >= MAX_SESSIONS || input.some(session => session.records.length >= MAX_RECORDS_PER_SESSION),
+  };
 }
 
 export const sessionIntelligence = {
@@ -106,12 +159,13 @@ export const sessionIntelligence = {
     disposers = (['input.command', 'agent.lifecycle', 'intelligence.lifecycle', 'world.update', 'system.state'] as const).map(eventName => ultronEventBus.on(eventName, event => consume(eventName, event)));
   },
   shutdown(): void { disposers.forEach(dispose => dispose()); disposers = []; initialized = false; },
-  start(title?: string): string { const session = createSession(title); sessions = [...sessions, session].slice(-MAX_SESSIONS); activeSessionId = session.id; subscribers.forEach(listener => listener(session)); return session.id; },
+  start(title?: string): string { const session = createSession(title); sessions = [...sessions, session].slice(-MAX_SESSIONS); activeSessionId = session.id; [...subscribers].forEach(listener => { try { listener(session); } catch (error) { console.error('[sessionIntelligence] subscriber failed', error); } }); return session.id; },
   complete(sessionId = activeSessionId): void { if (!sessionId) return; sessions = sessions.map(session => session.id === sessionId ? { ...session, status: 'COMPLETED' } : session); if (activeSessionId === sessionId) activeSessionId = null; },
   fail(sessionId = activeSessionId): void { if (!sessionId) return; sessions = sessions.map(session => session.id === sessionId ? { ...session, status: 'FAILED' } : session); if (activeSessionId === sessionId) activeSessionId = null; },
   subscribe(listener: (session: SessionIntelligence) => void): () => void { subscribers.add(listener); return () => subscribers.delete(listener); },
   getActive(): SessionIntelligence | null { return activeSessionId ? sessions.find(session => session.id === activeSessionId) ?? null : null; },
   get(sessionId: string): SessionIntelligence | null { return sessions.find(session => session.id === sessionId) ?? null; },
   list(): readonly SessionIntelligenceSummary[] { return sessions.map(session => ({ sessionId: session.id, status: session.status, startedAt: session.startedAt, lastActivityAt: session.lastActivityAt, commandCount: session.commandCount, agentCount: session.agentCount, intelligenceEventCount: session.intelligenceEventCount, worldUpdateCount: session.worldUpdateCount, verificationFailures: session.verificationFailures, latestTraceId: session.records.at(-1)?.traceId ?? null })); },
+  health(): SessionIntelligenceHealth { return validateSessionIntelligence(sessions); },
   clear(): void { sessions = []; activeSessionId = null; },
 };
