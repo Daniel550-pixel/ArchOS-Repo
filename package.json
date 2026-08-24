@@ -15,7 +15,8 @@
     "test:a4": "node scripts/verify-a4-fabric.mjs",
     "test:aios-memory": "tsx scripts/verify-aios-memory.ts",
     "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
-    "test:world-state": "tsx scripts/verify-world-state-temporal.ts"
+    "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
+    "test:world-simulation": "tsx scripts/verify-world-simulation.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -24,7 +25,7 @@
     "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "^3.0.5",
     "@tailwindcss/vite": "^4.1.14",
-    "@types/d3": "^7.4.3",
+    "@types/d3": "^7.4.0",
     "@types/leaflet": "^1.9.22",
     "@types/react-leaflet": "^3.0.0",
     "@types/three": "^0.185.4",
@@ -47,10 +48,10 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/express": "^4.17.21",
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
-    "tsx": "^4.21.0",
-    "@types/express": "^4.17.21"
+    "tsx": "^4.21.0"
   }
 }
