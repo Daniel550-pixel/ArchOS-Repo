@@ -13,6 +13,8 @@ export interface MissionReplaySession {
   frames: readonly MissionReplayFrame[];
   traceIds: readonly string[];
   missingTraceIds: readonly string[];
+  duplicateTraceIds: readonly string[];
+  integrityValid: boolean;
 }
 
 export interface MissionReplayCursor {
@@ -23,20 +25,17 @@ export interface MissionReplayCursor {
 }
 
 function buildReplay(session: SessionIntelligence): MissionReplaySession {
+  const traceIds = [...new Set(session.records.map(record => record.traceId))];
   const traceRecords = session.records.flatMap(record => executionTrace.getRecords(record.traceId));
   const unique = new Map<string, ExecutionTraceRecord>();
   traceRecords.forEach(record => unique.set(record.id, record));
-  const records = [...unique.values()].sort((a, b) => a.timestamp - b.timestamp);
-  const traceIds = [...new Set(session.records.map(record => record.traceId))];
+  const records = [...unique.values()].sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id));
   const available = new Set(records.map(record => record.traceId));
   const missingTraceIds = traceIds.filter(traceId => !available.has(traceId));
+  const duplicateTraceIds = traceIds.filter(traceId => session.records.filter(record => record.traceId === traceId).length > 1);
   const startedAt = records[0]?.timestamp ?? session.startedAt;
-  return {
-    session,
-    frames: records.map((record, index) => ({ index, timestamp: record.timestamp, relativeMs: Math.max(0, record.timestamp - startedAt), record })),
-    traceIds,
-    missingTraceIds,
-  };
+  const frames = records.map((record, index) => ({ index, timestamp: record.timestamp, relativeMs: Math.max(0, record.timestamp - startedAt), record }));
+  return { session, frames, traceIds, missingTraceIds, duplicateTraceIds, integrityValid: missingTraceIds.length === 0 && executionTrace.health().invalidTimestamps === 0 };
 }
 
 export const missionReplay = {
@@ -50,14 +49,15 @@ export const missionReplay = {
     return session ? buildReplay(session) : null;
   },
 
-  reconcile(sessionId: string): { valid: boolean; sessionRecordCount: number; traceRecordCount: number; missingTraceIds: readonly string[] } | null {
+  reconcile(sessionId: string): { valid: boolean; sessionRecordCount: number; traceRecordCount: number; missingTraceIds: readonly string[]; duplicateTraceIds: readonly string[] } | null {
     const replay = this.getSession(sessionId);
     if (!replay) return null;
     return {
-      valid: replay.missingTraceIds.length === 0,
+      valid: replay.integrityValid,
       sessionRecordCount: replay.session.records.length,
       traceRecordCount: replay.frames.length,
       missingTraceIds: replay.missingTraceIds,
+      duplicateTraceIds: replay.duplicateTraceIds,
     };
   },
 
@@ -71,7 +71,7 @@ export const missionReplay = {
     const replay = this.getSession(sessionId);
     if (!replay) return null;
     if (!replay.frames.length) return { sessionId, frameIndex: -1, progress: 0, current: null };
-    const normalized = Math.min(1, Math.max(0, progress));
+    const normalized = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
     const frameIndex = Math.min(replay.frames.length - 1, Math.round(normalized * (replay.frames.length - 1)));
     return { sessionId, frameIndex, progress: normalized, current: replay.frames[frameIndex] };
   },
@@ -79,7 +79,8 @@ export const missionReplay = {
   at(sessionId: string, frameIndex: number): MissionReplayCursor | null {
     const replay = this.getSession(sessionId);
     if (!replay || !replay.frames.length) return replay ? { sessionId, frameIndex: -1, progress: 0, current: null } : null;
-    const index = Math.min(replay.frames.length - 1, Math.max(0, Math.floor(frameIndex)));
+    const normalizedIndex = Number.isFinite(frameIndex) ? Math.floor(frameIndex) : 0;
+    const index = Math.min(replay.frames.length - 1, Math.max(0, normalizedIndex));
     return { sessionId, frameIndex: index, progress: index / Math.max(1, replay.frames.length - 1), current: replay.frames[index] };
   },
 
