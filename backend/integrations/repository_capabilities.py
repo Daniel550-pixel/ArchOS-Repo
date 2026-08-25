@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from backend.integrations.ai_mainframe import mainframe_runtime
+
 
 @dataclass(frozen=True)
 class RepositoryCapability:
@@ -41,11 +43,11 @@ REPOSITORY_CAPABILITIES: tuple[RepositoryCapability, ...] = (
     ),
     RepositoryCapability(
         "Daniel550-pixel/AI-mainframe",
-        "no implementation currently present beyond repository README",
+        "mainframe capability registry: orchestration, state observation, event routing, governed action",
         "mainframe_runtime",
-        "deferred",
-        "low",
-        "audited_no_implementation",
+        "integrated_native_adapter",
+        "high",
+        "implemented_and_integrated",
     ),
     RepositoryCapability(
         "Daniel550-pixel/FGSE",
@@ -60,13 +62,20 @@ REPOSITORY_CAPABILITIES: tuple[RepositoryCapability, ...] = (
 
 def list_repository_capabilities() -> list[dict[str, Any]]:
     """Return the audited external capability registry for observability and tooling."""
-    return [asdict(item) for item in REPOSITORY_CAPABILITIES]
+    capabilities = [asdict(item) for item in REPOSITORY_CAPABILITIES]
+    capabilities.append(
+        {
+            "repository": "Daniel550-pixel/AI-mainframe",
+            "capability": "|".join(item["name"] for item in mainframe_runtime.capabilities()),
+            "target_domain": "mainframe_runtime",
+            "integration_mode": "integrated_native_adapter",
+            "priority": "high",
+            "status": "runtime_available",
+        }
+    )
+    return capabilities
 
 
 def capabilities_for_domain(domain: str) -> list[dict[str, Any]]:
     normalized = domain.strip().lower()
-    return [
-        asdict(item)
-        for item in REPOSITORY_CAPABILITIES
-        if item.target_domain == normalized
-    ]
+    return [item for item in list_repository_capabilities() if item["target_domain"] == normalized]
