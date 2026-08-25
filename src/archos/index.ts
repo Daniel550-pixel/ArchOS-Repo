@@ -1,4 +1,4 @@
-import { AgentRegistry, EventEngine, PolicyEngine } from "./core";
+import { AgentRegistry, EventEngine, LocalStorageMissionStore, PolicyEngine } from "./core";
 import { MissionEngine } from "./mission";
 import { MemoryKnowledgeProvider, UnconfiguredAIProvider } from "./providers";
 
@@ -22,7 +22,8 @@ export const aiProvider = new UnconfiguredAIProvider();
   knowledgeScope: ["ARCHOS/00_CORE/", "ARCHOS/01_DECISIONS/", "ARCHOS/03_DEVELOPMENT/"],
 }));
 
-export const missionEngine = new MissionEngine(eventEngine, agentRegistry, policyEngine);
+export const missionStore = new LocalStorageMissionStore();
+export const missionEngine = new MissionEngine(eventEngine, agentRegistry, policyEngine, missionStore);
 
 export function createArchOSMission(input: Parameters<MissionEngine["create"]>[0]) {
   return missionEngine.create(input);
@@ -30,4 +31,8 @@ export function createArchOSMission(input: Parameters<MissionEngine["create"]>[0
 
 export function replayMission(missionId: string) {
   return eventEngine.replay(missionId);
+}
+
+export function listArchOSMissions() {
+  return missionEngine.list();
 }
