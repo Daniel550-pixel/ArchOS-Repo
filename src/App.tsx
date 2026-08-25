@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { Bot, RotateCcw } from 'lucide-react';
 import { SovereignGate } from './components/auth/SovereignGate';
 import { SovereignVault } from './services/biometric';
 import { silentRestore } from './services/session';
 import { UltronOneWorld } from './components/layout/UltronOneWorld';
 import { UltronMissionReplay } from './components/layout/UltronMissionReplay';
+import { UltronMissionControl } from './components/layout/UltronMissionControl';
 
 export default function App() {
   const [session, setSession] = useState<{ vault: SovereignVault; jwt: string } | null>(null);
   const [replayOpen, setReplayOpen] = useState(false);
+  const [missionControlOpen, setMissionControlOpen] = useState(false);
 
   useEffect(() => {
     silentRestore().then((restored) => {
@@ -18,16 +20,23 @@ export default function App() {
 
   useEffect(() => {
     const openReplay = () => setReplayOpen(true);
+    const openMissionControl = () => setMissionControlOpen(true);
     window.addEventListener('archos:mission-replay', openReplay);
+    window.addEventListener('archos:mission-control', openMissionControl);
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'r') {
         event.preventDefault();
         setReplayOpen(value => !value);
       }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        setMissionControlOpen(value => !value);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('archos:mission-replay', openReplay);
+      window.removeEventListener('archos:mission-control', openMissionControl);
       window.removeEventListener('keydown', onKey);
     };
   }, []);
@@ -43,7 +52,11 @@ export default function App() {
 
   return <>
     <UltronOneWorld />
-    <button className="archos-replay-launcher" onClick={() => setReplayOpen(true)} aria-label="Open ULTRON Mission Replay" title="Mission Replay · Ctrl+Shift+R"><RotateCcw/><span>REPLAY</span></button>
+    <div className="fixed bottom-6 right-6 z-50 flex gap-2">
+      <button className="archos-replay-launcher" onClick={() => setMissionControlOpen(true)} aria-label="Open ULTRON Mission Control" title="Mission Control · Ctrl+Shift+M"><Bot/><span>MISSIONS</span></button>
+      <button className="archos-replay-launcher" onClick={() => setReplayOpen(true)} aria-label="Open ULTRON Mission Replay" title="Mission Replay · Ctrl+Shift+R"><RotateCcw/><span>REPLAY</span></button>
+    </div>
+    <UltronMissionControl open={missionControlOpen} onClose={() => setMissionControlOpen(false)} />
     <UltronMissionReplay open={replayOpen} onClose={() => setReplayOpen(false)} />
   </>;
 }
