@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { agentRegistry, createArchOSMission, eventEngine, missionEngine, replayMission } from "../../src/archos/index";
+import { agentRegistry, createArchOSMission, eventEngine, executionCoordinator, missionEngine, replayMission } from "../../src/archos/index";
 
 export const missionRouter = Router();
 const missions = new Map<string, ReturnType<typeof createArchOSMission>>();
@@ -34,10 +34,46 @@ missionRouter.post("/missions/:id/plan", (req, res) => {
   return res.json(next);
 });
 
+missionRouter.post("/missions/:id/assign", (req, res) => {
+  const mission = missions.get(req.params.id);
+  const { taskId, agentId, actor = "orchestrator" } = req.body ?? {};
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (typeof taskId !== "string" || typeof agentId !== "string") {
+    return res.status(400).json({ error: "taskId and agentId are required" });
+  }
+  try {
+    const next = missionEngine.assign(mission, taskId, agentId, actor);
+    missions.set(next.id, next);
+    return res.json(next);
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : "Assignment failed" });
+  }
+});
+
 missionRouter.post("/missions/:id/start", (req, res) => {
   const mission = missions.get(req.params.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
-  const next = missionEngine.start(mission, req.body?.actor ?? "operator");
+  const next = missionEngine.start(mission, req.body?.actor ?? "orchestrator");
+  missions.set(next.id, next);
+  return res.json(next);
+});
+
+missionRouter.post("/missions/:id/tasks/:taskId/execute", async (req, res) => {
+  const mission = missions.get(req.params.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  try {
+    const result = await executionCoordinator.executeTask(mission, req.params.taskId, req.body?.actor ?? "orchestrator");
+    missions.set(result.mission.id, result.mission);
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({ error: error instanceof Error ? error.message : "Task execution failed" });
+  }
+});
+
+missionRouter.post("/missions/:id/verify", (req, res) => {
+  const mission = missions.get(req.params.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  const next = missionEngine.verify(mission, req.body?.actor ?? "verification");
   missions.set(next.id, next);
   return res.json(next);
 });
