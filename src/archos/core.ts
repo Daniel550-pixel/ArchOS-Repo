@@ -34,6 +34,73 @@ export interface Mission {
   tasks: MissionTask[];
 }
 
+export interface MissionStore {
+  save(mission: Mission): void;
+  get(id: string): Mission | undefined;
+  list(): Mission[];
+  delete(id: string): void;
+}
+
+export class MemoryMissionStore implements MissionStore {
+  private readonly missions = new Map<string, Mission>();
+
+  save(mission: Mission): void { this.missions.set(mission.id, structuredClone(mission)); }
+  get(id: string): Mission | undefined {
+    const mission = this.missions.get(id);
+    return mission ? structuredClone(mission) : undefined;
+  }
+  list(): Mission[] { return [...this.missions.values()].map((mission) => structuredClone(mission)); }
+  delete(id: string): void { this.missions.delete(id); }
+}
+
+/** Browser persistence adapter. Falls back to memory outside browser runtimes. */
+export class LocalStorageMissionStore implements MissionStore {
+  private readonly fallback = new MemoryMissionStore();
+  private readonly key = "archos.missions.v1";
+
+  private storage(): Storage | null {
+    return typeof globalThis !== "undefined" && "localStorage" in globalThis
+      ? globalThis.localStorage
+      : null;
+  }
+
+  private read(): Mission[] {
+    const storage = this.storage();
+    if (!storage) return this.fallback.list();
+    try {
+      const raw = storage.getItem(this.key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as Mission[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private write(missions: Mission[]): void {
+    const storage = this.storage();
+    if (!storage) {
+      for (const mission of missions) this.fallback.save(mission);
+      return;
+    }
+    storage.setItem(this.key, JSON.stringify(missions));
+  }
+
+  save(mission: Mission): void {
+    const missions = this.read().filter((item) => item.id !== mission.id);
+    missions.push(structuredClone(mission));
+    this.write(missions);
+  }
+
+  get(id: string): Mission | undefined {
+    return this.read().find((mission) => mission.id === id);
+  }
+
+  list(): Mission[] { return this.read().map((mission) => structuredClone(mission)); }
+
+  delete(id: string): void { this.write(this.read().filter((mission) => mission.id !== id)); }
+}
+
 export interface ArchOSEvent<T = Record<string, unknown>> {
   id: string;
   timestamp: string;
@@ -43,12 +110,6 @@ export interface ArchOSEvent<T = Record<string, unknown>> {
   taskId?: string;
   agentId?: string;
   payload: T;
-}
-
-export interface PolicyDecision {
-  allowed: boolean;
-  reason: string;
-  requiredApproval?: string;
 }
 
 export class EventEngine {
