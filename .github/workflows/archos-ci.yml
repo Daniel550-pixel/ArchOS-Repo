@@ -59,3 +59,17 @@ jobs:
         run: python -m pip install --upgrade pip pytest pytest-asyncio
       - name: Run promoted intelligence tests
         run: python -m pytest -q tests/test_multimodal_archos_integration.py tests/test_finsight_jarvis_integration.py
+
+  ultron-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ULTRON component test
+        run: npx vitest run frontend/src/components/experience/UltronNeuralField.test.tsx
