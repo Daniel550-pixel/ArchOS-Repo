@@ -16,6 +16,7 @@ class AgentCapability(str, Enum):
     VERIFICATION = "VERIFICATION"
     RISK_ASSESSMENT = "RISK_ASSESSMENT"
     RESEARCH = "RESEARCH"
+    FINANCIAL_INTELLIGENCE = "FINANCIAL_INTELLIGENCE"
     EXECUTION = "EXECUTION"
     COMMUNICATION = "COMMUNICATION"
 
@@ -109,7 +110,6 @@ class Agent:
     reality_default: RealityLevel = RealityLevel.INFERRED
 
     def can_accept(self, task: AgentTask) -> bool:
-        """Return whether this agent satisfies the task's declared capability contract."""
         if task.required_capabilities and not task.required_capabilities.issubset(self.capabilities):
             return False
         if task.required_permissions and not task.required_permissions.issubset(set(self.required_permissions)):
@@ -117,65 +117,23 @@ class Agent:
         return True
 
     async def execute(self, task: AgentTask) -> AgentResult:
-        """Execute only after the swarm has validated the capability contract."""
         if not self.can_accept(task):
-            return AgentResult(
-                agent_id=self.id,
-                task_id=task.task_id,
-                status="DENIED",
-                output={},
-                reality=RealityLevel.FALLBACK,
-                confidence=0.0,
-                provenance=f"{self.id}:capability_contract_denied",
-                error="Agent does not satisfy the task capability/permission contract",
-            )
-
+            return AgentResult(agent_id=self.id, task_id=task.task_id, status="DENIED", output={}, reality=RealityLevel.FALLBACK, confidence=0.0, provenance=f"{self.id}:capability_contract_denied", error="Agent does not satisfy the task capability/permission contract")
         start = time.time()
         self.workload = min(1.0, self.workload + 0.2)
         try:
-            res = await asyncio.wait_for(
-                self._run(task), timeout=min(task.timeout_sec, self.timeout_sec)
-            )
+            res = await asyncio.wait_for(self._run(task), timeout=min(task.timeout_sec, self.timeout_sec))
             res.execution_time_ms = round((time.time() - start) * 1000, 2)
             self.performance = min(1.0, self.performance * 0.98 + 0.02)
             return res
         except asyncio.TimeoutError:
             self.performance = max(0.2, self.performance - 0.1)
-            return AgentResult(
-                agent_id=self.id,
-                task_id=task.task_id,
-                status="TIMEOUT",
-                output={},
-                reality=RealityLevel.FALLBACK,
-                confidence=0.0,
-                provenance=f"{self.id}:execution_timeout",
-                execution_time_ms=round((time.time() - start) * 1000, 2),
-                error=f"Agent {self.id} timed out after {self.timeout_sec}s",
-            )
+            return AgentResult(agent_id=self.id, task_id=task.task_id, status="TIMEOUT", output={}, reality=RealityLevel.FALLBACK, confidence=0.0, provenance=f"{self.id}:execution_timeout", execution_time_ms=round((time.time() - start) * 1000, 2), error=f"Agent {self.id} timed out after {self.timeout_sec}s")
         except Exception:
             self.performance = max(0.2, self.performance - 0.05)
-            return AgentResult(
-                agent_id=self.id,
-                task_id=task.task_id,
-                status="FAILED",
-                output={},
-                reality=RealityLevel.FALLBACK,
-                confidence=0.0,
-                provenance=f"{self.id}:exception",
-                execution_time_ms=round((time.time() - start) * 1000, 2),
-                error="Agent execution failed",
-            )
+            return AgentResult(agent_id=self.id, task_id=task.task_id, status="FAILED", output={}, reality=RealityLevel.FALLBACK, confidence=0.0, provenance=f"{self.id}:exception", execution_time_ms=round((time.time() - start) * 1000, 2), error="Agent execution failed")
         finally:
             self.workload = max(0.0, self.workload - 0.2)
 
     async def _run(self, task: AgentTask) -> AgentResult:
-        """Internal execution method to be overridden by specialist implementations."""
-        return AgentResult(
-            agent_id=self.id,
-            task_id=task.task_id,
-            status="SUCCESS",
-            output={"result": "ok"},
-            reality=self.reality_default,
-            confidence=self.performance,
-            provenance=f"{self.id}:base",
-        )
+        return AgentResult(agent_id=self.id, task_id=task.task_id, status="SUCCESS", output={"result": "ok"}, reality=self.reality_default, confidence=self.performance, provenance=f"{self.id}:base")
