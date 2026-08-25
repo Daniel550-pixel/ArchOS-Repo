@@ -1,6 +1,6 @@
 import type { ClaudeCodeExecutor, ExecutorPolicy, ClaudeExecutionResult } from "../../server/providers/claudeExecutor";
 import { MissionEngine } from "./mission";
-import type { ArchOSEvent, Mission, MissionTask, AgentRegistry, EventEngine, PolicyEngine } from "./core";
+import type { Mission, MissionTask, AgentRegistry, EventEngine, PolicyEngine } from "./core";
 
 export interface AgentExecutionCoordinatorOptions {
   missionEngine: MissionEngine;
@@ -47,7 +47,7 @@ export class AgentExecutionCoordinator {
 
     const branch = `archos/agent/${agent.id}/${mission.id.replace(/[^A-Za-z0-9-]/g, "").slice(0, 48)}`;
     const policy: ExecutorPolicy = {
-      permissions: new Set(agent.permissions as ExecutorPolicy["permissions"] extends ReadonlySet<infer T> ? T : never),
+      permissions: new Set(agent.permissions) as ExecutorPolicy["permissions"],
       workspaceRoot: `/workspace/${mission.id}`,
       allowNetwork: false,
       allowProduction: false,
