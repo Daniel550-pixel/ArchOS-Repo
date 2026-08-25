@@ -17,9 +17,8 @@ interface Props {
 /**
  * ArchOS-native ULTRON neural field.
  *
- * Promoted from FGSE's NeuralVisualizer, but deliberately decoupled from
- * FGSE's trading/SystemStatus model. The component is a presentation layer;
- * it has no command, network, execution, or financial authority.
+ * Presentation-only: it consumes state but cannot dispatch commands,
+ * perform network calls, or exercise execution authority.
  */
 export const UltronNeuralField: React.FC<Props> = ({
   status = "IDLE",
@@ -33,6 +32,7 @@ export const UltronNeuralField: React.FC<Props> = ({
     if (!canvas || !context) return;
 
     let frame = 0;
+    let disposed = false;
     let particles: Array<{
       x: number;
       y: number;
@@ -43,15 +43,18 @@ export const UltronNeuralField: React.FC<Props> = ({
     }> = [];
 
     const init = () => {
+      if (disposed) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.floor(window.innerWidth * dpr);
-      canvas.height = Math.floor(window.innerHeight * dpr);
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      particles = Array.from({ length: particleCount }, () => ({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
+      particles = Array.from({ length: Math.max(0, particleCount) }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
         z: Math.random() * 500,
         vx: (Math.random() - 0.5) * 1.5,
         vy: (Math.random() - 0.5) * 1.5,
@@ -72,6 +75,7 @@ export const UltronNeuralField: React.FC<Props> = ({
     };
 
     const render = () => {
+      if (disposed) return;
       const width = window.innerWidth;
       const height = window.innerHeight;
       context.clearRect(0, 0, width, height);
@@ -98,9 +102,7 @@ export const UltronNeuralField: React.FC<Props> = ({
         for (let j = i + 1; j < particles.length; j += 1) {
           const a = particles[i];
           const b = particles[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const distance = Math.hypot(dx, dy);
+          const distance = Math.hypot(a.x - b.x, a.y - b.y);
           if (distance < 100) {
             context.beginPath();
             context.moveTo(a.x, a.y);
@@ -117,7 +119,9 @@ export const UltronNeuralField: React.FC<Props> = ({
     init();
     render();
     window.addEventListener("resize", init);
+
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", init);
     };
@@ -129,7 +133,10 @@ export const UltronNeuralField: React.FC<Props> = ({
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-0 bg-black"
       style={{
-        filter: status === "RISK" || status === "HALT" ? "contrast(1.15) brightness(.8)" : undefined,
+        filter:
+          status === "RISK" || status === "HALT"
+            ? "contrast(1.15) brightness(.8)"
+            : undefined,
       }}
     />
   );
