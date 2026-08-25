@@ -41,6 +41,15 @@ export class MissionEngine {
     return next;
   }
 
+  setTaskStatus(mission: Mission, taskId: string, status: MissionStatus, actor = "orchestrator"): Mission {
+    if (!mission.tasks.some((task) => task.id === taskId)) throw new Error(`Unknown task: ${taskId}`);
+    const tasks = mission.tasks.map((task) => task.id === taskId ? { ...task, status } : task);
+    const next = { ...mission, tasks, updatedAt: new Date().toISOString() };
+    this.store.save(next);
+    this.events.emit({ type: `TASK_${status}`, actor, missionId: mission.id, taskId, agentId: tasks.find((task) => task.id === taskId)?.agentId, payload: { status } });
+    return next;
+  }
+
   start(mission: Mission, actor = "orchestrator"): Mission {
     const decision = this.policy.decide({ risk: mission.risk, permissions: ["mission:execute"], requiredPermission: "mission:execute", approved: mission.risk === "READ_ONLY" || mission.risk === "LOW_RISK" });
     if (!decision.allowed) {

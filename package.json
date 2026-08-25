@@ -17,7 +17,10 @@
     "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
     "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
-    "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts"
+    "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts",
+    "test:provider-boundaries": "tsx scripts/verify-provider-boundaries.ts",
+    "test:agent-execution": "tsx scripts/verify-agent-execution.ts",
+    "test:sandbox-runner": "tsx scripts/verify-sandbox-runner.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -35,9 +38,9 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "framer-motion": "^13.1.0",
+    "motion": "^12.23.24",
     "leaflet": "^1.9.4",
     "maplibre-gl": "^6.4.1",
-    "motion": "^12.23.24",
     "mqtt": "^5.15.2",
     "postprocessing": "^6.39.4",
     "react": "^19.0.1",

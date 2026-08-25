@@ -1,6 +1,8 @@
 import { AgentRegistry, EventEngine, LocalStorageMissionStore, PolicyEngine } from "./core";
 import { MissionEngine } from "./mission";
 import { MemoryKnowledgeProvider, UnconfiguredAIProvider } from "./providers";
+import { AgentExecutionCoordinator } from "./execution";
+import { createUnconfiguredClaudeExecutor } from "../../server/providers/claudeExecutor";
 
 export const eventEngine = new EventEngine();
 export const policyEngine = new PolicyEngine();
@@ -24,6 +26,14 @@ export const aiProvider = new UnconfiguredAIProvider();
 
 export const missionStore = new LocalStorageMissionStore();
 export const missionEngine = new MissionEngine(eventEngine, agentRegistry, policyEngine, missionStore);
+export const claudeExecutor = createUnconfiguredClaudeExecutor();
+export const executionCoordinator = new AgentExecutionCoordinator({
+  missionEngine,
+  agents: agentRegistry,
+  events: eventEngine,
+  policy: policyEngine,
+  executor: claudeExecutor,
+});
 
 export function createArchOSMission(input: Parameters<MissionEngine["create"]>[0]) {
   return missionEngine.create(input);
