@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.services.event_fabric import app_event_fabric
@@ -8,6 +8,7 @@ from app.services.governance_bridge import governance_bridge
 from app.services.integration_runtime import integration_runtime
 from backend.agents.action_gate import ActionRequest
 from backend.agents.base import RiskLevel
+from backend.integrations.repository_capabilities import capabilities_for_domain, list_repository_capabilities
 
 router = APIRouter(prefix="/integrations", tags=["Sovereign Integrations"])
 
@@ -23,6 +24,22 @@ class ModbusWriteRequest(BaseModel):
 
 class IntegrationActionApproval(BaseModel):
     approver: str
+
+
+@router.get("/capabilities")
+async def repository_capabilities(domain: str | None = Query(default=None)):
+    """Expose the audited external capability registry without executing external code."""
+    capabilities = (
+        capabilities_for_domain(domain)
+        if domain
+        else list_repository_capabilities()
+    )
+    await app_event_fabric.publish(
+        "integration.capabilities.observed",
+        {"domain": domain, "count": len(capabilities)},
+        source="integration.repository_capabilities",
+    )
+    return {"count": len(capabilities), "capabilities": capabilities}
 
 
 @router.get("/modbus/state")
