@@ -20,9 +20,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       - name: Typecheck
         run: npm run lint
       - name: AIOS memory verification
@@ -70,6 +69,6 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       - name: Run ULTRON component test
-        run: npx vitest run frontend/src/components/experience/UltronNeuralField.test.tsx
+        run: npm run test:ultron
