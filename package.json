@@ -18,7 +18,8 @@
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
     "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
     "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts",
-    "test:provider-boundaries": "tsx scripts/verify-provider-boundaries.ts"
+    "test:provider-boundaries": "tsx scripts/verify-provider-boundaries.ts",
+    "test:agent-execution": "tsx scripts/verify-agent-execution.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
