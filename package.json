@@ -17,7 +17,8 @@
     "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
     "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
-    "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts"
+    "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts",
+    "test:provider-boundaries": "tsx scripts/verify-provider-boundaries.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -50,7 +51,7 @@
     "@types/node": "^22.14.0",
     "@types/express": "^4.17.21",
     "autoprefixer": "^10.4.21",
-    "tailwindcss": "^4.1.14",
+    "tailwindcss": "^4.1.21",
     "typescript": "~5.8.2",
     "tsx": "^4.21.0"
   }
