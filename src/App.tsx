@@ -6,7 +6,7 @@ import { silentRestore } from './services/session';
 import { UltronOneWorld } from './components/layout/UltronOneWorld';
 import { UltronMissionReplay } from './components/layout/UltronMissionReplay';
 import { UltronMissionControl } from './components/layout/UltronMissionControl';
-import { UltronModeSwitcher } from './components/layout/UltronModeSwitcher';
+import { UltronAdaptiveHud } from './components/layout/UltronAdaptiveHud';
 
 type ArchOSMode = 'world' | 'intelligence' | 'agents' | 'replay';
 
@@ -29,14 +29,10 @@ export default function App() {
     window.addEventListener('archos:mission-control', openMissionControl);
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'r') {
-        event.preventDefault();
-        setMode('replay');
-        setReplayOpen(value => !value);
+        event.preventDefault(); setMode('replay'); setReplayOpen(value => !value);
       }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'm') {
-        event.preventDefault();
-        setMode('agents');
-        setMissionControlOpen(value => !value);
+        event.preventDefault(); setMode('agents'); setMissionControlOpen(value => !value);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -48,18 +44,16 @@ export default function App() {
   }, []);
 
   if (!session) {
-    return (
-      <SovereignGate
-        onAuthed={(vault, jwt) => setSession({ vault, jwt })}
-        onBypass={() => setSession({ vault: new SovereignVault(), jwt: 'operative_readonly_jwt' })}
-      />
-    );
+    return <SovereignGate
+      onAuthed={(vault, jwt) => setSession({ vault, jwt })}
+      onBypass={() => setSession({ vault: new SovereignVault(), jwt: 'operative_readonly_jwt' })}
+    />;
   }
 
   return <>
     <UltronOneWorld />
-    <UltronModeSwitcher mode={mode} onModeChange={setMode} />
-    <div className="fixed bottom-6 right-6 z-50 flex gap-2">
+    <UltronAdaptiveHud mode={mode} onModeChange={setMode} />
+    <div className="fixed bottom-24 right-6 z-50 flex gap-2">
       <button className="archos-replay-launcher" onClick={() => { setMode('agents'); setMissionControlOpen(true); }} aria-label="Open ULTRON Mission Control" title="Mission Control · Ctrl+Shift+M"><Bot/><span>MISSIONS</span></button>
       <button className="archos-replay-launcher" onClick={() => { setMode('replay'); setReplayOpen(true); }} aria-label="Open ULTRON Mission Replay" title="Mission Replay · Ctrl+Shift+R"><RotateCcw/><span>REPLAY</span></button>
     </div>
