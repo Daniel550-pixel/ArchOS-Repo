@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.world_model_runtime import query_authoritative_state
+from .world_model_runtime import query_authoritative_state
 
 from .base import Agent, AgentCapability, AgentTask, AgentResult, RealityLevel
 

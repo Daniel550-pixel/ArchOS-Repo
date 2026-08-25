@@ -68,7 +68,7 @@ function createSession(title = 'Untitled AIOS Session'): SessionIntelligence {
 
 function getOrCreateActiveSession(): SessionIntelligence {
   const existing = activeSessionId ? sessions.find(session => session.id === activeSessionId) : undefined;
-  if (existing && Date.now() - existing.lastActivityAt <= SESSION_IDLE_MS && existing.status === 'ACTIVE') return existing;
+  if (existing && existing.status === 'ACTIVE') return existing;
   if (existing) {
     const completed = { ...existing, status: 'COMPLETED' as const };
     sessions = sessions.map(session => session.id === completed.id ? completed : session);
@@ -81,18 +81,35 @@ function getOrCreateActiveSession(): SessionIntelligence {
   return session;
 }
 
+
 function toRecord<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEventMap[K]): SessionIntelligenceRecord | null {
   if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
-  const base = { id: createAIOSTraceId(), timestamp: event.timestamp, traceId: event.traceId, parentTraceId: event.parentTraceId, payload: 'payload' in event ? event.payload : undefined };
+  const base = { id: createAIOSTraceId(), timestamp: event.timestamp, traceId: event.traceId, parentTraceId: event.parentTraceId, payload: 'payload' in event ? (event as { payload?: unknown }).payload : undefined };
   switch (eventName) {
-    case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
-    case 'agent.lifecycle': return { ...base, kind: 'agent', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', agentId: event.agentId };
-    case 'intelligence.lifecycle': return { ...base, kind: 'intelligence', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', phase: event.phase };
-    case 'world.update': return { ...base, kind: 'world', status: 'updated', worldEntityId: event.entityId, worldUpdateKind: event.kind };
-    case 'system.state': return { ...base, kind: 'verification', status: event.state === 'ERROR' ? 'failed' : 'updated' };
+    case 'input.command': {
+      const e = event as ULTRONEventMap['input.command'];
+      return { ...base, kind: 'command', status: 'started', source: e.source, command: e.command };
+    }
+    case 'agent.lifecycle': {
+      const e = event as ULTRONEventMap['agent.lifecycle'];
+      return { ...base, kind: 'agent', status: e.status === 'started' ? 'started' : e.status === 'failed' ? 'failed' : 'completed', agentId: e.agentId };
+    }
+    case 'intelligence.lifecycle': {
+      const e = event as ULTRONEventMap['intelligence.lifecycle'];
+      return { ...base, kind: 'intelligence', status: e.status === 'started' ? 'started' : e.status === 'failed' ? 'failed' : 'completed', phase: e.phase };
+    }
+    case 'world.update': {
+      const e = event as ULTRONEventMap['world.update'];
+      return { ...base, kind: 'world', status: 'updated', worldEntityId: e.entityId, worldUpdateKind: e.kind };
+    }
+    case 'system.state': {
+      const e = event as ULTRONEventMap['system.state'];
+      return { ...base, kind: 'verification', status: e.state === 'ERROR' ? 'failed' : 'updated' };
+    }
     default: return null;
   }
 }
+
 
 function applyRecord(session: SessionIntelligence, record: SessionIntelligenceRecord): SessionIntelligence {
   const next = {
@@ -126,6 +143,24 @@ export const sessionIntelligence = {
     disposers = (['input.command', 'agent.lifecycle', 'intelligence.lifecycle', 'world.update', 'system.state'] as const).map(eventName => ultronEventBus.on(eventName, event => consume(eventName, event)));
   },
   shutdown(): void { disposers.splice(0).forEach(dispose => dispose()); initialized = false; },
+  recordCommand(sessionId: string, details: { traceId: string; commandType?: string; timestamp?: number; status?: 'started' | 'completed' | 'failed' }): void {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    const record: SessionIntelligenceRecord = {
+      id: createAIOSTraceId(),
+      traceId: details.traceId,
+      timestamp: details.timestamp ?? Date.now(),
+      kind: 'command',
+      status: details.status ?? 'completed',
+      command: {
+        type: (details.commandType as any) || 'REQUEST_EXECUTION',
+        payload: { title: session.title, details: '' },
+      } as any,
+    };
+    const next = applyRecord(session, record);
+    sessions = sessions.map(item => item.id === next.id ? next : item);
+    notify(next);
+  },
   start(title?: string): string { const session = createSession(title); sessions = [...sessions, session].slice(-MAX_SESSIONS); activeSessionId = session.id; notify(session); return session.id; },
   complete(sessionId = activeSessionId): void {
     if (!sessionId) return;

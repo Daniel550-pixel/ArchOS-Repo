@@ -2,6 +2,12 @@ export type MissionStatus = "QUEUED" | "PLANNING" | "RUNNING" | "VERIFYING" | "C
 export type RiskLevel = "READ_ONLY" | "LOW_RISK" | "CONSEQUENTIAL" | "HIGH_IMPACT";
 export type AgentStatus = "IDLE" | "PLANNING" | "RUNNING" | "VERIFYING" | "BLOCKED" | "FAILED";
 
+export interface PolicyDecision {
+  allowed: boolean;
+  reason: string;
+  requiredApproval?: string;
+}
+
 export interface AgentDefinition {
   id: string;
   name: string;

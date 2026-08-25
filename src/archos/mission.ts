@@ -46,9 +46,10 @@ export class MissionEngine {
     if (!decision.allowed) {
       const blocked = { ...mission, status: "BLOCKED" as MissionStatus, updatedAt: new Date().toISOString() };
       this.store.save(blocked);
-      this.events.emit({ type: "MISSION_BLOCKED", actor, missionId: mission.id, payload: decision });
+      this.events.emit({ type: "MISSION_BLOCKED", actor, missionId: mission.id, payload: { allowed: decision.allowed, reason: decision.reason, requiredApproval: decision.requiredApproval } });
       return blocked;
     }
+
     const next = { ...mission, status: "RUNNING" as MissionStatus, updatedAt: new Date().toISOString() };
     this.store.save(next);
     this.events.emit({ type: "MISSION_STARTED", actor, missionId: mission.id, payload: {} });

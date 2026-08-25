@@ -53,16 +53,32 @@ function append(record: ExecutionTraceRecord): void {
 
 function recordFromEvent<K extends keyof ULTRONEventMap>(eventName: K, event: ULTRONEventMap[K]): ExecutionTraceRecord | null {
   if (!event.traceId || !Number.isFinite(event.timestamp)) return null;
-  const base = { id: createAIOSTraceId(), traceId: event.traceId, parentTraceId: event.parentTraceId, timestamp: event.timestamp, payload: 'payload' in event ? event.payload : undefined };
+  const base = { id: createAIOSTraceId(), traceId: event.traceId, parentTraceId: event.parentTraceId, timestamp: event.timestamp, payload: 'payload' in event ? (event as { payload?: unknown }).payload : undefined };
   switch (eventName) {
-    case 'input.command': return { ...base, kind: 'command', status: 'started', source: event.source, command: event.command };
-    case 'agent.lifecycle': return { ...base, kind: 'agent', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', agentId: event.agentId };
-    case 'intelligence.lifecycle': return { ...base, kind: 'intelligence', status: event.status === 'started' ? 'started' : event.status === 'failed' ? 'failed' : 'completed', phase: event.phase };
-    case 'world.update': return { ...base, kind: 'world', status: 'updated', worldEntityId: event.entityId, worldUpdateKind: event.kind };
-    case 'system.state': return { ...base, kind: 'verification', status: event.state === 'ERROR' ? 'failed' : 'updated' };
+    case 'input.command': {
+      const e = event as ULTRONEventMap['input.command'];
+      return { ...base, kind: 'command', status: 'started', source: e.source, command: e.command };
+    }
+    case 'agent.lifecycle': {
+      const e = event as ULTRONEventMap['agent.lifecycle'];
+      return { ...base, kind: 'agent', status: e.status === 'started' ? 'started' : e.status === 'failed' ? 'failed' : 'completed', agentId: e.agentId };
+    }
+    case 'intelligence.lifecycle': {
+      const e = event as ULTRONEventMap['intelligence.lifecycle'];
+      return { ...base, kind: 'intelligence', status: e.status === 'started' ? 'started' : e.status === 'failed' ? 'failed' : 'completed', phase: e.phase };
+    }
+    case 'world.update': {
+      const e = event as ULTRONEventMap['world.update'];
+      return { ...base, kind: 'world', status: 'updated', worldEntityId: e.entityId, worldUpdateKind: e.kind };
+    }
+    case 'system.state': {
+      const e = event as ULTRONEventMap['system.state'];
+      return { ...base, kind: 'verification', status: e.state === 'ERROR' ? 'failed' : 'updated' };
+    }
     default: return null;
   }
 }
+
 
 export const executionTrace = {
   initialize(): void {
@@ -76,6 +92,7 @@ export const executionTrace = {
     });
   },
   shutdown(): void { disposers.splice(0).forEach(dispose => dispose()); initialized = false; },
+  append(record: ExecutionTraceRecord): void { append(record); },
   subscribe(listener: (record: ExecutionTraceRecord) => void): () => void { subscribers.add(listener); return () => subscribers.delete(listener); },
   getRecords(traceId?: string): readonly ExecutionTraceRecord[] { return traceId ? records.filter(record => record.traceId === traceId) : records; },
   getSnapshot(traceId: string): ExecutionTraceSnapshot | null {

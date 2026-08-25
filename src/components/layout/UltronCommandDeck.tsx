@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, Bot, Brain, Database, GitBranch, Layers3, Play, Radio, ShieldCheck, Sparkles, Workflow, X, Zap } from 'lucide-react';
+import { Activity, Bot, Brain, Database, GitBranch, Layers3, Play, Radio, ShieldCheck, Sparkles, Workflow, X, Zap, type LucideIcon } from 'lucide-react';
 import { ARCHOS_MODULES, type ArchOSModule } from '../../aios/moduleRegistry';
 import { intelligenceTelemetry, type IntelligenceTelemetryState } from '../../aios/intelligenceTelemetry';
 import './UltronCommandDeck.css';
 
-const ICONS: Record<string, React.ElementType> = {
+const ICONS: Record<string, LucideIcon> = {
   'agent-fabric': Bot, 'world-model': Radio, 'scenario-lab': GitBranch, 'evidence-vault': ShieldCheck,
   'sovereign-memory': Brain, 'autonomy-queue': Workflow, 'system-pulse': Activity, 'extension-mesh': Layers3,
   'causal-explorer': GitBranch, 'decision-theater': Sparkles, 'reality-lens': Radio, 'mission-replay': Database,
 };
+
 const METRICS: Record<string, string> = {
   'agent-fabric':'12 agents', 'world-model':'LIVE', 'scenario-lab':'5 scenarios', 'evidence-vault':'CHAINED',
   'sovereign-memory':'INDEXED', 'autonomy-queue':'7 queued', 'system-pulse':'99.98%', 'extension-mesh':'24 slots',

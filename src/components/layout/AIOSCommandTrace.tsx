@@ -51,7 +51,13 @@ export const AIOSCommandTrace: React.FC<{ visible?: boolean }> = ({ visible = tr
       });
     };
     const disposers = [
-      ultronEventBus.on('input.command', ({ command, source }) => { add('input', String(command.intent || command.action || `Command from ${source}`)); add('intent', 'Intent accepted by AIOS'); }),
+      ultronEventBus.on('input.command', ({ command, source }) => {
+        const desc = ('payload' in command && command.payload && typeof command.payload === 'object' && 'intent' in command.payload)
+          ? String((command.payload as { intent?: string }).intent)
+          : `${command.type} (${source})`;
+        add('input', desc);
+        add('intent', 'Intent accepted by AIOS');
+      }),
       ultronEventBus.on('agent.lifecycle', ({ agentId, status }) => { if (status === 'started') add('agent', agentId); if (status === 'completed') add('result', `${agentId} completed`, 'complete'); if (status === 'failed') add('result', `${agentId} failed`, 'failed'); }),
       ultronEventBus.on('intelligence.lifecycle', ({ phase, status }) => { const tracePhase = phase as Exclude<TracePhase, 'input' | 'intent' | 'agent' | 'result'>; add(tracePhase, status === 'started' ? `${PHASE_LABEL[tracePhase]} active` : `${PHASE_LABEL[tracePhase]} ${status}`, status === 'failed' ? 'failed' : status === 'completed' ? 'complete' : 'active'); }),
     ];
