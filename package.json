@@ -16,7 +16,8 @@
     "test:aios-memory": "tsx scripts/verify-aios-memory.ts",
     "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
-    "test:world-simulation": "tsx scripts/verify-world-simulation.ts"
+    "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
+    "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -35,7 +36,6 @@
     "express": "^4.21.2",
     "framer-motion": "^13.1.0",
     "leaflet": "^1.9.4",
-    "lucide-react": "^0.546.0",
     "maplibre-gl": "^6.4.1",
     "motion": "^12.23.24",
     "mqtt": "^5.15.2",
