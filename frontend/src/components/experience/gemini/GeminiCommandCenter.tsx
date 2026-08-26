@@ -1,13 +1,11 @@
 import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { Activity, BrainCircuit, CheckCircle2, ChevronRight, CircleDot, Map, ShieldCheck, Sparkles } from "lucide-react";
-import type { EvolutionEpoch } from "../UltronVisionaryMatrix";
-import type { IntelligenceGraphNode } from "../ArchosIntelligenceGraph";
+import type { UltronCognitiveState } from "../UltronCognitiveState";
 
 type RiskLevel = "READ_ONLY" | "LOW_RISK" | "CONSEQUENTIAL" | "HIGH_IMPACT";
 type Mission = { taskId: string; domain: string; specialists: string[]; riskLevel: RiskLevel; worldModel?: { entities?: string[]; telemetry?: Record<string, unknown> } };
 type Action = { actionId: string; target: string; riskLevel: RiskLevel; approvalState: string; requiredAuthority: string };
 type Result = { ok: boolean; model?: string; text?: string; error?: string; plan?: Mission; action?: Action };
-export interface UltronCognitiveState { epoch: EvolutionEpoch | null; graphNode: IntelligenceGraphNode | null; commandSurface: "ULTRON_COMMAND_CENTER"; activeModule: "GEMINI_COGNITIVE" | "INTELLIGENCE_GRAPH" | "VISIONARY_MATRIX"; stateVersion: number; }
 
 const stages = ["PERCEIVE", "WORLD MODEL", "RESEARCH", "REASON", "PLAN", "RISK", "VERIFY", "ACTION GATE"];
 const starters = ["Assess the current ArchOS architecture and identify the highest-value next implementation.", "Design a governed multi-agent workflow for the current UAE world-model state.", "Analyze the active ULTRON state and identify the most important intelligence signal."];
