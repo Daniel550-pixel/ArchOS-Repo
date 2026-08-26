@@ -6,6 +6,7 @@ authority. Action execution remains behind the existing governance layer.
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.services.claude_agent_fabric import ClaudeAgentRequest, claude_agent_fabric
 
 router = APIRouter(prefix="/claude", tags=["claude-agent-fabric"])
@@ -22,11 +23,10 @@ class ClaudeRequest(BaseModel):
 
 @router.get("/status")
 async def claude_status():
-    import os
     return {
         "provider": "anthropic",
-        "configured": bool(os.getenv("ANTHROPIC_API_KEY")),
-        "default_model": os.getenv("ARCHOS_CLAUDE_MODEL", claude_agent_fabric.DEFAULT_MODEL),
+        "configured": bool(settings.ANTHROPIC_API_KEY),
+        "default_model": settings.ARCHOS_CLAUDE_MODEL,
         "execution_authority": False,
         "governance_boundary": "JARVIS_AND_GOVERNANCE",
     }
