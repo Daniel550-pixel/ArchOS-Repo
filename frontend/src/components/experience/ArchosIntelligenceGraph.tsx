@@ -1,0 +1,174 @@
+import React, { useMemo, useState } from "react";
+
+export type IntelligenceGraphRole =
+  | "orchestrator"
+  | "architect"
+  | "researcher"
+  | "analyst"
+  | "specialist"
+  | "critic"
+  | "simulator"
+  | "synthesizer";
+
+export interface IntelligenceGraphNode {
+  id: string;
+  label: string;
+  role: IntelligenceGraphRole;
+  status?: "active" | "ready" | "idle" | "verified";
+  detail?: string;
+}
+
+export interface IntelligenceGraphEdge {
+  from: string;
+  to: string;
+  label?: string;
+  active?: boolean;
+}
+
+export interface ArchosIntelligenceGraphProps {
+  nodes?: IntelligenceGraphNode[];
+  edges?: IntelligenceGraphEdge[];
+  title?: string;
+}
+
+const DEFAULT_NODES: IntelligenceGraphNode[] = [
+  { id: "jarvis", label: "J.A.R.V.I.S.", role: "orchestrator", status: "active", detail: "Canonical orchestration and task routing" },
+  { id: "architect", label: "Architect", role: "architect", status: "ready", detail: "Decomposes the objective into executable reasoning work" },
+  { id: "research", label: "Research", role: "researcher", status: "ready", detail: "Collects and normalizes evidence" },
+  { id: "analyst", label: "Analyst", role: "analyst", status: "active", detail: "Reasons over World Model and evidence context" },
+  { id: "specialist", label: "Specialist", role: "specialist", status: "ready", detail: "Applies domain-specific reasoning" },
+  { id: "critic", label: "Critic", role: "critic", status: "idle", detail: "Adversarially tests assumptions and alternatives" },
+  { id: "simulator", label: "Simulator", role: "simulator", status: "idle", detail: "Explores counterfactual and temporal scenarios" },
+  { id: "synth", label: "Synthesizer", role: "synthesizer", status: "verified", detail: "Produces the verified intelligence result" },
+];
+
+const DEFAULT_EDGES: IntelligenceGraphEdge[] = [
+  { from: "jarvis", to: "architect", active: true },
+  { from: "architect", to: "research", active: true },
+  { from: "architect", to: "analyst", active: true },
+  { from: "architect", to: "specialist", active: false },
+  { from: "research", to: "analyst", active: true },
+  { from: "specialist", to: "analyst", active: false },
+  { from: "analyst", to: "critic", active: true },
+  { from: "critic", to: "simulator", active: false },
+  { from: "critic", to: "synth", active: true },
+  { from: "simulator", to: "synth", active: false },
+];
+
+const POSITIONS: Record<string, { x: number; y: number }> = {
+  jarvis: { x: 50, y: 9 },
+  architect: { x: 50, y: 28 },
+  research: { x: 20, y: 51 },
+  analyst: { x: 50, y: 51 },
+  specialist: { x: 80, y: 51 },
+  critic: { x: 38, y: 74 },
+  simulator: { x: 63, y: 74 },
+  synth: { x: 50, y: 94 },
+};
+
+const ROLE_LABELS: Record<IntelligenceGraphRole, string> = {
+  orchestrator: "ORCHESTRATOR",
+  architect: "ARCHITECT",
+  researcher: "RESEARCH",
+  analyst: "ANALYST",
+  specialist: "SPECIALIST",
+  critic: "CRITIC",
+  simulator: "SIMULATOR",
+  synthesizer: "SYNTHESIZER",
+};
+
+export const ArchosIntelligenceGraph: React.FC<ArchosIntelligenceGraphProps> = ({
+  nodes = DEFAULT_NODES,
+  edges = DEFAULT_EDGES,
+  title = "INTELLIGENCE FABRIC",
+}) => {
+  const [selectedId, setSelectedId] = useState("jarvis");
+  const selected = useMemo(() => nodes.find((node) => node.id === selectedId) ?? nodes[0], [nodes, selectedId]);
+
+  const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+
+  return (
+    <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-black/45 p-5 shadow-2xl backdrop-blur-2xl" aria-label="ArchOS Intelligence Fabric">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_45%)]" />
+      <div className="relative z-10 flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4">
+        <div>
+          <p className="text-[9px] font-semibold tracking-[0.38em] text-white/35">ARCHOS / J.A.R.V.I.S.</p>
+          <h2 className="mt-1 text-lg font-medium tracking-tight text-white/90">{title}</h2>
+        </div>
+        <div className="flex items-center gap-3 text-[9px] tracking-[0.2em] text-white/40">
+          <span className="flex items-center gap-1.5"><i className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> LIVE</span>
+          <span>{nodes.length} NODES</span>
+          <span>{edges.length} LINKS</span>
+        </div>
+      </div>
+
+      <div className="relative mt-4 grid gap-4 lg:grid-cols-[1fr_230px]">
+        <div className="relative aspect-[1.45] min-h-[390px] overflow-hidden rounded-2xl border border-white/5 bg-black/35">
+          <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] [background-size:32px_32px]" />
+          <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            {edges.map((edge) => {
+              const from = POSITIONS[edge.from];
+              const to = POSITIONS[edge.to];
+              if (!from || !to) return null;
+              return (
+                <g key={`${edge.from}-${edge.to}`}>
+                  <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="currentColor" strokeOpacity={edge.active ? 0.48 : 0.13} strokeWidth={edge.active ? 0.38 : 0.22} vectorEffect="non-scaling-stroke" />
+                  {edge.active && <circle r="0.7" fill="currentColor" opacity="0.85"><animate attributeName="cx" values={`${from.x};${to.x};${from.x}`} dur="3.2s" repeatCount="indefinite" /><animate attributeName="cy" values={`${from.y};${to.y};${from.y}`} dur="3.2s" repeatCount="indefinite" /></circle>}
+                </g>
+              );
+            })}
+          </svg>
+
+          {nodes.map((node) => {
+            const position = POSITIONS[node.id] ?? { x: 50, y: 50 };
+            const selectedNode = node.id === selectedId;
+            return (
+              <button
+                key={node.id}
+                type="button"
+                onClick={() => setSelectedId(node.id)}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-xl border px-3 py-2 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 ${selectedNode ? "border-white/30 bg-white/10 shadow-[0_0_35px_rgba(255,255,255,0.08)]" : "border-white/10 bg-black/70 hover:border-white/20 hover:bg-white/[0.07]"}`}
+                style={{ left: `${position.x}%`, top: `${position.y}%` }}
+              >
+                <span className="block text-[8px] tracking-[0.22em] text-white/35">{ROLE_LABELS[node.role]}</span>
+                <span className="mt-1 block whitespace-nowrap text-xs font-medium text-white/85">{node.label}</span>
+                <span className="mt-1 flex items-center gap-1.5 text-[8px] uppercase tracking-[0.16em] text-white/35">
+                  <i className={`h-1.5 w-1.5 rounded-full ${node.status === "active" ? "bg-emerald-300" : node.status === "verified" ? "bg-sky-300" : "bg-white/25"}`} />
+                  {node.status ?? "idle"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <aside className="rounded-2xl border border-white/8 bg-white/[0.025] p-4">
+          {selected && (
+            <>
+              <p className="text-[9px] tracking-[0.28em] text-white/30">SELECTED NODE</p>
+              <h3 className="mt-2 text-xl font-medium text-white/90">{selected.label}</h3>
+              <p className="mt-1 text-[9px] tracking-[0.2em] text-white/35">{ROLE_LABELS[selected.role]}</p>
+              <p className="mt-5 text-xs leading-5 text-white/55">{selected.detail}</p>
+
+              <div className="mt-6 space-y-3 border-t border-white/8 pt-4">
+                <div className="flex justify-between text-[9px] uppercase tracking-[0.18em]"><span className="text-white/30">Status</span><span className="text-white/65">{selected.status ?? "idle"}</span></div>
+                <div className="flex justify-between text-[9px] uppercase tracking-[0.18em]"><span className="text-white/30">Upstream</span><span className="text-white/65">{edges.filter((edge) => edge.to === selected.id).length}</span></div>
+                <div className="flex justify-between text-[9px] uppercase tracking-[0.18em]"><span className="text-white/30">Downstream</span><span className="text-white/65">{edges.filter((edge) => edge.from === selected.id).length}</span></div>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-white/8 bg-black/25 p-3">
+                <p className="text-[8px] tracking-[0.22em] text-white/25">FABRIC PRINCIPLE</p>
+                <p className="mt-2 text-[10px] leading-4 text-white/50">Reasoning is observable; execution remains governed.</p>
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
+
+      <div className="relative z-10 mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/8 pt-3 text-[8px] uppercase tracking-[0.18em] text-white/25">
+        {Array.from(new Set(nodes.map((node) => node.role))).map((role) => <span key={role}>{ROLE_LABELS[role]}</span>)}
+      </div>
+    </section>
+  );
+};
+
+export default ArchosIntelligenceGraph;
