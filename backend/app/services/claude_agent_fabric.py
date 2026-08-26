@@ -5,9 +5,10 @@ execution authority; JARVIS and governance remain the control plane.
 """
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
+
+from app.core.config import settings
 
 
 @dataclass(frozen=True)
@@ -38,16 +39,15 @@ class ClaudeAgentFabric:
     DEFAULT_MODEL = "claude-sonnet-4-6"
 
     async def run(self, request: ClaudeAgentRequest) -> ClaudeAgentResponse:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        model = request.model or os.getenv("ARCHOS_CLAUDE_MODEL") or self.DEFAULT_MODEL
-        if not api_key:
+        model = request.model or settings.ARCHOS_CLAUDE_MODEL or self.DEFAULT_MODEL
+        if not settings.ANTHROPIC_API_KEY:
             return ClaudeAgentResponse(
                 status="UNCONFIGURED", role=request.role, content="", model=model,
                 error="ANTHROPIC_API_KEY is not configured",
             )
         try:
             from anthropic import AsyncAnthropic
-            client = AsyncAnthropic(api_key=api_key)
+            client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             response = await client.messages.create(
                 model=model,
                 max_tokens=request.max_tokens,
