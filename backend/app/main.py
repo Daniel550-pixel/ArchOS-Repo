@@ -18,6 +18,7 @@ from app.api.scenario_planner import router as scenario_planner_router
 from app.api.scenario_orchestrator import router as scenario_orchestrator_router
 from app.api.integrations import router as integrations_router
 from app.api.agents import router as agents_router
+from app.api.claude import router as claude_router
 from app.workers.scheduler import scheduler
 from app.middleware.identity import IdentityMiddleware
 from app.middleware.cost_risk_router import CostRiskMiddleware
@@ -108,6 +109,7 @@ app.include_router(scenario_planner_router)
 app.include_router(scenario_orchestrator_router)
 app.include_router(integrations_router, prefix=settings.API_PREFIX)
 app.include_router(agents_router, prefix=settings.API_PREFIX)
+app.include_router(claude_router, prefix=settings.API_PREFIX)
 
 
 class JarvisRequest(BaseModel):
@@ -227,12 +229,12 @@ async def agent_runtime_status():
 
 @app.get("/api/v1/health/runtime")
 async def runtime_health():
-    return {"status": "operational", "version": settings.VERSION, "components": {"world_model": "active", "simulation": "active", "causal_graph": "active", "jarvis": "bridged", "governance": "bridged", "event_fabric": "active", "webauthn": "active", "sessions": "active", "keysmith": "active", "certificate_watchdog": "active", "observability": "active", "integration_runtime": "active", "agent_fabric": "public_contract", "agent_runtime": "bound", "dubai_pulse": "available", "modbus_bms": "governed", "osm": "available", "night_shift": "active"}}
+    return {"status": "operational", "version": settings.VERSION, "components": {"world_model": "active", "simulation": "active", "causal_graph": "active", "jarvis": "bridged", "governance": "bridged", "event_fabric": "active", "webauthn": "active", "sessions": "active", "keysmith": "active", "certificate_watchdog": "active", "observability": "active", "integration_runtime": "active", "agent_fabric": "public_contract", "agent_runtime": "bound", "dubai_pulse": "available", "modbus_bms": "governed", "osm": "available", "night_shift": "active", "claude_agent_fabric": "available"}}
 
 
 @app.get("/")
 async def root():
-    return {"system": "UAE News Intelligence & FinOps Foundation Layer", "status": "OPERATIONAL", "finops_router": "ACTIVE", "authority_separation": "ENFORCED", "identity_boundary": "ACTIVE", "world_model": "PERSISTENT_POSTGRESQL", "simulation_engine": "ISOLATED_BRANCHES", "scenario_intelligence": "CAUSAL_PROPAGATION", "causal_knowledge_graph": "TEMPORAL_POSTGRESQL", "scenario_execution": "AUDITABLE_END_TO_END", "scenario_planner": "JARVIS_INTENT_TO_PLAN", "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED", "jarvis_runtime": "BRIDGED", "governance_runtime": "BRIDGED", "event_fabric": "CANONICAL", "event_stream": "SSE", "security_runtime": "WEBAUTHN_KEYSMITH", "certificate_monitor": "ACTIVE", "observability": "ACTIVE", "integration_runtime": "ACTIVE", "agent_fabric": "PUBLIC_CONTRACT", "agent_runtime": "BOUND", "dubai_pulse": "ADAPTER", "modbus_bms": "GOVERNED_WRITE_PATH", "osm": "ADAPTER", "night_shift": "AUTHORITATIVE", "docs_url": "/docs", "api_prefix": settings.API_PREFIX}
+    return {"system": "UAE News Intelligence & FinOps Foundation Layer", "status": "OPERATIONAL", "finops_router": "ACTIVE", "authority_separation": "ENFORCED", "identity_boundary": "ACTIVE", "world_model": "PERSISTENT_POSTGRESQL", "simulation_engine": "ISOLATED_BRANCHES", "scenario_intelligence": "CAUSAL_PROPAGATION", "causal_knowledge_graph": "TEMPORAL_POSTGRESQL", "scenario_execution": "AUDITABLE_END_TO_END", "scenario_planner": "JARVIS_INTENT_TO_PLAN", "scenario_orchestrator": "PLAN_TO_EXECUTION_GUARDED", "jarvis_runtime": "BRIDGED", "governance_runtime": "BRIDGED", "event_fabric": "CANONICAL", "event_stream": "SSE", "security_runtime": "WEBAUTHN_KEYSMITH", "certificate_monitor": "ACTIVE", "observability": "ACTIVE", "integration_runtime": "ACTIVE", "agent_fabric": "PUBLIC_CONTRACT", "agent_runtime": "BOUND", "dubai_pulse": "ADAPTER", "modbus_bms": "GOVERNED_WRITE_PATH", "osm": "ADAPTER", "night_shift": "AUTHORITATIVE", "claude_agent_fabric": "AVAILABLE", "docs_url": "/docs", "api_prefix": settings.API_PREFIX}
 
 
 if __name__ == "__main__":
