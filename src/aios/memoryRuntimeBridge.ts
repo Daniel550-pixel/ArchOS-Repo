@@ -4,7 +4,7 @@ import { memoryFabric } from './memoryFabric';
 let initialized = false;
 let disposers: Array<() => void> = [];
 
-function persist(eventName: keyof ULTRONEventMap, event: ULTRONEventMap[keyof ULTRONEventMap]): void {
+async function persist(eventName: keyof ULTRONEventMap, event: ULTRONEventMap[keyof ULTRONEventMap]): Promise<void> {
   if (!event.traceId || !Number.isFinite(event.timestamp)) return;
   const subject = eventName === 'world.update'
     ? `world:${(event as ULTRONEventMap['world.update']).entityId}`
@@ -12,7 +12,7 @@ function persist(eventName: keyof ULTRONEventMap, event: ULTRONEventMap[keyof UL
       ? `agent:${(event as ULTRONEventMap['agent.lifecycle']).agentId}`
       : `trace:${event.traceId}`;
   const kind = eventName === 'world.update' ? 'world' : eventName === 'input.command' ? 'episodic' : eventName === 'system.state' ? 'evidence' : 'procedural';
-  memoryFabric.write({
+  await memoryFabric.write({
     namespace: 'aios.runtime',
     kind,
     subject,
@@ -33,7 +33,9 @@ export const memoryRuntimeBridge = {
     if (initialized) return;
     initialized = true;
     const eventNames = ['input.command', 'agent.lifecycle', 'intelligence.lifecycle', 'world.update', 'system.state'] as const;
-    disposers = eventNames.map((eventName) => ultronEventBus.on(eventName, (event) => persist(eventName, event)));
+    disposers = eventNames.map((eventName) => ultronEventBus.on(eventName, (event) => {
+      void persist(eventName, event).catch(error => console.error(`[AIOS memory] failed to persist ${eventName}`, error));
+    }));
   },
   shutdown(): void {
     disposers.splice(0).forEach((dispose) => dispose());
