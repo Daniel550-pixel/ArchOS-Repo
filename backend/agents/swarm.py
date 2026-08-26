@@ -2,7 +2,8 @@
 from typing import Dict, Set, Any, List, Optional
 import asyncio
 from .base import Agent, AgentCapability, AgentTask, AgentResult, InterAgentMessage, RealityLevel
-from .specialists import PerceptionAgent, WorldModelAgent, ResearchAgent, ReasoningAgent, PlanningAgent, RiskAgent, VerificationAgent, ExecutionAgent
+from .specialists import PerceptionAgent, WorldModelAgent, ResearchAgent, PlanningAgent, RiskAgent, VerificationAgent, ExecutionAgent
+from .claude_reasoning_agent import ClaudeReasoningAgent
 from .financial_intelligence_agent import FinancialIntelligenceAgent
 from .multimodal_intelligence_agent import MultimodalIntelligenceAgent
 from .authoritative_world_model_agent import AuthoritativeWorldModelAgent
@@ -45,6 +46,6 @@ class Swarm:
 
 def create_canonical_swarm()->Swarm:
     s=Swarm()
-    for agent in (PerceptionAgent(),AuthoritativeWorldModelAgent(),ResearchAgent(),ReasoningAgent(),PlanningAgent(),RiskAgent(),VerificationAgent(),ExecutionAgent(),FinancialIntelligenceAgent(),MultimodalIntelligenceAgent()):s.register(agent)
+    for agent in (PerceptionAgent(),AuthoritativeWorldModelAgent(),ResearchAgent(),ClaudeReasoningAgent(),PlanningAgent(),RiskAgent(),VerificationAgent(),ExecutionAgent(),FinancialIntelligenceAgent(),MultimodalIntelligenceAgent()):s.register(agent)
     return s
 swarm=create_canonical_swarm()
