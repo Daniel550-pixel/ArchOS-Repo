@@ -1,8 +1,44 @@
 # ArchOS
 
-> **An early-stage open-source AIOS / JARVIS-style software architecture for multimodal intelligence, reusable experiences, world-model services, simulation, and governed agent execution.**
+> **An early-stage open-source AIOS / JARVIS-style software architecture for multimodal intelligence, reusable experiences, world-model services, simulation, governed agent execution, and spatial intelligence.**
 
-ArchOS is being developed as a modular AI operating-system-style platform. The repository combines backend orchestration and intelligence services with a multimodal 3D experience layer. The project is intentionally transparent about its maturity: it is early-stage, actively developed, and does **not** currently claim large-scale adoption or production-critical status.
+ArchOS is an actively developed experimental AI operating-system architecture. It combines a backend intelligence runtime with a multimodal experience layer, governed action execution, world-state services, causal/simulation primitives, and a 3D interaction surface.
+
+The project is intentionally transparent about maturity: **ArchOS is early-stage software, not a production-critical national system, and does not claim large-scale adoption.** The goal is to build and verify the architectural foundations incrementally.
+
+## Why ArchOS exists
+
+Most AI applications expose a model through a chat box. ArchOS explores a different abstraction: an operating-system-style runtime where user intent can be decomposed into governed work, specialist agents can contribute evidence and reasoning, world state can persist across interactions, and the resulting intelligence can be surfaced through spatial and interactive experiences.
+
+The long-term architecture is:
+
+```text
+                              ARCHOS
+                                 │
+                              JARVIS
+                                 │
+                        AGENT / MODEL FABRIC
+                                 │
+             ┌───────────────────┼───────────────────┐
+             │                   │                   │
+          Research            Reasoning           Coding
+             │                   │                   │
+             └───────────────────┼───────────────────┘
+                                 │
+                            WORLD STATE
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+               CAUSAL FABRIC             SIMULATION
+                    │                         │
+                    └────────────┬────────────┘
+                                 │
+                       SPATIAL INTELLIGENCE
+                                 │
+                          GOD'S EYE / UI
+```
+
+This is an architectural direction, not a claim that every box above is already production-complete.
 
 ## What is currently here
 
@@ -16,7 +52,69 @@ ArchOS is being developed as a modular AI operating-system-style platform. The r
 - Voice, vision, gesture, keyboard, mouse, touch, and API command inputs
 - Docker and GitHub Actions infrastructure
 - Project-specific linting, E2E, governance, and architecture verification commands
-- **Public Python SDK** for integrating with JARVIS and governed-action APIs
+- A public Python SDK for integrating with JARVIS and governed-action APIs
+- An adaptive experience/HUD layer for surfacing live intelligence-session state
+
+## Claude's role in the architecture
+
+Claude is intended to be a **cognitive/model layer inside ArchOS, not the operating system itself**.
+
+The current design is provider-agnostic at the runtime boundary so that orchestration, governance, memory, world state, and UI do not become hard-coded to a single model vendor. Where Claude is used, the intended workload is agentic development and reasoning such as:
+
+```text
+User objective
+     │
+     ▼
+JARVIS intent / task decomposition
+     │
+     ├── Architect / planner
+     ├── Research / evidence agent
+     ├── Domain specialist agents
+     ├── Analyst / synthesizer
+     ├── Critic / verifier
+     └── Coding / implementation agent
+     │
+     ▼
+Governance + verification
+     │
+     ▼
+World state / causal state / simulation
+     │
+     ▼
+Human-facing experience
+```
+
+This separation is deliberate: models provide reasoning capability; ArchOS owns orchestration, state, policy, execution boundaries, and experience composition.
+
+See [`docs/CLAUDE_AGENT_FABRIC.md`](docs/CLAUDE_AGENT_FABRIC.md) for the current design, intended workloads, and development rationale.
+
+## Spatial intelligence and God's Eye
+
+ArchOS is evolving toward a spatial intelligence experience in which the user can inspect **what is happening, why it is happening, and which agents/evidence contributed to the conclusion**.
+
+The intended relationship is:
+
+```text
+WORLD MODEL
+    │
+    ├── entity / relationship state
+    ├── temporal state
+    ├── evidence
+    └── scenario state
+            │
+            ▼
+     INTELLIGENCE GRAPH
+            │
+            ├── causal relationships
+            ├── evidence paths
+            ├── agent activity
+            └── confidence / verification
+            │
+            ▼
+       GOD'S EYE VIEW
+```
+
+God's Eye is therefore treated as a **spatial intelligence surface**, rather than as a standalone decorative 3D map. The integration is being developed incrementally and must remain consistent with the repository's licensing and attribution requirements.
 
 ## Architecture
 
@@ -69,7 +167,7 @@ with ArchOSClient("http://localhost:8000", token="YOUR_TOKEN") as archos:
 
 The SDK intentionally does **not** bypass server-side identity, policy, risk, approval, audit, or execution controls. See [`sdk/python/README.md`](sdk/python/README.md) and [`docs/INTEGRATION.md`](docs/INTEGRATION.md).
 
-## Current experience: Motion / Form
+## Current flagship experience: Motion / Form
 
 The current flagship experience module is a gesture-controlled cinematic 3D transformation interface built with React, TypeScript, Vite, Tailwind CSS, Three.js, and MediaPipe Tasks Vision.
 
@@ -78,20 +176,6 @@ It demonstrates the Experience Engine pattern: a reusable experience runs beneat
 ### Unified command interface
 
 Voice, vision gestures, keyboard, mouse wheel, touch, and API events converge on a unified command dispatcher.
-
-```ts
-commandBus.dispatch(
-  { type: 'OPEN_EXPERIENCE', payload: { id: 'kinetic-gt' } },
-  'voice'
-);
-
-commandBus.dispatch(
-  { type: 'SET_PROGRESS', payload: { value: 0.5 } },
-  'voice'
-);
-
-commandBus.dispatch({ type: 'CLOSE_EXPERIENCE' }, 'gesture');
-```
 
 ### Optical gesture interaction
 
@@ -123,6 +207,20 @@ npm start
 
 For the backend, install `backend/requirements.txt` and run the authoritative FastAPI application exposed through `backend.main:app`.
 
+## Verification
+
+The repository includes explicit verification entry points for the web application, governance, architecture/fabric layers, memory, temporal control, world state, simulation, mission control, and ULTRON experience behavior. Run the checks relevant to the component you change before considering an implementation complete.
+
+```bash
+npm run lint
+npm run test:webapp
+npm run test:governance
+npm run test:a3
+npm run test:a4
+```
+
+Additional focused verification commands are listed in `package.json`.
+
 ## Configuration and secrets
 
 Use `.env.example` as the configuration reference. **Never commit real API keys, passwords, tokens, private keys, or other credentials.**
@@ -131,7 +229,7 @@ The repository's `.gitignore` excludes environment files while explicitly retain
 
 ## Open-source project status
 
-ArchOS is MIT licensed and publicly developed. It is an early-stage project, so its current adoption and contributor base are limited. The project roadmap focuses first on reproducibility, automated verification, security, stable AIOS/JARVIS interfaces, world-model contracts, multimodal experience modules, reusable integration surfaces, and an organically growing contributor ecosystem.
+ArchOS is MIT licensed and publicly developed. It is an early-stage project with a limited contributor base. The roadmap prioritizes reproducibility, automated verification, security, stable AIOS/JARVIS interfaces, world-model contracts, multimodal experiences, reusable integration surfaces, and an organically growing contributor ecosystem.
 
 See [`ROADMAP.md`](ROADMAP.md) for the current direction.
 
