@@ -1,69 +1,41 @@
 import React, { useState } from "react";
 import { BrainCircuit, ChevronDown, ChevronUp, Command, Network, Sparkles } from "lucide-react";
-import UltronVisionaryMatrix from "./UltronVisionaryMatrix";
+import UltronVisionaryMatrix, { type EvolutionEpoch, type EvolutionEpochId } from "./UltronVisionaryMatrix";
 import ArchosIntelligenceGraph from "./ArchosIntelligenceGraph";
 import GeminiCommandCenter from "./gemini/GeminiCommandCenter";
 
-interface Props {
-  compact?: boolean;
-}
+interface Props { compact?: boolean; }
 
-/**
- * The primary ULTRON command-center composition.
- * Gemini is deliberately embedded as a cognitive/model subsystem of the
- * existing Visionary Matrix rather than exposed as a second application.
- */
 export const UltronCommandCenter: React.FC<Props> = ({ compact = false }) => {
   const [geminiOpen, setGeminiOpen] = useState(true);
+  const [activeEpoch, setActiveEpoch] = useState<EvolutionEpoch | null>(null);
+
+  const handleEpochChange = (epoch: EvolutionEpoch) => setActiveEpoch(epoch);
 
   return (
     <section className="relative space-y-4">
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/50 shadow-2xl backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5">
-              <Command size={15} />
-            </div>
-            <div>
-              <p className="text-[9px] tracking-[.28em] text-white/35">ULTRON / PRIMARY EXPERIENCE</p>
-              <h2 className="mt-1 text-sm font-semibold tracking-wide">INTELLIGENCE COMMAND CENTER</h2>
-            </div>
+            <div className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5"><Command size={15} /></div>
+            <div><p className="text-[9px] tracking-[.28em] text-white/35">ULTRON / PRIMARY EXPERIENCE</p><h2 className="mt-1 text-sm font-semibold tracking-wide">INTELLIGENCE COMMAND CENTER</h2></div>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[9px] tracking-[.16em] text-white/35">
-            <Network size={12} />
-            JARVIS FABRIC
-            <span className="text-emerald-200">CONNECTED</span>
-          </div>
+          <div className="flex items-center gap-2 font-mono text-[9px] tracking-[.16em] text-white/35"><Network size={12} /> JARVIS FABRIC <span className="text-emerald-200">CONNECTED</span></div>
         </div>
 
-        <UltronVisionaryMatrix compact={compact} />
+        <UltronVisionaryMatrix compact={compact} onEpochChange={handleEpochChange} />
 
         <div className="border-t border-white/10 bg-black/30">
-          <button
-            type="button"
-            onClick={() => setGeminiOpen((open) => !open)}
-            aria-expanded={geminiOpen}
-            className="flex w-full items-center justify-between px-5 py-3 text-left hover:bg-white/[.025]"
-          >
-            <span className="flex items-center gap-2 text-[10px] tracking-[.2em] text-white/45">
-              <Sparkles size={13} />
-              GEMINI COGNITIVE MODULE
-            </span>
+          <button type="button" onClick={() => setGeminiOpen((open) => !open)} aria-expanded={geminiOpen} className="flex w-full items-center justify-between px-5 py-3 text-left hover:bg-white/[.025]">
+            <span className="flex items-center gap-2 text-[10px] tracking-[.2em] text-white/45"><Sparkles size={13} /> GEMINI COGNITIVE MODULE</span>
             {geminiOpen ? <ChevronUp size={14} className="text-white/30" /> : <ChevronDown size={14} className="text-white/30" />}
           </button>
-
-          {geminiOpen && (
-            <div className="px-3 pb-3 md:px-4 md:pb-4">
-              <GeminiCommandCenter />
-            </div>
-          )}
+          {geminiOpen && <div className="px-3 pb-3 md:px-4 md:pb-4"><GeminiCommandCenter activeEpoch={activeEpoch} /></div>}
         </div>
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-black/40 p-3 shadow-xl backdrop-blur-xl">
-        <div className="mb-2 flex items-center gap-2 px-2 text-[9px] tracking-[.2em] text-white/30">
-          <BrainCircuit size={12} /> CAUSAL / AGENT INTELLIGENCE GRAPH
-        </div>
+        <div className="mb-2 flex items-center gap-2 px-2 text-[9px] tracking-[.2em] text-white/30"><BrainCircuit size={12} /> CAUSAL / AGENT INTELLIGENCE GRAPH</div>
         <ArchosIntelligenceGraph />
       </div>
     </section>
