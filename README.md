@@ -116,6 +116,14 @@ WORLD MODEL
 
 God's Eye is therefore treated as a **spatial intelligence surface**, rather than as a standalone decorative 3D map. The integration is being developed incrementally and must remain consistent with the repository's licensing and attribution requirements.
 
+The Intelligence Fabric now exposes three views over the same graph contract:
+
+- **Agent Flow** — orchestration, delegation, critique, simulation, and synthesis.
+- **Causal Fabric** — relationships connecting world state and reasoning toward a conclusion.
+- **Evidence Path** — provenance-oriented paths from research and evidence into analysis.
+
+Selecting a node exposes its role, status, confidence metadata, provenance, and relationship counts. Confidence is explanatory metadata, not proof; evidence and causal state remain distinct from model-generated reasoning.
+
 ## Architecture
 
 ```text
