@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, BrainCircuit, Eye, GitBranch, Globe2, Radio, Sparkles, Timer, X, Zap } from 'lucide-react';
 import { UltronCausalGraph } from './UltronCausalGraph';
-import { sessionIntelligence } from '../../aios/sessionIntelligence';
+import { sessionIntelligence, type SessionIntelligence } from '../../aios/sessionIntelligence';
 import './UltronAdaptiveHud.css';
 
 type Mode = 'world' | 'intelligence' | 'agents' | 'replay';
@@ -21,8 +21,13 @@ const modes: Array<{ id: Mode; label: string; question: string; icon: React.Reac
 export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
   const [intelligenceOpen, setIntelligenceOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [activeSession, setActiveSession] = useState<SessionIntelligence | null>(() => sessionIntelligence.getActive());
   const active = modes.find((item) => item.id === mode) ?? modes[0];
-  const activeSession = sessionIntelligence.getActive();
+
+  useEffect(() => {
+    sessionIntelligence.initialize();
+    return sessionIntelligence.subscribe(setActiveSession);
+  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -47,6 +52,10 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
     onModeChange('world');
   };
 
+  const sessionState = activeSession?.status ?? 'IDLE';
+  const fabricCount = activeSession?.agentCount ?? 0;
+  const worldUpdates = activeSession?.worldUpdateCount ?? 0;
+
   return (
     <div className="archos-adaptive-hud" aria-label="ArchOS adaptive intelligence interface">
       <div className="archos-adaptive-topline">
@@ -54,7 +63,9 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
           <span className="archos-brand-mark"><Eye /></span>
           <span><strong>ARCHOS</strong><small>ADAPTIVE INTELLIGENCE</small></span>
         </div>
-        <div className="archos-world-state"><span className="archos-live-dot" /> WORLD MODEL <b>LIVE</b><i>·</i><em>JARVIS ONLINE</em></div>
+        <div className="archos-world-state">
+          <span className="archos-live-dot" /> WORLD MODEL <b>{worldUpdates ? `${worldUpdates} UPDATES` : 'LIVE'}</b><i>·</i><em>JARVIS ONLINE</em>
+        </div>
       </div>
 
       <div className={`archos-cognitive-dock ${expanded ? 'is-expanded' : ''}`}>
@@ -65,7 +76,7 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
           <span className="archos-dock-kicker"><Sparkles /> CONTEXTUAL REALITY</span>
           <strong>{active.label}</strong>
           <small>{active.question} · INTERFACE ADAPTS TO INTENT</small>
-          {expanded && <span className="archos-dock-substate">COGNITIVE FABRIC · WORLD MODEL · TEMPORAL STATE SYNCHRONIZED</span>}
+          {expanded && <span className="archos-dock-substate">SESSION {sessionState} · {fabricCount} AGENTS · WORLD {worldUpdates} UPDATES</span>}
         </div>
         <div className="archos-dock-modes" role="tablist" aria-label="ArchOS cognitive layers">
           {modes.map((item) => (
@@ -75,7 +86,7 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
           ))}
         </div>
         <div className="archos-dock-status">
-          <span><Radio /> JARVIS</span><span><Activity /> FABRIC ONLINE</span>
+          <span><Radio /> JARVIS</span><span><Activity /> {fabricCount ? `${fabricCount} AGENTS` : 'FABRIC READY'}</span>
         </div>
       </div>
 
@@ -89,7 +100,7 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
                 <h2>Why is the world in this state?</h2>
                 <p>Trace causality, evidence and agent lineage while keeping the spatial world one layer away.</p>
               </div>
-              <div className="archos-intelligence-meta"><span><Radio /> LIVE</span><span>ESC TO RETURN</span><button className="archos-intelligence-close" onClick={closeIntelligence} aria-label="Close intelligence graph"><X /></button></div>
+              <div className="archos-intelligence-meta"><span><Radio /> {sessionState}</span><span>{activeSession ? `${activeSession.intelligenceEventCount} INTELLIGENCE EVENTS` : 'AWAITING MISSION'}</span><button className="archos-intelligence-close" onClick={closeIntelligence} aria-label="Close intelligence graph"><X /></button></div>
             </header>
             <div className="archos-intelligence-body">
               {activeSession ? <UltronCausalGraph sessionId={activeSession.id} /> : (
