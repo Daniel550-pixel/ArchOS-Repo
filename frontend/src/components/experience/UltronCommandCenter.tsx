@@ -15,6 +15,7 @@ export const UltronCommandCenter: React.FC<Props> = ({ compact = false }) => {
   const touch = () => setStateVersion((value) => value + 1);
   const handleEpochChange = (epoch: EvolutionEpoch) => { setActiveEpoch(epoch); touch(); };
   const handleGraphNode = (node: IntelligenceGraphNode | null) => { setGraphNode(node); touch(); };
+  const issueCommand = (command: string) => { setActiveCommand(command); touch(); };
   const cognitiveState = useMemo<UltronCognitiveState>(() => ({
     epoch: activeEpoch,
     graphNode,
@@ -38,7 +39,6 @@ export const UltronCommandCenter: React.FC<Props> = ({ compact = false }) => {
       synapticDensity: activeEpoch?.synapticDensity ?? null,
     },
   }), [activeEpoch, graphNode, activeCommand, stateVersion]);
-  const issueCommand = (command: string) => { setActiveCommand(command); touch(); };
 
   return <section className="relative space-y-4">
     <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/50 shadow-2xl backdrop-blur-xl">
