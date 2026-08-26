@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Activity, BrainCircuit, Eye, GitBranch, Globe2, Radio, Sparkles, Timer, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, BrainCircuit, Eye, GitBranch, Globe2, Radio, Sparkles, Timer, X, Zap } from 'lucide-react';
 import { UltronCausalGraph } from './UltronCausalGraph';
 import { sessionIntelligence } from '../../aios/sessionIntelligence';
 import './UltronAdaptiveHud.css';
@@ -20,8 +20,20 @@ const modes: Array<{ id: Mode; label: string; question: string; icon: React.Reac
 
 export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
   const [intelligenceOpen, setIntelligenceOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const active = modes.find((item) => item.id === mode) ?? modes[0];
   const activeSession = sessionIntelligence.getActive();
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && intelligenceOpen) {
+        setIntelligenceOpen(false);
+        onModeChange('world');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [intelligenceOpen, onModeChange]);
 
   const select = (next: Mode) => {
     onModeChange(next);
@@ -42,14 +54,18 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
           <span className="archos-brand-mark"><Eye /></span>
           <span><strong>ARCHOS</strong><small>ADAPTIVE INTELLIGENCE</small></span>
         </div>
-        <div className="archos-world-state"><span className="archos-live-dot" /> WORLD MODEL <b>LIVE</b></div>
+        <div className="archos-world-state"><span className="archos-live-dot" /> WORLD MODEL <b>LIVE</b><i>·</i><em>JARVIS ONLINE</em></div>
       </div>
 
-      <div className="archos-cognitive-dock">
+      <div className={`archos-cognitive-dock ${expanded ? 'is-expanded' : ''}`}>
+        <button className="archos-dock-expand" onClick={() => setExpanded((value) => !value)} aria-label={expanded ? 'Collapse cognitive dock' : 'Expand cognitive dock'} title="Toggle cognitive context">
+          <Zap />
+        </button>
         <div className="archos-dock-context">
           <span className="archos-dock-kicker"><Sparkles /> CONTEXTUAL REALITY</span>
           <strong>{active.label}</strong>
           <small>{active.question} · INTERFACE ADAPTS TO INTENT</small>
+          {expanded && <span className="archos-dock-substate">COGNITIVE FABRIC · WORLD MODEL · TEMPORAL STATE SYNCHRONIZED</span>}
         </div>
         <div className="archos-dock-modes" role="tablist" aria-label="ArchOS cognitive layers">
           {modes.map((item) => (
@@ -71,16 +87,16 @@ export const UltronAdaptiveHud: React.FC<Props> = ({ mode, onModeChange }) => {
               <div>
                 <span className="archos-intelligence-kicker"><GitBranch /> ARCHOS INTELLIGENCE FABRIC</span>
                 <h2>Why is the world in this state?</h2>
-                <p>Move from spatial reality into causality, evidence and agent lineage without leaving the ArchOS experience.</p>
+                <p>Trace causality, evidence and agent lineage while keeping the spatial world one layer away.</p>
               </div>
-              <button className="archos-intelligence-close" onClick={closeIntelligence} aria-label="Close intelligence graph"><X /></button>
+              <div className="archos-intelligence-meta"><span><Radio /> LIVE</span><span>ESC TO RETURN</span><button className="archos-intelligence-close" onClick={closeIntelligence} aria-label="Close intelligence graph"><X /></button></div>
             </header>
             <div className="archos-intelligence-body">
               {activeSession ? <UltronCausalGraph sessionId={activeSession.id} /> : (
                 <div className="archos-intelligence-empty">
                   <GitBranch />
                   <strong>INTELLIGENCE FABRIC STANDBY</strong>
-                  <span>Run a JARVIS mission to populate agent lineage, evidence flow and causal relationships. The graph will remain synchronized with replay state.</span>
+                  <span>Run a JARVIS mission to populate agent lineage, evidence flow and causal relationships. The graph remains synchronized with replay state.</span>
                 </div>
               )}
             </div>
