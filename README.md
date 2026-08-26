@@ -54,6 +54,7 @@ This is an architectural direction, not a claim that every box above is already 
 - Project-specific linting, E2E, governance, and architecture verification commands
 - A public Python SDK for integrating with JARVIS and governed-action APIs
 - An adaptive experience/HUD layer for surfacing live intelligence-session state
+- An explainable Intelligence Fabric surface with agent, causal, and evidence views
 
 ## Claude's role in the architecture
 
@@ -115,6 +116,14 @@ WORLD MODEL
 ```
 
 God's Eye is therefore treated as a **spatial intelligence surface**, rather than as a standalone decorative 3D map. The integration is being developed incrementally and must remain consistent with the repository's licensing and attribution requirements.
+
+The current Intelligence Fabric can be inspected through three synchronized analytical views:
+
+- **Agent Flow** — how JARVIS decomposes, routes, critiques, simulates, and synthesizes work.
+- **Causal Fabric** — how world state and reasoning relationships connect toward a conclusion.
+- **Evidence Path** — how research and evidence feed analysis and verification.
+
+Selecting a node exposes its role, state, confidence metadata, provenance, and relationship counts. These are explanatory signals, not proof of truth; evidence and causal state remain distinct from model-generated reasoning.
 
 ## Architecture
 
@@ -217,32 +226,5 @@ npm run test:webapp
 npm run test:governance
 npm run test:a3
 npm run test:a4
+npm run test:ultron
 ```
-
-Additional focused verification commands are listed in `package.json`.
-
-## Configuration and secrets
-
-Use `.env.example` as the configuration reference. **Never commit real API keys, passwords, tokens, private keys, or other credentials.**
-
-The repository's `.gitignore` excludes environment files while explicitly retaining `.env.example` as a safe template.
-
-## Open-source project status
-
-ArchOS is MIT licensed and publicly developed. It is an early-stage project with a limited contributor base. The roadmap prioritizes reproducibility, automated verification, security, stable AIOS/JARVIS interfaces, world-model contracts, multimodal experiences, reusable integration surfaces, and an organically growing contributor ecosystem.
-
-See [`ROADMAP.md`](ROADMAP.md) for the current direction.
-
-## Contributing
-
-Contributions are welcome when they improve correctness, security, maintainability, accessibility, performance, documentation, or architectural clarity.
-
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Security vulnerabilities should be reported according to [`SECURITY.md`](SECURITY.md), not through public issues.
-
-## License
-
-ArchOS is licensed under the [MIT License](LICENSE).
-
-## Maintainer
-
-**Daniel550-pixel** — primary project maintainer.
