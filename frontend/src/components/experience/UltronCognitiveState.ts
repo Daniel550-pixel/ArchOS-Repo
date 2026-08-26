@@ -28,3 +28,28 @@ export interface UltronCognitiveState {
   worldContext: UltronWorldContext;
   telemetry: UltronTelemetry;
 }
+
+export const createUltronCognitiveState = (input: Partial<UltronCognitiveState> = {}): UltronCognitiveState => ({
+  epoch: null,
+  graphNode: null,
+  commandSurface: "ULTRON_COMMAND_CENTER",
+  activeModule: "GEMINI_COGNITIVE",
+  stateVersion: 0,
+  activeCommand: null,
+  worldContext: {
+    jurisdiction: "UNITED_ARAB_EMIRATES",
+    scope: "ULTRON_ACTIVE_VIEW",
+    temporalState: "CURRENT",
+    selectedEntities: [],
+    provenance: ["ULTRON_COMMAND_CENTER"]
+  },
+  telemetry: {
+    stateVersion: 0,
+    epochYear: null,
+    graphRole: null,
+    nodeStatus: null,
+    neuralFrequencyHz: null,
+    synapticDensity: null
+  },
+  ...input
+});
