@@ -13,7 +13,7 @@ ArchOS is an early-stage open-source AI operating-system-style architecture. The
               │                         │
        Motion / Form             JARVIS Orchestrator
        3D Experiences            Specialist Agents
-       Voice / Vision            Agent Swarm
+       Voice / Vision            Agent Fabric
        Gesture Input             World Model Runtime
               │                         │
               └────────────┬────────────┘
@@ -35,7 +35,7 @@ ArchOS is an early-stage open-source AI operating-system-style architecture. The
 
 ### 1. Experience Engine
 
-The frontend is designed around reusable experience modules rather than a single monolithic interface. The current Motion / Form experience demonstrates the pattern with React, TypeScript, Vite, Tailwind CSS, Three.js, and multimodal input.
+The frontend is designed around reusable experience modules rather than a single monolithic interface. The current Motion / Form experience demonstrates the pattern with React, TypeScript, Vite, Tailwind CSS, Three.js, and multimodal input. ULTRON is the cinematic experience shell for surfacing intelligence-session state.
 
 ### 2. Multimodal interaction
 
@@ -49,11 +49,38 @@ The backend contains an orchestration layer responsible for coordinating agents 
 
 The backend exposes world-model, causal-graph, scenario-planning, scenario-execution, scenario-intelligence, and simulation APIs. These services provide the basis for state representation, analysis, and what-if workflows.
 
-### 5. Governance and action control
+### 5. Explainable Intelligence Fabric
+
+The Intelligence Fabric is the observable bridge between agent reasoning and the human-facing experience. It separates three views over the same underlying graph:
+
+```text
+AGENT FLOW       CAUSAL FABRIC       EVIDENCE PATH
+    │                 │                   │
+    └─────────────────┼───────────────────┘
+                      ▼
+               WORLD / GRAPH STATE
+                      │
+                      ▼
+                 ULTRON / UI
+```
+
+The current `ArchosIntelligenceGraph` experience provides:
+
+- role-aware agent nodes for orchestration, planning, research, analysis, specialization, critique, simulation, synthesis, world state, and evidence;
+- active/inactive link visibility;
+- three analytical modes: agent flow, causal fabric, and evidence path;
+- node-level confidence and provenance metadata;
+- upstream/downstream relationship inspection;
+- animated active-link telemetry for live visual feedback;
+- an inspector that distinguishes model reasoning from evidence and governed execution.
+
+The component is intentionally data-driven: production adapters can supply real runtime nodes and edges without changing the visual contract. Model output is not itself treated as causal truth; causal relationships remain a separate ArchOS representation that can be verified, challenged, or simulated.
+
+### 6. Governance and action control
 
 Security-sensitive execution is designed around explicit controls rather than unrestricted model output. The architecture includes action-gating and middleware components for identity, risk, routing, and governance-related behavior.
 
-### 6. Infrastructure
+### 7. Infrastructure
 
 The repository includes Docker, CI workflows, environment configuration, backend services, API layers, connectors, and project-specific verification scripts.
 
@@ -68,12 +95,16 @@ ArchOS is **early-stage**. The architecture is broad and actively implemented, b
 - Multimodal input should converge into deterministic application commands.
 - AI-generated actions should pass through policy and authorization controls.
 - Security-sensitive components should fail closed where practical.
+- Reasoning, evidence, and causal state must remain distinguishable.
+- Confidence is metadata, not proof.
+- Provenance should follow evidence through the reasoning pipeline.
 - Resource ownership and cleanup must be explicit, especially for camera, WebAssembly, animation loops, and event listeners.
 - Documentation should distinguish implemented functionality from architectural intent.
 
 ## Related documentation
 
 - `README.md` — current Motion / Form experience and development instructions.
+- `docs/CLAUDE_AGENT_FABRIC.md` — multi-model agent roles and provider boundary.
 - `CONTRIBUTING.md` — contribution workflow and engineering expectations.
 - `SECURITY.md` — security reporting and security principles.
 - `LICENSE` — MIT license.
