@@ -1,79 +1,98 @@
 # ArchOS Architecture
 
-ArchOS is an early-stage open-source AI operating-system-style architecture. The repository combines an AIOS/JARVIS orchestration layer with reusable experiences, multimodal interaction, world-model services, simulation, governance controls, and infrastructure.
+ArchOS is an early-stage AI operating-system-style architecture combining an experience layer, J.A.R.V.I.S. orchestration, a world-model runtime, simulation and causal reasoning, governance, and a dedicated trust/security plane.
 
 ## High-level model
 
 ```text
-                         ARCHOS
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-        EXPERIENCE LAYER          INTELLIGENCE RUNTIME
-              │                         │
-       Motion / Form             JARVIS Orchestrator
-       3D Experiences            Specialist Agents
-       Voice / Vision            Agent Swarm
-       Gesture Input             World Model Runtime
-              │                         │
-              └────────────┬────────────┘
-                           │
-                    UNIFIED COMMAND BUS
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-           APIs       Simulation    World Model
-              │            │            │
-              └────────────┼────────────┘
-                           │
-                 Governance / Security
-                           │
-                     Infrastructure
+                           ARCHOS
+                              |
+                +-------------+-------------+
+                |                           |
+            ULTRON                         JARVIS
+       human experience              cognitive control
+                |                           |
+                +-------------+-------------+
+                              |
+                    INTELLIGENCE FABRIC
+                              |
+             +----------------+----------------+
+             |                                 |
+         WORLD MODEL                   CLAUDE AGENT FABRIC
+             |                                 |
+             +----------------+----------------+
+                              |
+                    CAUSAL / SIMULATION
+                              |
+             +----------------+----------------+
+             |                                 |
+            IRIS                         AIOS SECURE
+      trust and integrity              defensive plane
+             |                                 |
+             +----------------+----------------+
+                              |
+                    GOVERNED ACTIONS
+                              |
+                        INFRASTRUCTURE
 ```
 
 ## Major subsystems
 
-### 1. Experience Engine
+### 1. ULTRON Experience Engine
 
-The frontend is designed around reusable experience modules rather than a single monolithic interface. The current Motion / Form experience demonstrates the pattern with React, TypeScript, Vite, Tailwind CSS, Three.js, and multimodal input.
+The frontend is organized around reusable experience modules. ULTRON is the primary human-facing shell, with motion, form, multimodal interaction, neural-field visuals, and the Intelligence Graph. God's Eye View is treated as the spatial intelligence surface rather than a replacement for the shell.
 
-### 2. Multimodal interaction
+### 2. J.A.R.V.I.S. orchestration
 
-Voice, vision gestures, keyboard, mouse, touch, and API events converge through a unified command interface. The Motion / Form module uses MediaPipe Tasks Vision for hand-landmark tracking and normalized gesture interaction.
+J.A.R.V.I.S. coordinates explicit capability contracts and routes work to specialized agents. The intended multi-model roles are architect, researcher, analyst, specialist, critic, simulator, and synthesizer. Provider-specific model calls remain behind runtime adapters.
 
-### 3. JARVIS orchestration
+### 3. World Model and reasoning
 
-The backend contains an orchestration layer responsible for coordinating agents and routing work to specialized capabilities. The repository includes a JARVIS orchestrator, specialist agents, swarm infrastructure, action gating, and world-model runtime components.
+World-model services represent entities, relationships, state, evidence, events, and temporal context. Causal and simulation services provide explanation and what-if analysis. Reality levels remain explicit: observed, inferred, predicted, simulated, or fallback.
 
-### 4. World model and reasoning services
+### 4. Intelligence Graph
 
-The backend exposes world-model, causal-graph, scenario-planning, scenario-execution, scenario-intelligence, and simulation APIs. These services provide the basis for state representation, analysis, and what-if workflows.
+The Intelligence Graph is the explainability and observability surface for agent relationships. It should show which agents, evidence paths, trust signals, and policy boundaries contributed to a result without turning telemetry into execution authority.
 
-### 5. Governance and action control
+### 5. IRIS — International Reality Integrity Platform
 
-Security-sensitive execution is designed around explicit controls rather than unrestricted model output. The architecture includes action-gating and middleware components for identity, risk, routing, and governance-related behavior.
+IRIS is ArchOS's trust plane. Its first domain contract covers hardware, operating system, identity, network, data, reality/provenance, and AI-security signals. Each normalized signal contains a score, confidence, provenance, timestamp, and optional metadata. A deterministic engine aggregates signals into a point-in-time integrity snapshot.
 
-### 6. Infrastructure
+IRIS is a measurement system, not a claim that a score proves objective truth. Model-based correlation can augment the measurement later, but the base calculation remains deterministic and auditable.
 
-The repository includes Docker, CI workflows, environment configuration, backend services, API layers, connectors, and project-specific verification scripts.
+### 6. AIOS Secure
+
+AIOS Secure is the defensive infrastructure layer around ArchOS and its agent fabric.
+
+- **SecureAuth** — identity and authorization boundaries.
+- **SecureVault** — secret and key lifecycle boundaries.
+- **AgentShield** — agent permissions, tool policy, isolation, and execution controls.
+- **SecureMesh** — authenticated service-to-service communication.
+- **ThreatBrain** — detection, correlation, and response recommendations.
+
+AIOS Secure does not grant an agent authority merely because a model recommends an action. Consequential execution remains behind policy and action-gating controls.
+
+### 7. Governance
+
+Security-sensitive execution uses explicit identity, risk, capability, verification, and action-decision boundaries. High-impact actions can require human approval. Realtime telemetry is informational and must not become an implicit control channel.
+
+### 8. Infrastructure
+
+The repository includes backend services, API layers, connectors, Docker, CI workflows, environment configuration, integrity checks, and verification scripts.
 
 ## Current maturity
 
-ArchOS is **early-stage**. The architecture is broad and actively implemented, but the project does not currently claim large-scale adoption, a large external contributor community, or production-critical status. These are future goals, not current facts.
+ArchOS is **early-stage**. The architecture is broad and actively implemented, but the project does not claim production-critical status or large-scale adoption.
 
 ## Design principles
 
-- Modular over monolithic where boundaries are meaningful.
-- Explicit interfaces between experiences, orchestration, and infrastructure.
-- Multimodal input should converge into deterministic application commands.
-- AI-generated actions should pass through policy and authorization controls.
-- Security-sensitive components should fail closed where practical.
-- Resource ownership and cleanup must be explicit, especially for camera, WebAssembly, animation loops, and event listeners.
-- Documentation should distinguish implemented functionality from architectural intent.
-
-## Related documentation
-
-- `README.md` — current Motion / Form experience and development instructions.
-- `CONTRIBUTING.md` — contribution workflow and engineering expectations.
-- `SECURITY.md` — security reporting and security principles.
-- `LICENSE` — MIT license.
+- Modular boundaries should be explicit and testable.
+- Multimodal input converges into deterministic application commands.
+- AI-generated actions pass through policy and authorization controls.
+- Security-sensitive components fail closed where practical.
+- Observed, inferred, predicted, and simulated states are never silently conflated.
+- Trust measurements remain auditable and provider-independent.
+- Model providers remain replaceable behind adapters.
+- Secrets never belong in source control.
+- Resource ownership and cleanup must be explicit.
+- Documentation distinguishes implemented functionality from architectural intent.
