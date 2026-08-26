@@ -8,13 +8,15 @@ export type IntelligenceGraphRole =
   | "specialist"
   | "critic"
   | "simulator"
-  | "synthesizer";
+  | "synthesizer"
+  | "trust"
+  | "security";
 
 export interface IntelligenceGraphNode {
   id: string;
   label: string;
   role: IntelligenceGraphRole;
-  status?: "active" | "ready" | "idle" | "verified";
+  status?: "active" | "ready" | "idle" | "verified" | "guarded";
   detail?: string;
 }
 
@@ -40,6 +42,8 @@ const DEFAULT_NODES: IntelligenceGraphNode[] = [
   { id: "critic", label: "Critic", role: "critic", status: "idle", detail: "Adversarially tests assumptions and alternatives" },
   { id: "simulator", label: "Simulator", role: "simulator", status: "idle", detail: "Explores counterfactual and temporal scenarios" },
   { id: "synth", label: "Synthesizer", role: "synthesizer", status: "verified", detail: "Produces the verified intelligence result" },
+  { id: "iris", label: "IRIS", role: "trust", status: "active", detail: "Measures normalized integrity signals and exposes trust state" },
+  { id: "secure", label: "AIOS Secure", role: "security", status: "guarded", detail: "Protects identity, secrets, agent permissions, and governed execution" },
 ];
 
 const DEFAULT_EDGES: IntelligenceGraphEdge[] = [
@@ -53,17 +57,23 @@ const DEFAULT_EDGES: IntelligenceGraphEdge[] = [
   { from: "critic", to: "simulator", active: false },
   { from: "critic", to: "synth", active: true },
   { from: "simulator", to: "synth", active: false },
+  { from: "iris", to: "jarvis", active: true, label: "trust state" },
+  { from: "secure", to: "jarvis", active: true, label: "policy boundary" },
+  { from: "iris", to: "secure", active: true },
+  { from: "synth", to: "iris", active: false, label: "integrity context" },
 ];
 
 const POSITIONS: Record<string, { x: number; y: number }> = {
   jarvis: { x: 50, y: 9 },
-  architect: { x: 50, y: 28 },
-  research: { x: 20, y: 51 },
-  analyst: { x: 50, y: 51 },
-  specialist: { x: 80, y: 51 },
-  critic: { x: 38, y: 74 },
-  simulator: { x: 63, y: 74 },
-  synth: { x: 50, y: 94 },
+  architect: { x: 50, y: 27 },
+  research: { x: 18, y: 48 },
+  analyst: { x: 50, y: 48 },
+  specialist: { x: 82, y: 48 },
+  critic: { x: 37, y: 69 },
+  simulator: { x: 63, y: 69 },
+  synth: { x: 50, y: 89 },
+  iris: { x: 18, y: 89 },
+  secure: { x: 82, y: 89 },
 };
 
 const ROLE_LABELS: Record<IntelligenceGraphRole, string> = {
@@ -75,6 +85,8 @@ const ROLE_LABELS: Record<IntelligenceGraphRole, string> = {
   critic: "CRITIC",
   simulator: "SIMULATOR",
   synthesizer: "SYNTHESIZER",
+  trust: "IRIS TRUST",
+  security: "AIOS SECURE",
 };
 
 export const ArchosIntelligenceGraph: React.FC<ArchosIntelligenceGraphProps> = ({
@@ -84,7 +96,6 @@ export const ArchosIntelligenceGraph: React.FC<ArchosIntelligenceGraphProps> = (
 }) => {
   const [selectedId, setSelectedId] = useState("jarvis");
   const selected = useMemo(() => nodes.find((node) => node.id === selectedId) ?? nodes[0], [nodes, selectedId]);
-
   const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
   return (
@@ -109,7 +120,7 @@ export const ArchosIntelligenceGraph: React.FC<ArchosIntelligenceGraphProps> = (
             {edges.map((edge) => {
               const from = POSITIONS[edge.from];
               const to = POSITIONS[edge.to];
-              if (!from || !to) return null;
+              if (!from || !to || !byId.has(edge.from) || !byId.has(edge.to)) return null;
               return (
                 <g key={`${edge.from}-${edge.to}`}>
                   <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="currentColor" strokeOpacity={edge.active ? 0.48 : 0.13} strokeWidth={edge.active ? 0.38 : 0.22} vectorEffect="non-scaling-stroke" />
@@ -122,18 +133,19 @@ export const ArchosIntelligenceGraph: React.FC<ArchosIntelligenceGraphProps> = (
           {nodes.map((node) => {
             const position = POSITIONS[node.id] ?? { x: 50, y: 50 };
             const selectedNode = node.id === selectedId;
+            const isSecurity = node.role === "security" || node.role === "trust";
             return (
               <button
                 key={node.id}
                 type="button"
                 onClick={() => setSelectedId(node.id)}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-xl border px-3 py-2 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 ${selectedNode ? "border-white/30 bg-white/10 shadow-[0_0_35px_rgba(255,255,255,0.08)]" : "border-white/10 bg-black/70 hover:border-white/20 hover:bg-white/[0.07]"}`}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-xl border px-3 py-2 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 ${selectedNode ? "border-white/30 bg-white/10 shadow-[0_0_35px_rgba(255,255,255,0.08)]" : "border-white/10 bg-black/70 hover:border-white/20 hover:bg-white/[0.07]"} ${isSecurity ? "ring-1 ring-white/5" : ""}`}
                 style={{ left: `${position.x}%`, top: `${position.y}%` }}
               >
                 <span className="block text-[8px] tracking-[0.22em] text-white/35">{ROLE_LABELS[node.role]}</span>
                 <span className="mt-1 block whitespace-nowrap text-xs font-medium text-white/85">{node.label}</span>
                 <span className="mt-1 flex items-center gap-1.5 text-[8px] uppercase tracking-[0.16em] text-white/35">
-                  <i className={`h-1.5 w-1.5 rounded-full ${node.status === "active" ? "bg-emerald-300" : node.status === "verified" ? "bg-sky-300" : "bg-white/25"}`} />
+                  <i className={`h-1.5 w-1.5 rounded-full ${node.status === "active" ? "bg-emerald-300" : node.status === "verified" ? "bg-sky-300" : node.status === "guarded" ? "bg-amber-200" : "bg-white/25"}`} />
                   {node.status ?? "idle"}
                 </span>
               </button>
@@ -157,7 +169,7 @@ export const ArchosIntelligenceGraph: React.FC<ArchosIntelligenceGraphProps> = (
 
               <div className="mt-6 rounded-xl border border-white/8 bg-black/25 p-3">
                 <p className="text-[8px] tracking-[0.22em] text-white/25">FABRIC PRINCIPLE</p>
-                <p className="mt-2 text-[10px] leading-4 text-white/50">Reasoning is observable; execution remains governed.</p>
+                <p className="mt-2 text-[10px] leading-4 text-white/50">Reasoning is observable; trust and execution remain governed.</p>
               </div>
             </>
           )}
