@@ -2,17 +2,10 @@ import React, { useMemo, useState } from "react";
 import { BrainCircuit, ChevronDown, ChevronUp, Command, Network, Sparkles } from "lucide-react";
 import UltronVisionaryMatrix, { type EvolutionEpoch } from "./UltronVisionaryMatrix";
 import ArchosIntelligenceGraph, { type IntelligenceGraphNode } from "./ArchosIntelligenceGraph";
+import type { UltronCognitiveState } from "./UltronCognitiveState";
 import GeminiCommandCenter from "./gemini/GeminiCommandCenter";
 
-export interface UltronCognitiveState {
-  epoch: EvolutionEpoch | null;
-  graphNode: IntelligenceGraphNode | null;
-  commandSurface: "ULTRON_COMMAND_CENTER";
-  activeModule: "GEMINI_COGNITIVE" | "INTELLIGENCE_GRAPH" | "VISIONARY_MATRIX";
-  stateVersion: number;
-}
 interface Props { compact?: boolean; }
-
 export const UltronCommandCenter: React.FC<Props> = ({ compact = false }) => {
   const [geminiOpen, setGeminiOpen] = useState(true);
   const [activeEpoch, setActiveEpoch] = useState<EvolutionEpoch | null>(null);
