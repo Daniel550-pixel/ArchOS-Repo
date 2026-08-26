@@ -1,5 +1,6 @@
 import type { CommandSource, SystemState, UnifiedCommand } from '../types';
 import { createAIOSTraceId, ultronEventBus } from './events';
+import { memoryRuntimeBridge } from './memoryRuntimeBridge';
 
 export interface AIOSRuntimeState {
   systemState: SystemState;
@@ -35,6 +36,7 @@ export const aiosRuntime = {
   initialize(): void {
     if (initialized) return;
     initialized = true;
+    memoryRuntimeBridge.initialize();
 
     disposers = [
       ultronEventBus.on('input.command', ({ command, source, traceId }) => {
@@ -60,6 +62,7 @@ export const aiosRuntime = {
   shutdown(): void {
     disposers.forEach((dispose) => dispose());
     disposers = [];
+    memoryRuntimeBridge.shutdown();
     initialized = false;
   },
 
