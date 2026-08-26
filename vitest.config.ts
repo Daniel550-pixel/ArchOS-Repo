@@ -7,5 +7,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     clearMocks: true,
+    include: ["frontend/src/**/*.test.tsx", "src/**/*.test.tsx"],
+    exclude: ["e2e/**", "node_modules/**", "dist/**"],
   },
 });
+
