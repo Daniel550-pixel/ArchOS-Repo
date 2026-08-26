@@ -16,6 +16,7 @@
     "test:aios-memory": "tsx scripts/verify-aios-memory.ts",
     "test:memory-fabric": "tsx scripts/verify-memory-fabric.ts",
     "test:memory-bridge": "tsx scripts/verify-memory-runtime-bridge.ts",
+    "test:memory-context": "tsx scripts/verify-memory-context.ts",
     "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
     "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
@@ -32,7 +33,7 @@
     "@types/d3": "^7.4.0",
     "@types/leaflet": "^1.9.22",
     "@types/react-leaflet": "^3.0.0",
-    "@types/three": "^0.185.4",
+    "@types/three": "^0.185.0",
     "@vitejs/plugin-react": "^5.0.4",
     "d3": "^7.9.0",
     "dotenv": "^17.2.3",
@@ -56,9 +57,9 @@
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "jsdom": "^26.1.0",
-    "tailwindcss": "^4.1.14",
-    "typescript": "~5.8.2",
+    "tailwindcss": "^4.1.1",
     "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
     "vitest": "^3.2.4"
   }
 }
