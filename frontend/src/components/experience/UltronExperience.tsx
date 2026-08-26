@@ -1,6 +1,7 @@
 import React from "react";
 import UltronNeuralField, { UltronSystemStatus } from "./UltronNeuralField";
 import ArchosIntelligenceGraph from "./ArchosIntelligenceGraph";
+import GeminiCommandCenter from "./gemini/GeminiCommandCenter";
 
 interface Props {
   status?: UltronSystemStatus;
@@ -8,7 +9,7 @@ interface Props {
   subtitle?: string;
 }
 
-/** ULTRON shell: visual state plus the live-readable intelligence fabric. */
+/** ULTRON shell: visual state plus live intelligence modules. */
 export const UltronExperience: React.FC<Props> = ({
   status = "IDLE",
   title = "ULTRON",
@@ -41,6 +42,7 @@ export const UltronExperience: React.FC<Props> = ({
         </div>
       </div>
 
+      <GeminiCommandCenter />
       <ArchosIntelligenceGraph />
     </div>
   </section>
