@@ -14,6 +14,8 @@
     "test:a3": "node scripts/verify-a3-engine.mjs",
     "test:a4": "node scripts/verify-a4-fabric.mjs",
     "test:aios-memory": "tsx scripts/verify-aios-memory.ts",
+    "test:memory-fabric": "tsx scripts/verify-memory-fabric.ts",
+    "test:memory-bridge": "tsx scripts/verify-memory-runtime-bridge.ts",
     "test:temporal": "tsx scripts/verify-temporal-control-plane.ts",
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
     "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
@@ -50,7 +52,6 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
-    "@types/node": "^22.14.0",
     "@types/express": "^4.17.21",
     "autoprefixer": "^10.4.21",
     "jsdom": "^26.1.0",
