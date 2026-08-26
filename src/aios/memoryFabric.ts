@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 export type MemoryKind = 'episodic' | 'semantic' | 'procedural' | 'world' | 'evidence';
 export type MemoryTrust = 'UNVERIFIED' | 'SUPPORTED' | 'VERIFIED' | 'REJECTED';
 
@@ -57,8 +55,10 @@ function canonicalize(value: unknown): string {
   return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${canonicalize(item)}`).join(',')}}`;
 }
 
-function sha256(value: string): string {
-  return createHash('sha256').update(value, 'utf8').digest('hex');
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function boundedConfidence(value: number): number {
@@ -69,14 +69,14 @@ function recordMaterial(record: Pick<MemoryRecord, 'id' | 'namespace' | 'kind' |
   return canonicalize(record);
 }
 
-function makeId(now: number, subject: string): string {
-  return `mem_${now.toString(36)}_${sha256(`${now}:${subject}:${Math.random()}`).slice(0, 12)}`;
+async function makeId(now: number, subject: string): Promise<string> {
+  return `mem_${now.toString(36)}_${(await sha256(`${now}:${subject}:${Math.random()}`)).slice(0, 12)}`;
 }
 
 let records: MemoryRecord[] = [];
 
 export const memoryFabric = {
-  write<T>(input: {
+  async write<T>(input: {
     namespace: string;
     kind: MemoryKind;
     subject: string;
@@ -85,10 +85,10 @@ export const memoryFabric = {
     trust?: MemoryTrust;
     expiresAt?: number;
     id?: string;
-  }): MemoryRecord<T> {
+  }): Promise<MemoryRecord<T>> {
     const now = Date.now();
     const previous = records.at(-1);
-    const id = input.id ?? makeId(now, input.subject);
+    const id = input.id ?? await makeId(now, input.subject);
     if (records.some(record => record.id === id)) throw new Error(`Memory id already exists: ${id}`);
 
     const provenance: MemoryProvenance = {
@@ -110,8 +110,8 @@ export const memoryFabric = {
       previousHash: previous?.recordHash ?? null,
       expiresAt: input.expiresAt,
     } as const;
-    const contentHash = sha256(canonicalize({ value: base.value, provenance: base.provenance, trust: base.trust }));
-    const recordHash = sha256(`${base.previousHash ?? ''}|${recordMaterial(base)}|${contentHash}`);
+    const contentHash = await sha256(canonicalize({ value: base.value, provenance: base.provenance, trust: base.trust }));
+    const recordHash = await sha256(`${base.previousHash ?? ''}|${recordMaterial(base)}|${contentHash}`);
     const record: MemoryRecord<T> = { ...base, contentHash, recordHash };
     records = [...records, record].slice(-MAX_RECORDS);
     return record;
@@ -135,7 +135,7 @@ export const memoryFabric = {
     return records.filter(record => record.namespace === namespace && record.subject === subject).at(-1) ?? null;
   },
 
-  verify(): MemoryIntegrityReport {
+  async verify(): Promise<MemoryIntegrityReport> {
     let brokenLinks = 0;
     let invalidHashes = 0;
     let expired = 0;
@@ -147,8 +147,8 @@ export const memoryFabric = {
       if (seen.has(record.id)) continue;
       seen.add(record.id);
       if (record.previousHash !== previousHash) brokenLinks += 1;
-      const expectedContent = sha256(canonicalize({ value: record.value, provenance: record.provenance, trust: record.trust }));
-      const expectedHash = sha256(`${record.previousHash ?? ''}|${recordMaterial(record)}|${record.contentHash}`);
+      const expectedContent = await sha256(canonicalize({ value: record.value, provenance: record.provenance, trust: record.trust }));
+      const expectedHash = await sha256(`${record.previousHash ?? ''}|${recordMaterial(record)}|${record.contentHash}`);
       if (expectedContent !== record.contentHash || expectedHash !== record.recordHash) invalidHashes += 1;
       if (record.expiresAt !== undefined && record.expiresAt <= now) expired += 1;
       previousHash = record.recordHash;
