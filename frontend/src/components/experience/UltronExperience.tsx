@@ -1,6 +1,6 @@
 import React from "react";
 import UltronNeuralField, { UltronSystemStatus } from "./UltronNeuralField";
-import ArchosIntelligenceGraph from "./ArchosIntelligenceGraph";
+import UltronCommandCenter from "./UltronCommandCenter";
 
 interface Props {
   status?: UltronSystemStatus;
@@ -8,7 +8,7 @@ interface Props {
   subtitle?: string;
 }
 
-/** ULTRON shell: visual state plus the live-readable intelligence fabric. */
+/** ULTRON shell: neural field plus the integrated command-center experience. */
 export const UltronExperience: React.FC<Props> = ({
   status = "IDLE",
   title = "ULTRON",
@@ -41,7 +41,7 @@ export const UltronExperience: React.FC<Props> = ({
         </div>
       </div>
 
-      <ArchosIntelligenceGraph />
+      <UltronCommandCenter />
     </div>
   </section>
 );

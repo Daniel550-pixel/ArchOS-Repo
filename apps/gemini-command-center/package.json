@@ -1,0 +1,27 @@
+{
+  "name": "archos-gemini-command-center",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"tsx server.ts\"",
+    "build": "vite build",
+    "start": "tsx server.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "express": "^4.21.2",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^6.2.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2"
+  }
+}
