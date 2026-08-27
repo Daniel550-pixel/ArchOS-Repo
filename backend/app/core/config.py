@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     ARCHOS_CLAUDE_MODEL: str = Field(default="claude-sonnet-4-6")
     OX_ALPHA_API_KEY: Optional[str] = Field(default=None)
     OX_ALPHA_BASE_URL: str = Field(default="https://openrouter.ai/api/v1")
-    ARCHOS_OX_ALPHA_MODEL: str = Field(default="stealth/ox-alpha")
+    ARCHOS_OX_ALPHA_MODEL: str = Field(default="z-ai/glm-5.3-flash")
     OX_ALPHA_TIMEOUT_SECONDS: float = Field(default=45.0)
 
     ADMIN_API_KEY: Optional[str] = Field(default=None)
