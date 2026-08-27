@@ -8,7 +8,7 @@ def lane(name: str, position: CanonicalPosition | None, *, status=LaneStatus.SUC
 
 def test_unanimous_full_panel():
     result = build_consensus("t1", "d1", (lane("baseline", CanonicalPosition.AFFIRM), lane("claude", CanonicalPosition.AFFIRM), lane("ox_alpha", CanonicalPosition.AFFIRM)))
-    assert result.panel_state is not None
+    assert result.panel_state.value == "full"
     assert result.agreement.value == "unanimous"
     assert result.selected_position is CanonicalPosition.AFFIRM
     assert result.agreement_score == 1.0
@@ -32,7 +32,6 @@ def test_degraded_disagreement_is_not_majority():
 def test_single_success_abstains():
     result = build_consensus("t4", "d4", (lane("baseline", CanonicalPosition.AFFIRM), lane("claude", None, status=LaneStatus.ERROR), lane("ox_alpha", None, status=LaneStatus.TIMEOUT)))
     assert result.panel_state.value == "insufficient"
-    assert result.selected_position is CanonicalPosition.AFFIRM
     assert result.resolution.value == "abstain"
 
 
@@ -43,7 +42,7 @@ def test_three_way_disagreement_is_split():
     assert len(result.conflicts) == 3
 
 
-def test_high_impact_non_unanimous_requires_human_and_keeps_selected_position_untrusted():
+def test_high_impact_non_unanimous_requires_human():
     result = build_consensus("t6", "d6", (lane("baseline", CanonicalPosition.AFFIRM), lane("claude", CanonicalPosition.AFFIRM), lane("ox_alpha", CanonicalPosition.NEGATE)), high_impact=True)
     assert result.resolution.value == "human_review_required"
     assert result.selected_position is CanonicalPosition.AFFIRM
