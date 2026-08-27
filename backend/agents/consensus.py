@@ -1,8 +1,4 @@
-"""Typed consensus artifacts for governed multi-model reasoning.
-
-Consensus is deliberately a reducer of reasoning variance, not a correctness
-oracle. Verification must consume the artifact before consequential execution.
-"""
+"""Typed consensus artifacts for governed multi-model reasoning."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -119,31 +115,52 @@ def build_consensus_artifact(
     conflicts: Optional[List[Conflict]] = None,
     high_impact: bool = False,
 ) -> ConsensusArtifact:
-    """Build a deterministic first-pass consensus artifact.
-
-    The function never treats model agreement as verification. External
-    evidence and the verification agent remain authoritative downstream.
-    """
+    """Build a deterministic consensus artifact; never equate agreement with truth."""
     evidence = evidence or []
-    conflicts = conflicts or []
+    conflicts = list(conflicts or [])
     successful = [lane for lane in lane_results if lane.status == "SUCCESS"]
-
     positions = {lane.position.strip().lower() for lane in successful if lane.position.strip()}
+
     if not successful:
+        agreement = Agreement.ABSTAINED
+    elif len(successful) < 2:
         agreement = Agreement.ABSTAINED
     elif len(positions) <= 1:
         agreement = Agreement.UNANIMOUS
-    elif len(successful) >= 3:
-        agreement = Agreement.MAJORITY if len(positions) == 2 else Agreement.SPLIT
+    elif len(successful) >= 3 and len(positions) == 2:
+        agreement = Agreement.MAJORITY
     else:
         agreement = Agreement.SPLIT
 
-    agreement_score = 0.0 if not successful else max(0.0, min(1.0, 1.0 - (len(positions) - 1) / max(1, len(successful))))
+    # Materially different lane positions become explicit conflict artifacts.
+    # We intentionally avoid pretending natural-language similarity is semantic
+    # equivalence; verification remains responsible for claim-level resolution.
+    if len(positions) > 1 and not conflicts:
+        populated = [lane for lane in successful if lane.position.strip()]
+        for left, right in zip(populated, populated[1:]):
+            if left.position.strip().lower() != right.position.strip().lower():
+                conflicts.append(
+                    Conflict(
+                        claim_id=f"claim-{decision_id}",
+                        lane_a=left.lane_id,
+                        lane_b=right.lane_id,
+                        position_a=left.position,
+                        position_b=right.position,
+                        conflict_type=ConflictType.INTERPRETIVE,
+                        materiality=0.5,
+                        confidence_delta=abs(left.confidence - right.confidence),
+                    )
+                )
+
+    agreement_score = 0.0 if len(successful) < 2 else max(0.0, min(1.0, 1.0 - (len(positions) - 1) / max(1, len(successful))))
     conflict_score = max(0.0, min(1.0, sum(c.materiality for c in conflicts) / max(1, len(conflicts)))) if conflicts else 0.0
 
     if not successful:
         resolution = Resolution.ABSTAIN
         reason = "No reasoning lane produced a successful result."
+    elif len(successful) < 2:
+        resolution = Resolution.VERIFICATION_REQUIRED
+        reason = "Consensus degraded to a single successful reasoning lane."
     elif high_impact and (agreement != Agreement.UNANIMOUS or not evidence):
         resolution = Resolution.HUMAN_REVIEW_REQUIRED
         reason = "High-impact task lacks unanimous, externally grounded consensus."
