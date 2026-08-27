@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -34,6 +37,17 @@ jobs:
         run: npm run test:world-simulation
       - name: Governance verification
         run: npm run test:governance
+      - name: Start application for acceptance tests
+        run: |
+          npm run dev > /tmp/archos-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/archos-server.log
+          exit 1
       - name: A3 engine verification
         run: npm run test:a3
       - name: A4 fabric verification
