@@ -1,5 +1,4 @@
-"""Typed contracts for ArchOS multi-lane reasoning and verification."""
-
+"""Typed contracts for governed ArchOS multi-model reasoning."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -105,6 +104,7 @@ class ConsensusArtifact:
     panel_state: PanelState
     agreement: AgreementState
     resolution: ResolutionState
+    proposed_position: CanonicalPosition | None
     selected_position: CanonicalPosition | None
     agreement_score: float
     conflicts: tuple[Conflict, ...] = ()
@@ -112,7 +112,7 @@ class ConsensusArtifact:
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return _jsonable(asdict(self))
 
 
 @dataclass(frozen=True)
@@ -130,7 +130,19 @@ class VerificationArtifact:
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return _jsonable(asdict(self))
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, tuple):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, list):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _jsonable(item) for key, item in value.items()}
+    return value
 
 
 def normalize_position(position: Any) -> CanonicalPosition | None:
@@ -139,7 +151,7 @@ def normalize_position(position: Any) -> CanonicalPosition | None:
     if position is None:
         return None
     value = str(position).strip().lower()
-    aliases = {
+    return {
         "yes": CanonicalPosition.AFFIRM,
         "true": CanonicalPosition.AFFIRM,
         "affirm": CanonicalPosition.AFFIRM,
@@ -149,5 +161,4 @@ def normalize_position(position: Any) -> CanonicalPosition | None:
         "uncertain": CanonicalPosition.UNCERTAIN,
         "unknown": CanonicalPosition.UNCERTAIN,
         "abstain": CanonicalPosition.ABSTAIN,
-    }
-    return aliases.get(value)
+    }.get(value)
