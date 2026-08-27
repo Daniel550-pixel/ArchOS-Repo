@@ -9,7 +9,7 @@ from .specialists import ReasoningAgent
 
 
 class OxAlphaReasoningAgent(ReasoningAgent):
-    """Peer reasoning lane; it never receives execution authority."""
+    """Independent peer reasoning lane; never receives execution authority."""
 
     def __init__(self):
         super().__init__()
@@ -18,6 +18,25 @@ class OxAlphaReasoningAgent(ReasoningAgent):
         self.description = "Independent Ox Alpha reasoning lane for long-context and agentic analysis."
         self.supported_tools = ["ox_alpha_model"]
 
+    @staticmethod
+    def _parse_structured(content: str | None) -> tuple[str | None, str]:
+        if not content:
+            return None, ""
+        try:
+            raw = content.strip()
+            if raw.startswith("```"):
+                raw = raw.strip("`")
+                if raw.startswith("json"):
+                    raw = raw[4:].lstrip()
+            payload = json.loads(raw)
+            position = payload.get("position") or payload.get("canonical_position")
+            rationale = payload.get("rationale") or payload.get("analysis") or ""
+            return (str(position).strip() if position else None, str(rationale))
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            # Preserve provider prose as rationale, but never promote prose into
+            # the consensus position.
+            return None, content.strip()
+
     async def _run(self, task: AgentTask) -> AgentResult:
         query = task.payload.get("normalized_query", "")
         domain = task.payload.get("domain", "GENERAL_INTELLIGENCE")
@@ -25,10 +44,12 @@ class OxAlphaReasoningAgent(ReasoningAgent):
         research = task.payload.get("research_findings", {})
 
         prompt = (
-            "Analyze the ArchOS intelligence query using only the supplied context. "
-            "Return a concise, evidence-aware position. Separate observations from "
-            "inferences, identify uncertainty, and do not issue commands or claim "
-            "execution authority. Your answer will be compared with independent model lanes.\n\n"
+            "Analyze the ArchOS intelligence query independently using only the supplied context. "
+            "Do not infer or imitate other model positions. Never issue commands or claim execution authority. "
+            "Return ONLY valid JSON with this exact shape: "
+            '{"position":"CANONICAL_POSITION","rationale":"concise reasoning"}. '
+            "The position must be a short canonical decision label, not a paragraph. "
+            "Separate observations from inferences and identify uncertainty in the rationale.\n\n"
             f"QUERY: {query}\nDOMAIN: {domain}\n"
             f"WORLD_MODEL: {json.dumps(world_model, default=str)[:30000]}\n"
             f"RESEARCH: {json.dumps(research, default=str)[:30000]}"
@@ -42,10 +63,13 @@ class OxAlphaReasoningAgent(ReasoningAgent):
             )
         )
 
+        position, rationale = self._parse_structured(response.content)
         output = {
             "model_route": response.model,
+            "position": position,
+            "rationale": rationale,
             "ox_alpha_analysis": response.content or None,
-            "deductions": [response.content] if response.content else [],
+            "deductions": [rationale] if rationale else [],
             "confidence_score": 0.0 if not response.is_real else 0.90,
             "execution_authority": response.execution_authority,
             "provider_status": response.status,
