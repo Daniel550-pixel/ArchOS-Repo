@@ -17,6 +17,7 @@ from .specialists import (
 )
 from .claude_reasoning_agent import ClaudeReasoningAgent
 from .ox_alpha_reasoning_agent import OxAlphaReasoningAgent
+from .consensus_reasoning_agent import ConsensusReasoningAgent
 from .financial_intelligence_agent import FinancialIntelligenceAgent
 from .multimodal_intelligence_agent import MultimodalIntelligenceAgent
 from .authoritative_world_model_agent import AuthoritativeWorldModelAgent
@@ -141,31 +142,30 @@ class Swarm:
 
     async def route_reasoning_consensus(self, task: AgentTask) -> tuple[AgentResult, Dict[str, Any]]:
         """Run the independent baseline, Claude and Ox Alpha reasoning lanes concurrently."""
-        lane_ids = ("reasoning", "claude_reasoning", "ox_alpha_reasoning")
-        lanes = [self.agents.get(agent_id) for agent_id in lane_ids]
+        lane_ids = ("baseline_reasoning", "claude_reasoning", "ox_alpha_reasoning")
+        baseline = ReasoningAgent()
+        baseline.id = "baseline_reasoning"
+        lanes = [baseline, self.agents.get("claude_reasoning"), self.agents.get("ox_alpha_reasoning")]
         if any(agent is None for agent in lanes):
             missing = [agent_id for agent_id, agent in zip(lane_ids, lanes) if agent is None]
             result = AgentResult("reasoning_consensus", task.task_id, "FAILED", {}, RealityLevel.FALLBACK, 0.0, "consensus:missing_lane", error=f"Missing reasoning lanes: {', '.join(missing)}")
             return result, {"resolution": "ABSTAIN", "lanes": []}
 
-        results = await asyncio.gather(*(self.dispatch(agent.id, task) for agent in lanes))
+        results = await asyncio.gather(*(agent.execute(task) for agent in lanes))
         assessments: List[LaneAssessment] = []
-        positions: List[str] = []
         evidence_count = sum(len(result.evidence) for result in results if result.status == "SUCCESS")
-        for result in results:
+        for lane_id, result in zip(lane_ids, results):
             output = result.output or {}
             position = str(output.get("synthesis") or output.get("ox_alpha_analysis") or output.get("claude_analysis") or "").strip()
-            if position:
-                positions.append(position)
             assessments.append(
                 LaneAssessment(
-                    lane_id=result.agent_id,
+                    lane_id=lane_id,
                     status=result.status,
                     position=position,
                     confidence=result.confidence,
                     evidence_density=min(1.0, len(result.evidence) / 5.0),
-                    reliability_score=self.agents[result.agent_id].performance,
-                    model=str(output.get("model_route") or output.get("model") or result.agent_id),
+                    reliability_score=self.agents.get(lane_id).performance if self.agents.get(lane_id) else 1.0,
+                    model=str(output.get("model_route") or output.get("model") or lane_id),
                     error=result.error,
                 )
             )
@@ -177,16 +177,14 @@ class Swarm:
             claim="Independent reasoning position for the normalized ArchOS task.",
             high_impact=task.risk_level.value in {"CONSEQUENTIAL", "HIGH_IMPACT"},
         )
-
         successful = [r for r in results if r.status == "SUCCESS"]
         best = max(successful, key=lambda r: r.confidence, default=results[0])
         output = dict(best.output or {})
         output["model_consensus"] = artifact.to_dict()
-        output["reasoning_lanes"] = [r.agent_id for r in results]
-        output["lane_results"] = {r.agent_id: r.output for r in results}
+        output["reasoning_lanes"] = list(lane_ids)
+        output["lane_results"] = {lane_id: result.output for lane_id, result in zip(lane_ids, results)}
         output["consensus_evidence_count"] = evidence_count
         output["consensus_resolution"] = artifact.resolution.value
-
         aggregate = AgentResult(
             agent_id="reasoning_consensus",
             task_id=task.task_id,
@@ -216,7 +214,7 @@ def create_canonical_swarm() -> Swarm:
         PerceptionAgent(),
         AuthoritativeWorldModelAgent(),
         ResearchAgent(),
-        ReasoningAgent(),
+        ConsensusReasoningAgent(),
         ClaudeReasoningAgent(),
         OxAlphaReasoningAgent(),
         PlanningAgent(),
