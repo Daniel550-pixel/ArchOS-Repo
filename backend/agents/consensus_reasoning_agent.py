@@ -2,85 +2,121 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 from typing import Any
 
 from .base import Agent, AgentCapability, AgentTask, AgentResult, RealityLevel
-from .consensus_contracts import CanonicalPosition, EvidenceRef, LaneResult, LaneStatus
+from .consensus_contracts import CanonicalPosition, EvidenceRef, LaneResult, LaneStatus, normalize_position
 from .consensus_engine import build_consensus
 
 
 class ConsensusReasoningAgent(Agent):
+    """Fan the canonical REASONING capability into independent peer lanes."""
+
     def __init__(self):
         super().__init__(
             id="reasoning",
             name="Multi-Model Consensus Reasoning Specialist",
-            description="Fans reasoning tasks into independent baseline, Claude and Ox Alpha lanes and emits a typed consensus artifact.",
+            description="Fans reasoning tasks into independent baseline, Claude and Ox Alpha lanes and emits a governed consensus artifact.",
             capabilities={AgentCapability.REASONING},
             supported_tools=["model_router", "claude_model", "ox_alpha_model", "consensus_engine"],
             reality_default=RealityLevel.INFERRED,
         )
 
     @staticmethod
-    def _canonical_lane_result(lane_id: str, result: AgentResult, performance: float | None = None) -> LaneResult:
-        output: dict[str, Any] = result.output or {}
-        raw_position = output.get("position", output.get("canonical_position"))
-        position = raw_position if isinstance(raw_position, CanonicalPosition) else None
-        if position is None and raw_position:
-            aliases = {"affirm": CanonicalPosition.AFFIRM, "yes": CanonicalPosition.AFFIRM, "true": CanonicalPosition.AFFIRM,
-                       "negate": CanonicalPosition.NEGATE, "no": CanonicalPosition.NEGATE, "false": CanonicalPosition.NEGATE,
-                       "uncertain": CanonicalPosition.UNCERTAIN, "unknown": CanonicalPosition.UNCERTAIN,
-                       "abstain": CanonicalPosition.ABSTAIN}
-            position = aliases.get(str(raw_position).strip().lower())
+    def _extract_canonical_position(output: dict[str, Any]) -> CanonicalPosition | None:
+        """Accept only an explicit canonical field; never infer a vote from prose."""
+        direct = normalize_position(output.get("canonical_position", output.get("position")))
+        if direct is not None:
+            return direct
+        for value in output.values():
+            if not isinstance(value, str) or len(value) > 12000:
+                continue
+            match = re.search(r"\"(?:canonical_position|position)\"\s*:\s*\"(affirm|negate|uncertain|abstain)\"", value, re.IGNORECASE)
+            if match:
+                return normalize_position(match.group(1))
+        return None
 
-        evidence = tuple(EvidenceRef(source=str(item), claim=str(item), strength=1.0, reality_grounded=False) for item in (result.evidence or []))
-        status_map = {"SUCCESS": LaneStatus.SUCCESS, "TIMEOUT": LaneStatus.TIMEOUT, "FAILED": LaneStatus.ERROR, "DENIED": LaneStatus.ERROR}
-        status = status_map.get(result.status, LaneStatus.ERROR)
+    @staticmethod
+    def _canonical_lane_result(lane_id: str, result: AgentResult, performance: float | None = None) -> LaneResult:
+        output = result.output or {}
+        position = ConsensusReasoningAgent._extract_canonical_position(output)
+        status_map = {
+            "SUCCESS": LaneStatus.SUCCESS,
+            "TIMEOUT": LaneStatus.TIMEOUT,
+            "FAILED": LaneStatus.ERROR,
+            "DENIED": LaneStatus.ERROR,
+            "UNCONFIGURED": LaneStatus.ERROR,
+        }
+        status = status_map.get(str(result.status).upper(), LaneStatus.ERROR)
+        evidence = tuple(EvidenceRef(source=f"{lane_id}:result", claim=str(item), strength=0.5) for item in (result.evidence or []))
         return LaneResult(
             lane_id=lane_id,
             position=position,
-            rationale=str(output.get("rationale") or output.get("analysis") or output.get("synthesis") or ""),
+            rationale=str(output.get("rationale") or output.get("analysis") or output.get("synthesis") or output.get("claude_analysis") or output.get("ox_alpha_analysis") or ""),
             confidence=max(0.0, min(1.0, float(result.confidence or 0.0))),
             evidence=evidence,
-            status=status,
+            status=status if position is not None or status is not LaneStatus.SUCCESS else LaneStatus.ERROR,
             model=str(output.get("model_route") or lane_id),
-            error=result.error,
+            error=result.error if position is not None else (result.error or "Missing explicit canonical position"),
             reliability_score=performance,
         )
 
     async def _run(self, task: AgentTask) -> AgentResult:
         from .specialists import ReasoningAgent
         from .claude_reasoning_agent import ClaudeReasoningAgent
-        from .ox_alpha_reasoning_agent import OxAlphaReasoningAgent
+        from .ox_alpha_runtime_adapter import OxAlphaRuntimeAdapter
         from .swarm import swarm
 
-        peers = [
-            ("baseline_reasoning", ReasoningAgent()),
-            ("claude_reasoning", swarm.get_agent("claude_reasoning") or ClaudeReasoningAgent()),
-            ("ox_alpha_reasoning", swarm.get_agent("ox_alpha_reasoning") or OxAlphaReasoningAgent()),
-        ]
+        baseline = ReasoningAgent()
+        claude = swarm.get_agent("claude_reasoning") or ClaudeReasoningAgent()
+        ox_runtime = OxAlphaRuntimeAdapter()
+        peers = [("baseline_reasoning", baseline), ("claude_reasoning", claude)]
 
-        # Each Agent.execute() is the lane failure boundary. A lane failure must
-        # become an AgentResult and never tear down the consensus controller.
-        results = await asyncio.gather(*(agent.execute(task) for _, agent in peers))
-        lane_results = tuple(self._canonical_lane_result(lane_id, result, getattr(agent, "performance", None)) for (lane_id, agent), result in zip(peers, results))
-        artifact = build_consensus(task.task_id, task.correlation_id, lane_results, high_impact=task.risk_level.value in {"CONSEQUENTIAL", "HIGH_IMPACT"})
+        # Ox Alpha enters through the AgentRuntimeAdapter contract. Its provider
+        # failures are returned as AgentResult values by the underlying boundary.
+        results = await asyncio.gather(
+            baseline.execute(task),
+            claude.execute(task),
+            ox_runtime.execute(task),
+        )
+        peer_objects = [baseline, claude, ox_runtime.agent]
+        lane_results = tuple(
+            self._canonical_lane_result(lane_id, result, getattr(agent, "performance", None))
+            for (lane_id, _), result, agent in zip(
+                [("baseline_reasoning", baseline), ("claude_reasoning", claude), ("ox_alpha_reasoning", ox_runtime.agent)],
+                results,
+                peer_objects,
+            )
+        )
+        artifact = build_consensus(
+            task.task_id,
+            task.correlation_id,
+            lane_results,
+            high_impact=task.risk_level.value in {"CONSEQUENTIAL", "HIGH_IMPACT"},
+        )
 
-        successful = [r for r in results if r.status == "SUCCESS"]
+        successful = [result for result in results if str(result.status).upper() == "SUCCESS"]
         best = max(successful, key=lambda result: result.confidence, default=results[0])
         output = dict(best.output or {})
         output["model_consensus"] = artifact.to_dict()
-        output["reasoning_lanes"] = [lane_id for lane_id, _ in peers]
-        output["lane_results"] = {lane_id: result.output for (lane_id, _), result in zip(peers, results)}
+        output["reasoning_lanes"] = [lane_id for lane_id, _ in [("baseline_reasoning", baseline), ("claude_reasoning", claude), ("ox_alpha_reasoning", ox_runtime.agent)]]
+        output["lane_results"] = {lane_id: result.output for (lane_id, _), result in zip(output["reasoning_lanes"], results)}
         output["consensus_resolution"] = artifact.resolution.value
         output["consensus_agreement_score"] = artifact.agreement_score
         output["consensus_panel_state"] = artifact.panel_state.value
+        output["proposed_position"] = artifact.proposed_position.value if artifact.proposed_position else None
         output["selected_position"] = artifact.selected_position.value if artifact.selected_position else None
 
         return AgentResult(
-            agent_id=self.id, task_id=task.task_id,
-            status="SUCCESS" if successful else "FAILED", output=output,
-            reality=best.reality, confidence=best.confidence if successful else 0.0,
+            agent_id=self.id,
+            task_id=task.task_id,
+            status="SUCCESS" if successful else "FAILED",
+            output=output,
+            reality=best.reality,
+            confidence=best.confidence if successful else 0.0,
             provenance="reasoning:tri_lane_consensus",
             evidence=[f"lane:{result.agent_id}" for result in successful],
-            error=None if successful else "All reasoning lanes failed",
+            error=None if successful else "All reasoning lanes failed or produced no canonical position",
         )
