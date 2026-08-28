@@ -1,15 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Layers3, Network, Radio, Search, ShieldCheck, Sparkles, Target, X, Command, Activity, Map, Cpu, Play } from 'lucide-react';
+import { Layers3, Network, Radio, Search, ShieldCheck, Sparkles, Target, X, Command, Activity, Map, Cpu, Play, Loader2 } from 'lucide-react';
 import { UAE3DWorldModel, UAE_LANDMARKS, type ActiveLayer, type LandmarkPOI, type LightingMode } from '../world/UAE3DWorldModel';
 import ArchosIntelligenceGraph from '../experience/ArchosIntelligenceGraph';
 import './ArchOSUnifiedSpatialCanvas.css';
 
 type SpatialMode = 'WORLD' | 'INTELLIGENCE' | 'SIMULATION';
+type CommandStatus = 'READY' | 'EXECUTING' | 'COMPLETED' | 'FAILED';
 
 /**
  * Canonical ArchOS spatial surface.
  * Models/providers remain behind the experience layer and are intentionally
  * absent from the visual identity.
+ *
+ * The command surface is a real runtime boundary: commands are submitted to
+ * the authoritative J.A.R.V.I.S. endpoint and the returned lifecycle state is
+ * published back into the experience layer for spatial UI consumers.
  */
 export const ArchOSUnifiedSpatialCanvas: React.FC = () => {
   const [lightingMode, setLightingMode] = useState<LightingMode>('CYBER');
@@ -23,6 +28,8 @@ export const ArchOSUnifiedSpatialCanvas: React.FC = () => {
   const [mode, setMode] = useState<SpatialMode>('WORLD');
   const [commandCount, setCommandCount] = useState(0);
   const [lastCommand, setLastCommand] = useState('SYSTEM READY');
+  const [commandStatus, setCommandStatus] = useState<CommandStatus>('READY');
+  const [lastTaskId, setLastTaskId] = useState<string | null>(null);
 
   const selectedLandmark = useMemo(() => UAE_LANDMARKS.find((landmark) => landmark.id === selectedLandmarkId), [selectedLandmarkId]);
   const filteredLandmarks = useMemo(() => {
@@ -32,15 +39,14 @@ export const ArchOSUnifiedSpatialCanvas: React.FC = () => {
   }, [query]);
 
   useEffect(() => {
-    const onCommand = (event: Event) => {
-      const detail = (event as CustomEvent<{ command?: string }>).detail;
-      if (detail?.command) {
-        setLastCommand(detail.command);
-        setCommandCount((value) => value + 1);
-      }
+    const onCommandExecuted = (event: Event) => {
+      const detail = (event as CustomEvent<{ command?: string; taskId?: string; status?: CommandStatus }>).detail;
+      if (detail?.command) setLastCommand(detail.command);
+      if (detail?.taskId) setLastTaskId(detail.taskId);
+      if (detail?.status) setCommandStatus(detail.status);
     };
-    window.addEventListener('archos:command-executed', onCommand);
-    return () => window.removeEventListener('archos:command-executed', onCommand);
+    window.addEventListener('archos:command-executed', onCommandExecuted);
+    return () => window.removeEventListener('archos:command-executed', onCommandExecuted);
   }, []);
 
   useEffect(() => {
@@ -54,14 +60,78 @@ export const ArchOSUnifiedSpatialCanvas: React.FC = () => {
     return () => window.removeEventListener('keydown', onShortcut);
   }, []);
 
-  const executeCommand = () => {
+  const executeCommand = async () => {
     const value = command.trim();
-    if (!value) return;
-    window.dispatchEvent(new CustomEvent('archos:command', { detail: { command: value, source: 'spatial-command-bar', timestamp: Date.now() } }));
+    if (!value || commandStatus === 'EXECUTING') return;
+
+    setCommandStatus('EXECUTING');
     setLastCommand(value);
     setCommandCount((count) => count + 1);
-    setCommand('');
+
+    window.dispatchEvent(new CustomEvent('archos:command', {
+      detail: { command: value, source: 'spatial-command-bar', timestamp: Date.now() },
+    }));
+
+    try {
+      const response = await fetch('/api/v1/jarvis/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          query: value,
+          actor: 'operator',
+          tenant_id: 'uae-sovereign',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail || `J.A.R.V.I.S. request failed (${response.status})`);
+      }
+
+      const result = await response.json();
+      const taskId = typeof result?.task_id === 'string' ? result.task_id : undefined;
+      const verificationStatus = typeof result?.verification_status === 'string' ? result.verification_status : undefined;
+
+      if (taskId) setLastTaskId(taskId);
+      setCommandStatus('COMPLETED');
+      setLastCommand(verificationStatus ? `${value} · ${verificationStatus}` : value);
+
+      window.dispatchEvent(new CustomEvent('archos:command-executed', {
+        detail: {
+          command: value,
+          taskId,
+          status: 'COMPLETED',
+          verificationStatus,
+          result,
+          source: 'jarvis-runtime',
+          timestamp: Date.now(),
+        },
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown runtime error';
+      setCommandStatus('FAILED');
+      setLastCommand(`${value} · FAILED`);
+
+      window.dispatchEvent(new CustomEvent('archos:command-executed', {
+        detail: {
+          command: value,
+          status: 'FAILED',
+          error: message,
+          source: 'jarvis-runtime',
+          timestamp: Date.now(),
+        },
+      }));
+    } finally {
+      setCommand('');
+    }
   };
+
+  const commandStateLabel = commandStatus === 'EXECUTING'
+    ? 'J.A.R.V.I.S. PROCESSING'
+    : lastTaskId
+      ? `${commandStatus} · ${lastTaskId}`
+      : lastCommand;
 
   return (
     <section className="archos-unified-spatial" aria-label="ArchOS unified spatial intelligence canvas">
@@ -102,7 +172,7 @@ export const ArchOSUnifiedSpatialCanvas: React.FC = () => {
       {showFabric && <div className="archos-spatial-fabric archos-surface"><button className="archos-spatial-fabric-close" type="button" onClick={() => setShowFabric(false)} aria-label="Close intelligence fabric"><X size={13} /></button><ArchosIntelligenceGraph title="LIVE INTELLIGENCE FABRIC" /></div>}
       <div className="archos-spatial-fabric-toggle"><button className={showFabric ? 'is-active' : ''} type="button" onClick={() => setShowFabric((value) => !value)}><Network size={13} /> INTELLIGENCE FABRIC</button></div>
 
-      <div className="archos-spatial-command archos-command-surface"><Command size={13} /><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') executeCommand(); }} placeholder="Command ArchOS..." aria-label="Command ArchOS" /><span className="archos-spatial-command-state">{commandCount ? `${commandCount} EXECUTED` : lastCommand}</span><button type="button" onClick={executeCommand}>EXECUTE</button></div>
+      <div className={`archos-spatial-command archos-command-surface is-${commandStatus.toLowerCase()}`}><span className="archos-spatial-command-icon">{commandStatus === 'EXECUTING' ? <Loader2 size={13} className="archos-spin" /> : <Command size={13} />}</span><input value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void executeCommand(); }} placeholder="Command ArchOS..." aria-label="Command ArchOS" disabled={commandStatus === 'EXECUTING'} /><span className="archos-spatial-command-state">{commandStateLabel}</span><button type="button" onClick={() => void executeCommand()} disabled={commandStatus === 'EXECUTING' || !command.trim()}>{commandStatus === 'EXECUTING' ? 'PROCESSING' : 'EXECUTE'}</button></div>
 
       <div className="archos-spatial-footer"><span>ARCHOS SPATIAL RUNTIME</span><i /><span>WORLD MODEL</span><i /><span>AGENT FABRIC</span><i /><span>VERIFICATION</span><i /><span>SIMULATION READY</span></div>
       <div className="archos-spatial-core-label"><Sparkles size={12} /><span>INTELLIGENCE FIELD · {mode}</span></div>
