@@ -3,10 +3,9 @@ import { Bot, RotateCcw } from 'lucide-react';
 import { SovereignGate } from './components/auth/SovereignGate';
 import { SovereignVault } from './services/biometric';
 import { silentRestore } from './services/session';
-import { UltronOneWorld } from './components/layout/UltronOneWorld';
+import { ArchOSUnifiedSpatialCanvas } from './components/spatial/ArchOSUnifiedSpatialCanvas';
 import { UltronMissionReplay } from './components/layout/UltronMissionReplay';
 import { UltronMissionControl } from './components/layout/UltronMissionControl';
-import { UltronAdaptiveHud } from './components/layout/UltronAdaptiveHud';
 
 type ArchOSMode = 'world' | 'intelligence' | 'agents' | 'replay';
 
@@ -50,14 +49,37 @@ export default function App() {
     />;
   }
 
-  return <div className="archos-app-shell">
-    <UltronOneWorld />
-    <UltronAdaptiveHud mode={mode} onModeChange={setMode} />
-    <div className="fixed bottom-24 right-6 z-50 flex gap-2">
-      <button className="archos-replay-launcher" onClick={() => { setMode('agents'); setMissionControlOpen(true); }} aria-label="Open ArchOS Mission Control" title="Mission Control · Ctrl+Shift+M"><Bot/><span>MISSIONS</span></button>
-      <button className="archos-replay-launcher" onClick={() => { setMode('replay'); setReplayOpen(true); }} aria-label="Open ArchOS Mission Replay" title="Mission Replay · Ctrl+Shift+R"><RotateCcw/><span>REPLAY</span></button>
+  return (
+    <div className="archos-app-shell">
+      <ArchOSUnifiedSpatialCanvas />
+
+      <div className="fixed bottom-24 right-6 z-50 flex gap-2">
+        <button
+          className="archos-replay-launcher"
+          onClick={() => { setMode('agents'); setMissionControlOpen(true); }}
+          aria-label="Open ArchOS Mission Control"
+          title="Mission Control · Ctrl+Shift+M"
+        >
+          <Bot/><span>MISSIONS</span>
+        </button>
+        <button
+          className="archos-replay-launcher"
+          onClick={() => { setMode('replay'); setReplayOpen(true); }}
+          aria-label="Open ArchOS Mission Replay"
+          title="Mission Replay · Ctrl+Shift+R"
+        >
+          <RotateCcw/><span>REPLAY</span>
+        </button>
+      </div>
+
+      <UltronMissionControl
+        open={missionControlOpen}
+        onClose={() => { setMissionControlOpen(false); setMode('world'); }}
+      />
+      <UltronMissionReplay
+        open={replayOpen}
+        onClose={() => { setReplayOpen(false); setMode('world'); }}
+      />
     </div>
-    <UltronMissionControl open={missionControlOpen} onClose={() => { setMissionControlOpen(false); setMode('world'); }} />
-    <UltronMissionReplay open={replayOpen} onClose={() => { setReplayOpen(false); setMode('world'); }} />
-  </div>;
+  );
 }
