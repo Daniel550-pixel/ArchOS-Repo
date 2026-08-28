@@ -2,107 +2,84 @@
 
 Status: Phase A discovery artifact
 Branch: feature/archos-real-consensus-architecture
-Rule: this document records as-built authority; it is not an aspirational architecture specification.
 
-## Authority verdicts
+This is the mechanical decision table for subsequent migrations. It records the
+as-built structure observed in the repository, not the aspirational architecture.
 
-| Concept | Authoritative module | Duplicates / competing paths | Verdict |
-|---|---|---|---|
-| Agent base contract | backend/agents/base.py | Specialist agents subclass Agent | AUTHORITATIVE |
-| Agent capability / task / result primitives | backend/agents/base.py | API request schemas mirror parts of the contract | AUTHORITATIVE; API schemas are transport DTOs |
-| Runtime adapter boundary | backend/agents/runtime_adapter.py | Provider-specific adapters; in-process adapter | AUTHORITATIVE |
-| Runtime adapter registry | backend/agents/runtime_registry.py | Swarm remains the agent catalog | AUTHORITATIVE for runtime bindings |
-| Canonical executable agent catalog | backend/agents/swarm.py | API _registry is a registration/metadata registry | AUTHORITATIVE for execution |
-| Consensus typed contract | backend/agents/consensus_contracts.py | backend/agents/consensus.py defines legacy artifacts | CONTESTED |
-| Consensus decision engine | backend/agents/consensus_engine.py | backend/agents/consensus.py and inline legacy logic in swarm.py | CONTESTED |
-| Consensus reasoning controller | backend/agents/consensus_reasoning_agent.py | swarm.route_reasoning_consensus contains orchestration logic | CONTESTED |
-| Ox Alpha reasoning lane | backend/agents/ox_alpha_reasoning_agent.py | app.services.ox_alpha_agent_fabric is provider-facing runtime | AUTHORITATIVE lane; provider boundary separate |
-| Ox Alpha runtime adapter | backend/agents/ox_alpha_runtime_adapter.py | none identified | AUTHORITATIVE |
-| Claude reasoning lane | backend/agents/claude_reasoning_agent.py | app.services.claude_agent_fabric is provider-facing runtime | AUTHORITATIVE lane; provider boundary separate |
-| Verification agent/result verification | backend/agents/verification.py | app/api/agents.py invokes verifier directly | CONTESTED boundary; implementation appears centralized |
-| Evidence ledger | backend/agents/evidence_ledger.py | evidence persistence / chain provide separate persistence responsibilities | AUTHORITATIVE for in-process evidence ledger |
-| Evidence persistence | backend/agents/evidence_persistence.py | evidence ledger | AUTHORITATIVE for PostgreSQL persistence |
-| Action governance / execution gate | backend/agents/action_gate.py | app/services/governance_bridge.py is an app-layer facade | AUTHORITATIVE gate; bridge is adapter |
-| JARVIS runtime | backend/jarvis/runtime.py | app/services/jarvis_runtime_bridge.py | AUTHORITATIVE legacy runtime; bridge is app boundary |
-| App-facing JARVIS boundary | app/services/jarvis_runtime_bridge.py | direct legacy imports must be eliminated from app layer | AUTHORITATIVE app adapter |
-| Event fabric | app/services/event_fabric.py | legacy/other event mechanisms require further discovery | AUTHORITATIVE app event boundary, discovery still required |
-| FastAPI application | backend/app/main.py | backend/main.py compatibility entrypoint | AUTHORITATIVE |
-| Agent API task lifecycle | backend/app/api/agents.py | AgentTask in base.py is execution contract | CONTESTED: API lifecycle state is in-memory and separate from AgentTask |
-| World model runtime | backend/agents/world_model_runtime.py | app/api/world_model.py and related services | CONTESTED; exact authority requires call-site census |
-| Frontend runtime state | src/store/archosStore.ts | src/store.ts and service-local state | CONTESTED; call-site census required |
-| Frontend runtime contracts | src/types/archosRuntimeContracts.ts | src/types/index.ts and other domain types | CONTESTED; reconcile after backend spine |
-| Event contract | src/types/archosEvents.ts + backend EventFabric | multiple transport representations | CONTESTED across frontend/backend |
-| Simulation engine | src/services/simulation/simulationEngine.ts | backend simulation APIs/agents | CONTESTED across frontend/backend |
-| Spatial intelligence | src/services/spatial/* + backend spatial/world-model components | multiple spatial implementations | CONTESTED |
-| Security fabric | src/services/security/securityFabric.ts | backend auth/keysmith/security middleware | CONTESTED across frontend/backend |
+## Authority table
 
-## Confirmed behavioral findings
+| Concept | Current authority | Observed competing implementation / projection | Consumer / reachability evidence | Verdict | Migration action |
+|---|---|---|---|---|---|
+| Agent base execution | backend/agents/base.py | Specialist agents | Specialist agents inherit the base execution lifecycle | AUTHORITATIVE | Keep; contract-test |
+| Agent task/result primitives | backend/agents/base.py | app/api/agents.py transport task record | API layer maintains a separate task projection | AUTHORITATIVE | Keep execution contract; prevent API state from becoming second engine |
+| Runtime adapter contract | backend/agents/runtime_adapter.py | Provider-specific adapters | Ox Alpha adapter and in-process adapter implement the boundary | AUTHORITATIVE | Keep; adapter contract tests |
+| Runtime registry | backend/agents/runtime_registry.py | Swarm agent catalog | Startup binding consumes registry/runtime bindings | AUTHORITATIVE | Keep; reconcile startup bindings |
+| Executable agent catalog | backend/agents/swarm.py | API registration metadata | Canonical swarm is bound during application lifespan | AUTHORITATIVE | Keep; remove duplicated routing logic |
+| Consensus position contract | backend/agents/consensus_contracts.py | LaneAssessment.position in consensus.py/swarm | Legacy swarm still constructs/consumes the old shape | CONTESTED | Introduce typed Position at boundary; delete legacy position |
+| Consensus artifact | backend/agents/consensus_contracts.py | backend/agents/consensus.py | Hardened contract exists but legacy artifact builder remains | CONTESTED | New engine becomes authority; legacy builder deleted after caller migration |
+| Consensus decision engine | backend/agents/consensus_engine.py | consensus.py + Swarm.route_reasoning_consensus() | Swarm still owns orchestration/decision behavior | CONTESTED | Delegate old public path to engine, migrate callers, then delete duplicate |
+| Consensus reasoning controller | backend/agents/consensus_reasoning_agent.py | Swarm consensus route | Both contain consensus orchestration responsibilities | CONTESTED | Agent becomes thin controller over engine |
+| Ox Alpha reasoning lane | backend/agents/ox_alpha_reasoning_agent.py | app.services.ox_alpha_agent_fabric | Dedicated reasoning lane exists | AUTHORITATIVE | Keep |
+| Ox Alpha provider adapter | backend/agents/ox_alpha_runtime_adapter.py | Direct provider paths require audit | Dedicated adapter exists; startup selection is incomplete | AUTHORITATIVE | Bind adapter through runtime registry; audit direct calls |
+| Claude reasoning lane | backend/agents/claude_reasoning_agent.py | app.services.claude_agent_fabric | Dedicated reasoning lane exists | AUTHORITATIVE | Keep; normalize result contract |
+| Verification implementation | backend/agents/verification.py | API invocation path | API invokes verifier directly; downstream contract requires migration | CONTESTED | Define VerificationArtifact + single service boundary |
+| Evidence ledger | backend/agents/evidence_ledger.py | Persistence/chain layers | In-process ledger is distinct from DB persistence | AUTHORITATIVE | Keep responsibilities separate |
+| Evidence persistence | backend/agents/evidence_persistence.py | Evidence ledger | DB persistence is a separate concern | AUTHORITATIVE | Keep |
+| Action governance | backend/agents/action_gate.py | app/services/governance_bridge.py | Bridge delegates application-facing governance | AUTHORITATIVE | ActionGate remains sole mutation authorization point |
+| JARVIS runtime | backend/jarvis/runtime.py | app/services/jarvis_runtime_bridge.py | Bridge is application-facing boundary | AUTHORITATIVE | Keep runtime; keep bridge thin |
+| Event fabric | app/services/event_fabric.py | Other event/logging paths | Full producer census remains open | CONTESTED | Complete producer census; designate one event contract |
+| FastAPI application | backend/app/main.py | backend/main.py | backend/main.py now re-exports canonical app | AUTHORITATIVE | Keep; compatibility entrypoint only |
+| API task lifecycle | backend/app/api/agents.py | AgentTask lifecycle | API task record uses string states separate from execution object | CONTESTED | Convert to projection of canonical task state |
+| World-model state | backend/agents/world_model_runtime.py | backend/app/api/world_model.py + related services | Multiple layers participate | CONTESTED | Trace mutations/reads; designate one state authority |
+| Frontend runtime state | src/store/archosStore.ts | src/store.ts + service-local state | Multiple state surfaces | CONTESTED | Choose one canonical store |
+| Frontend runtime contracts | src/types/archosRuntimeContracts.ts | src/types/index.ts and other types | Multiple type surfaces | CONTESTED | Consolidate domain contracts |
+| Cross-stack events | src/types/archosEvents.ts + backend event fabric | Transport-specific representations | Frontend/backend representations are separate | CONTESTED | Define versioned event envelope |
+| Simulation | src/services/simulation/simulationEngine.ts | Backend simulation APIs/agents | Cross-stack responsibility split | CONTESTED | Define simulation authority/API boundary |
+| Spatial intelligence | src/services/spatial/* | Backend spatial/world-model components | Cross-stack implementation split | CONTESTED | Designate backend/domain authority; frontend becomes projection |
+| Security fabric | src/services/security/securityFabric.ts | Backend auth/keysmith/security middleware | Cross-stack security responsibilities | CONTESTED | Backend policy authority; frontend is defense-in-depth |
+| Configuration | Multiple backend/frontend configuration surfaces | Environment/config modules | Full census not complete | CONTESTED | Inventory before changing |
+| Memory/state | Multiple agent/runtime stores | Task/API/runtime-local state | Full census not complete | CONTESTED | Inventory before changing |
 
-### Execution boundary
+## Mechanical decision rules
 
-Agent.execute() is the common base execution boundary. It converts timeout and unexpected exceptions into typed AgentResult failures instead of allowing them to escape the agent lifecycle. This is a strong existing contract and should be retained.
+### AUTHORITATIVE
+Keep the implementation. New code must depend on it through its public contract.
 
-### Runtime binding
+### CONTESTED
+No new implementation may be added. First trace callers and designate one authority.
 
-backend/app/main.py binds the canonical swarm during application lifespan using bind_canonical_swarm(). The generic registry currently binds agents to InProcessRuntimeAdapter. Ox Alpha has a dedicated OxAlphaRuntimeAdapter, but the startup binder does not yet select it for Ox Alpha. This is a material integration gap.
+### USURPER
+Migrate its callers to the authority and delete the implementation.
 
-### Consensus duplication
+## Critical migration queue
 
-Four consensus paths are currently present:
+1. Designate consensus_engine.py as the consensus decision authority.
+2. Make consensus_reasoning_agent.py a thin controller over that engine.
+3. Replace live LaneAssessment construction with typed Position and LaneResult.
+4. Bind Ox Alpha through OxAlphaRuntimeAdapter at canonical startup.
+5. Define VerificationArtifact and one verification boundary.
+6. Reconcile all execution preconditions with ActionGate.
+7. Complete task/world-model/event/spatial/simulation/security/configuration/memory censuses.
+8. Freeze the resulting authority map as a CI-checked baseline.
 
-1. backend/agents/consensus_contracts.py — hardened typed contracts.
-2. backend/agents/consensus_engine.py — hardened deterministic engine.
-3. backend/agents/consensus.py — older artifact builder.
-4. Swarm.route_reasoning_consensus() — legacy orchestration and LaneAssessment construction.
+## Phase A status
 
-This is a confirmed contested concept. No new consensus implementation should be added.
+PARTIAL. The deterministic census script exists at scripts/architecture_inventory.py
+and CI is configured to publish architecture-inventory.json. The repository connector
+does not expose a successful execution result for that new workflow on this branch,
+so this table must not be described as a complete machine-generated consumer census.
 
-### Canonical-position migration gap
+The table is instead the verified architectural assessment from direct repository
+inspection. The missing machine-generated census is an execution/infrastructure gap,
+not evidence to invent counts.
 
-The Ox Alpha lane emits a structured position, but Swarm.route_reasoning_consensus() still extracts prose-like fields into legacy LaneAssessment.position. Therefore the typed canonical position has not yet become the sole runtime path.
+## Phase B entry criteria
 
-Claude similarly emits JSON-oriented instructions but the swarm legacy extraction still treats its synthesis text as the position.
-
-### API task lifecycle
-
-app/api/agents.py maintains a separate _tasks dictionary with string lifecycle states while AgentTask and AgentResult define the execution contract. This is not necessarily wrong—the API record is a transport/application lifecycle projection—but it must not become a second authoritative task state machine.
-
-### Governance
-
-ActionGate is the authoritative governance/execution gate. GovernanceBridge is an application adapter and should remain thin. The swarm also contains an execution precondition that blocks execution unless verification is VERIFIED; this must be reconciled with ActionGate so there is one authoritative mutation policy.
-
-### Application entrypoint
-
-backend/app/main.py owns the FastAPI application. backend/main.py is a compatibility entrypoint and now re-exports the canonical application object.
-
-## Phase A unresolved discovery
-
-The following require a complete import/call-site census before being designated:
-
-- task lifecycle
-- world-model state
-- frontend/backend event contract
-- spatial authority
-- simulation authority
-- security authority across frontend and backend
-- configuration authority
-- memory/state authority
-- direct provider-call paths
-- all duplicate enums/string states
-
-## Non-negotiable migration rules
-
-1. One concept gets one authoritative type.
-2. Legacy shapes may be adapted, but may not become new consumers.
-3. Deprecated implementations require an identified deletion PR.
-4. No new consensus logic is permitted while consensus is contested.
-5. Provider calls remain behind runtime/provider adapters.
-6. Agents propose; governance authorizes; execution performs.
-7. Verification is independent of model agreement.
-8. Failed lanes never count as votes.
-9. Audit events must preserve actor, task/correlation identity, and provenance.
-10. Discovery findings override aspirational documentation.
-
-## Next Phase A gate
-
-Before Phase B is declared complete, generate the full backend import graph and class/definition consumer census, then update every CONTESTED row with concrete callers and an explicit authority verdict.
+Do not begin broad replacement until:
+- consensus authority is designated;
+- Position, LaneResult, ConsensusArtifact, and VerificationArtifact are finalized;
+- Ox Alpha startup binding uses OxAlphaRuntimeAdapter;
+- all live consensus callers are enumerated;
+- legacy consensus deletion is assigned to a dedicated PR;
+- verification and ActionGate boundaries are explicit;
+- the frozen evaluation corpus exists.
