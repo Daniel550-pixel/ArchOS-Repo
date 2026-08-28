@@ -1,0 +1,363 @@
+/*
+ * ARCHOS SYSTEM DESIGN LANGUAGE
+ *
+ * Model-agnostic visual system derived from the Spatial Intelligence direction:
+ * deep-space environment, restrained holographic cyan, translucent glass,
+ * spatial hierarchy, thin telemetry lines, and high information density.
+ *
+ * This file is intentionally global. Feature components inherit the language
+ * instead of inventing provider/model-specific visual identities.
+ */
+
+:root {
+  --archos-void: #010509;
+  --archos-space: #030910;
+  --archos-surface: rgba(5, 12, 19, .78);
+  --archos-surface-solid: #071019;
+  --archos-surface-raised: rgba(10, 20, 29, .88);
+  --archos-line: rgba(180, 215, 230, .085);
+  --archos-line-strong: rgba(139, 233, 245, .22);
+  --archos-cyan: #8be9f5;
+  --archos-cyan-strong: #39d7e8;
+  --archos-cyan-soft: rgba(139, 233, 245, .08);
+  --archos-text: #eef5f8;
+  --archos-text-secondary: #9aa8b5;
+  --archos-text-muted: #627181;
+  --archos-text-dim: #3e4b59;
+  --archos-warning: #e7c477;
+  --archos-danger: #ef7d83;
+  --archos-radius-sm: 7px;
+  --archos-radius-md: 12px;
+  --archos-radius-lg: 18px;
+  --archos-radius-xl: 26px;
+  --archos-shadow: 0 24px 90px rgba(0, 0, 0, .34);
+  --archos-glow: 0 0 30px rgba(57, 215, 232, .09);
+}
+
+/* ---------- Global atmosphere ---------- */
+html,
+body,
+#root {
+  background: var(--archos-void) !important;
+}
+
+body {
+  color: var(--archos-text);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(30, 100, 115, .055), transparent 34%),
+    var(--archos-void) !important;
+}
+
+::selection {
+  background: rgba(57, 215, 232, .18);
+  color: #fff;
+}
+
+/* ---------- Canonical surface ---------- */
+.archos-surface,
+.glass,
+.glass-panel {
+  background: var(--archos-surface) !important;
+  border: 1px solid var(--archos-line) !important;
+  border-radius: var(--archos-radius-md);
+  box-shadow: none !important;
+  backdrop-filter: blur(22px) saturate(120%);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+}
+
+.archos-surface:hover,
+.glass:hover,
+.glass-panel:hover {
+  border-color: rgba(139, 233, 245, .12) !important;
+  box-shadow: var(--archos-glow) !important;
+}
+
+/* ---------- Global typography ---------- */
+.archos-eyebrow,
+.ultron-eyebrow,
+.archos-label {
+  color: rgba(139, 233, 245, .58) !important;
+  font-family: var(--font-mono), monospace;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: .20em;
+  text-transform: uppercase;
+}
+
+.archos-mono {
+  font-family: var(--font-mono), monospace !important;
+  letter-spacing: .02em;
+}
+
+/* ---------- Existing ULTRON chrome becomes ARCHOS chrome ---------- */
+.ultron-chrome-top,
+.one-world-topbar {
+  background: rgba(2, 7, 12, .78) !important;
+  border-color: var(--archos-line) !important;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, .18) !important;
+  backdrop-filter: blur(24px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
+}
+
+.ultron-brand-copy strong,
+.one-world-brand strong {
+  letter-spacing: .25em !important;
+  color: var(--archos-text) !important;
+}
+
+.ultron-brand-copy small,
+.one-world-brand small {
+  color: var(--archos-text-dim) !important;
+  letter-spacing: .16em !important;
+}
+
+.ultron-brand-mark,
+.one-world-brand .brand-dot {
+  border-color: rgba(139, 233, 245, .30) !important;
+  box-shadow: 0 0 24px rgba(57, 215, 232, .06);
+}
+
+.ultron-nav-item {
+  border-radius: var(--archos-radius-sm) !important;
+  color: var(--archos-text-muted) !important;
+}
+
+.ultron-nav-item:hover,
+.ultron-nav-item.is-active {
+  background: var(--archos-cyan-soft) !important;
+  border-color: rgba(139, 233, 245, .13) !important;
+  color: var(--archos-text) !important;
+}
+
+.ultron-nav-item.is-active svg {
+  color: var(--archos-cyan) !important;
+}
+
+/* ---------- Existing world environment ---------- */
+.one-world {
+  background:
+    radial-gradient(circle at 50% 46%, rgba(57, 215, 232, .075), transparent 25%),
+    radial-gradient(circle at 50% 100%, rgba(20, 62, 76, .08), transparent 42%),
+    var(--archos-void) !important;
+}
+
+.one-world-field {
+  opacity: .72;
+  background-image:
+    linear-gradient(rgba(139, 233, 245, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 233, 245, .025) 1px, transparent 1px) !important;
+  background-size: 88px 88px !important;
+}
+
+.one-world-black-hole {
+  filter: drop-shadow(0 0 55px rgba(57, 215, 232, .08));
+}
+
+.black-hole-label strong {
+  letter-spacing: .26em !important;
+}
+
+.black-hole-label span,
+.black-hole-label em {
+  color: var(--archos-text-muted) !important;
+}
+
+.world-star-core {
+  background: var(--archos-cyan) !important;
+  box-shadow: 0 0 12px rgba(139, 233, 245, .65) !important;
+}
+
+.world-star-ring {
+  border-color: rgba(139, 233, 245, .38) !important;
+  box-shadow: 0 0 24px rgba(57, 215, 232, .12) !important;
+}
+
+.world-star-label {
+  color: var(--archos-text-secondary) !important;
+  font-family: var(--font-mono), monospace !important;
+  letter-spacing: .08em !important;
+}
+
+/* ---------- Shared panels / inspectors ---------- */
+.world-intelligence-story,
+.world-inspector,
+.world-action-menu,
+.world-timeline,
+.ultron-context-rail,
+.ultron-integrity,
+.ultron-state-list,
+.ultron-signal-list,
+.ultron-surface-content {
+  color: var(--archos-text) !important;
+}
+
+.world-inspector,
+.world-action-menu,
+.world-timeline {
+  background: rgba(4, 10, 16, .86) !important;
+  border: 1px solid var(--archos-line) !important;
+  box-shadow: var(--archos-shadow) !important;
+  backdrop-filter: blur(26px) !important;
+  -webkit-backdrop-filter: blur(26px) !important;
+}
+
+/* ---------- Command surface ---------- */
+.one-world-command,
+.ultron-command-bar,
+.archos-command-surface {
+  background: rgba(2, 7, 11, .78) !important;
+  border: 1px solid rgba(139, 233, 245, .14) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 18px 70px rgba(0, 0, 0, .38), 0 0 40px rgba(57, 215, 232, .035) !important;
+  backdrop-filter: blur(28px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(120%) !important;
+}
+
+.one-world-command:focus-within,
+.archos-command-surface:focus-within {
+  border-color: rgba(139, 233, 245, .28) !important;
+  box-shadow: 0 18px 70px rgba(0, 0, 0, .38), 0 0 35px rgba(57, 215, 232, .08) !important;
+}
+
+.one-world-command input,
+.archos-command-surface input {
+  color: var(--archos-text) !important;
+}
+
+.one-world-command input::placeholder,
+.archos-command-surface input::placeholder {
+  color: var(--archos-text-dim) !important;
+}
+
+/* ---------- Buttons ---------- */
+button.archos-replay-launcher,
+.ultron-quiet-action,
+.world-camera,
+.one-world-actions button,
+.inspector-close {
+  border-color: var(--archos-line) !important;
+  background: rgba(255, 255, 255, .015) !important;
+  color: var(--archos-text-secondary) !important;
+  border-radius: var(--archos-radius-sm) !important;
+}
+
+button.archos-replay-launcher:hover,
+.ultron-quiet-action:hover,
+.world-camera:hover,
+.one-world-actions button:hover,
+.one-world-actions button.is-active,
+.inspector-close:hover {
+  border-color: rgba(139, 233, 245, .20) !important;
+  background: rgba(139, 233, 245, .055) !important;
+  color: var(--archos-text) !important;
+}
+
+/* ---------- Data tables / lists ---------- */
+.ultron-signal-row,
+.ultron-state-list > div,
+.ultron-rail-lines > div,
+.ultron-surface-header {
+  border-color: var(--archos-line) !important;
+}
+
+.ultron-signal-row b,
+.ultron-state-list strong,
+.ultron-rail-value {
+  color: var(--archos-text-secondary) !important;
+}
+
+.ultron-signal-row span,
+.ultron-state-list span,
+.ultron-rail-lines span {
+  color: var(--archos-text-dim) !important;
+}
+
+/* ---------- Status semantics ---------- */
+.status-live,
+.story-live-dot,
+.ultron-status-dot.is-live {
+  background: var(--archos-cyan) !important;
+  box-shadow: 0 0 10px rgba(139, 233, 245, .75) !important;
+}
+
+[data-status="warning"],
+.archos-status-warning {
+  color: var(--archos-warning) !important;
+}
+
+[data-status="critical"],
+.archos-status-critical {
+  color: var(--archos-danger) !important;
+}
+
+/* ---------- 3D / spatial containers ---------- */
+.archos-spatial-frame,
+.spatial-canvas,
+.ultron-experience-field,
+.ultron-core-field,
+.ultron-world-canvas,
+.ultron-experience-field {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(57, 215, 232, .075), transparent 28%),
+    #030910 !important;
+  border-color: var(--archos-line) !important;
+}
+
+/* ---------- Modal layer ---------- */
+[role="dialog"] {
+  border-color: var(--archos-line) !important;
+  background: rgba(4, 10, 16, .94) !important;
+  box-shadow: var(--archos-shadow) !important;
+  backdrop-filter: blur(28px) !important;
+}
+
+/* ---------- Scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 233, 245, .18) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(139, 233, 245, .16);
+  border-radius: 999px;
+}
+
+/* ---------- Responsive reduction ---------- */
+@media (max-width: 900px) {
+  .ultron-surface-inner {
+    padding: 20px 16px;
+  }
+
+  .ultron-core-grid,
+  .ultron-world-grid,
+  .ultron-intel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ultron-context-rail,
+  .ultron-integrity {
+    border-left: 0;
+    border-top: 1px solid var(--archos-line);
+    padding: 18px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+  }
+}
