@@ -79,7 +79,7 @@ jobs:
         run: cd backend && python -c "from backend.main import app as legacy_app; from app.main import app as authoritative_app; assert legacy_app is authoritative_app; print('legacy entrypoint delegates to authoritative app')"
       - name: Legacy authority guard
         run: |
-          if grep -nE 'FastAPI\\(|create_task\\(|include_router\\(|@app\\.(get|post|put|patch|delete|websocket)' backend/main.py; then
+          if grep -nE 'FastAPI\(|create_task\(|include_router\(|@app\.(get|post|put|patch|delete|websocket)' backend/main.py; then
             echo 'backend/main.py contains a forbidden second runtime implementation'
             exit 1
           fi
@@ -90,7 +90,7 @@ jobs:
       - name: Autonomous runtime import smoke test
         run: cd backend && python -c "from app.services.night_shift import night_shift_runtime; print(type(night_shift_runtime).__name__)"
       - name: Run backend tests
-        run: cd backend && pytest -q
+        run: pytest -q backend/tests
       - name: Start backend
         run: |
           cd backend
