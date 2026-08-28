@@ -36,7 +36,7 @@ class ConsensusEngineTests(unittest.TestCase):
         )
         self.assertEqual(artifact.panel_state, PanelState.INSUFFICIENT)
         self.assertEqual(artifact.agreement, AgreementState.UNANIMOUS)
-        self.assertEqual(artifact.resolution, ResolutionState.CONSENSUS)
+        self.assertEqual(artifact.resolution, ResolutionState.VERIFICATION_REQUIRED)
         self.assertEqual(artifact.selected_position, CanonicalPosition.AFFIRM)
 
     def test_unanimous_full_panel_with_evidence_is_consensus(self):
