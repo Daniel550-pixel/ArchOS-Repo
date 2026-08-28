@@ -1,11 +1,18 @@
 // ArchOS UAE Continuous Intelligence Operating Environment
-// Production-grade spatial intelligence interface combining the 3D UAE World Model,
-// 24/7 Automated Feedback Log, Temporal Navigation, and J.A.R.V.I.S. Command Execution.
+// Production-grade 5-Layer Spatial Intelligence Interface:
+// Layer 1: System Nav Rail (Left)
+// Layer 2: Reality Canvas (Center Viewport - WORLD, INFO, SIMULATE, AGENTS)
+// Layer 3: Dynamic Context Panel (Right Rail)
+// Layer 4: Universal Command Composer (Bottom Bar)
+// Layer 5: Cross-Cutting System Trust Overlays (VERIFY, SECURITY, MEMORY, DATA FLOW)
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   uaeContinuousIntelligence
 } from '../../services/intelligence/uaeContinuousIntelligenceService';
+import {
+  simulationAndAgentService
+} from '../../services/intelligence/simulationAndAgentService';
 import {
   UAEIntelligenceEvent,
   ContinuousIngestionStats,
@@ -14,76 +21,88 @@ import {
   IntelligenceDomain
 } from '../../types/continuousIntelligence';
 import {
-  UAE3DWorldModel,
+  PrimaryMode,
+  SystemLayerModal,
+  ContextSelection,
+  SimulationBranch,
+  AutonomousAgentProcess,
+  SovereignDataFlowStats
+} from '../../types/archosExperience';
+import {
   LandmarkPOI,
-  UAE_LANDMARKS,
-  OperatingMode
+  UAE_LANDMARKS
 } from '../world/UAE3DWorldModel';
-import { AutomatedFeedbackLog } from '../intelligence/AutomatedFeedbackLog';
-import { TemporalNavigationToolbar } from '../intelligence/TemporalNavigationToolbar';
-import { SpatialEventInspectionCard } from '../intelligence/SpatialEventInspectionCard';
+
 import { ArchOSTopHeader } from '../layout/ArchOSTopHeader';
-import { ArchOSCommandDock } from '../command/ArchOSCommandDock';
+import { SystemNavRail } from '../experience/SystemNavRail';
+import { RealityCanvas } from '../experience/RealityCanvas';
+import { ContextPanel } from '../experience/ContextPanel';
+import { UniversalCommandComposer } from '../experience/UniversalCommandComposer';
+import { SystemOverlaysModal } from '../experience/SystemOverlaysModal';
 import './ArchOSUnifiedSpatialCanvas.css';
 
 export interface ArchOSUnifiedSpatialCanvasProps {
-  initialMode?: OperatingMode;
+  initialMode?: PrimaryMode;
 }
 
 export const ArchOSUnifiedSpatialCanvas: React.FC<ArchOSUnifiedSpatialCanvasProps> = ({
   initialMode = 'WORLD'
 }) => {
-  // Operating Mode
-  const [operatingMode, setOperatingMode] = useState<OperatingMode>(initialMode);
+  // 1. Primary Operational Mode (WORLD | INFO | SIMULATE | AGENTS)
+  const [activeMode, setActiveMode] = useState<PrimaryMode>(initialMode);
 
-  // Intelligence State & Live Stream
+  // 2. Supporting System Layer Modal (VERIFY | SECURITY | MEMORY | DATA_FLOW | null)
+  const [activeSystemModal, setActiveSystemModal] = useState<SystemLayerModal>(null);
+
+  // 3. Continuous Intelligence State
   const [events, setEvents] = useState<UAEIntelligenceEvent[]>(() =>
     uaeContinuousIntelligence.getEvents('LIVE')
   );
   const [stats, setStats] = useState<ContinuousIngestionStats>(() =>
     uaeContinuousIntelligence.getStats()
   );
-  const [sinceLastSessionReport] = useState<SinceLastSessionReport>(() =>
-    uaeContinuousIntelligence.getSinceLastSessionReport()
+
+  // 4. Simulation Branches & Agent Fabric State
+  const [branches, setBranches] = useState<SimulationBranch[]>(() =>
+    simulationAndAgentService.getBranches()
   );
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(
+    () => simulationAndAgentService.getBranches()[1]?.id || 'BR-00421'
+  );
+  const [agents, setAgents] = useState<AutonomousAgentProcess[]>(() =>
+    simulationAndAgentService.getAgents()
+  );
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
-  // Filters & Temporal Horizon
-  const [temporalWindow, setTemporalWindow] = useState<TemporalWindow>('LIVE');
-  const [activeDomain, setActiveDomain] = useState<IntelligenceDomain | 'ALL'>('ALL');
-  const [selectedEmirate, setSelectedEmirate] = useState<string>('ALL');
-  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // Selected Entity / Event for 3D Focus
-  const [selectedEvent, setSelectedEvent] = useState<UAEIntelligenceEvent | null>(events[0] || null);
+  // 5. Selected Context & 3D Coordinates
   const [selectedLandmark, setSelectedLandmark] = useState<LandmarkPOI | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<UAEIntelligenceEvent | null>(events[0] || null);
   const [targetCoords, setTargetCoords] = useState<[number, number, number] | null>(
     events[0]?.coordinates || [0, 1, 0]
   );
 
-  // Command Bar & Agent Execution Ticker
+  // 6. Universal Command Execution State
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [agentStatusMessage, setAgentStatusMessage] = useState<string | null>(
     '24/7 CONTINUOUS INTELLIGENCE · WORLD MODEL SYNCHRONIZED'
   );
 
-  // Refresh filtered events
-  const refreshEvents = useCallback(() => {
-    const domain = activeDomain === 'ALL' ? undefined : activeDomain;
-    const filtered = uaeContinuousIntelligence.getEvents(
-      temporalWindow,
-      domain,
-      selectedEmirate,
-      verifiedOnly,
-      searchQuery
-    );
-    setEvents(filtered);
-  }, [temporalWindow, activeDomain, selectedEmirate, verifiedOnly, searchQuery]);
+  // Data flow statistics for the data flow overlay
+  const dataFlowStats: SovereignDataFlowStats = {
+    eventsPerMinute: 13421,
+    entitiesUpdated: 3204,
+    relationshipsChanged: 184,
+    anomaliesDetected: 27,
+    verificationConflicts: 8,
+    simulationTriggers: 2,
+    activeIngestionPipelines: 14,
+    lastBatchHash: '0x9a4f2e1c7b8d0023'
+  };
 
-  // Subscribe to live continuous intelligence stream
+  // Subscribe to live intelligence updates
   useEffect(() => {
     const unsubEvents = uaeContinuousIntelligence.subscribe((_newEvent) => {
-      refreshEvents();
+      setEvents(uaeContinuousIntelligence.getEvents('LIVE'));
     });
 
     const unsubStats = uaeContinuousIntelligence.subscribeStats((newStats) => {
@@ -94,163 +113,207 @@ export const ArchOSUnifiedSpatialCanvas: React.FC<ArchOSUnifiedSpatialCanvasProp
       unsubEvents();
       unsubStats();
     };
-  }, [refreshEvents]);
-
-  // Re-filter whenever filter parameters change
-  useEffect(() => {
-    refreshEvents();
-  }, [refreshEvents]);
-
-  // Handle Event Selection
-  const handleSelectEvent = useCallback((event: UAEIntelligenceEvent) => {
-    setSelectedEvent(event);
-    setSelectedLandmark(null);
-    setTargetCoords(event.coordinates);
-    setAgentStatusMessage(`SPATIAL FOCUS: ${event.entityName.toUpperCase()}`);
   }, []);
 
-  // Handle Landmark Selection
+  // Compute dynamic context selection
+  const currentContextSelection: ContextSelection = (() => {
+    if (activeMode === 'SIMULATE') {
+      const activeBranch = branches.find(b => b.id === selectedBranchId) || branches[0];
+      return {
+        type: 'SIMULATION_BRANCH',
+        branch: activeBranch
+      };
+    }
+    if (activeMode === 'AGENTS' && selectedAgentId) {
+      const activeAgent = agents.find(a => a.id === selectedAgentId);
+      if (activeAgent) {
+        return {
+          type: 'AGENT',
+          agent: activeAgent
+        };
+      }
+    }
+    if (selectedLandmark) {
+      return {
+        type: 'LANDMARK',
+        landmark: selectedLandmark
+      };
+    }
+    if (selectedEvent) {
+      return {
+        type: 'EVENT',
+        event: selectedEvent
+      };
+    }
+    return {
+      type: 'NATIONAL'
+    };
+  })();
+
+  // Handlers for selection
   const handleSelectLandmark = useCallback((landmark: LandmarkPOI) => {
     setSelectedLandmark(landmark);
     setSelectedEvent(null);
+    setSelectedAgentId(null);
     setTargetCoords(landmark.position);
-    setAgentStatusMessage(`LANDMARK FOCUS: ${landmark.name.toUpperCase()}`);
+    setAgentStatusMessage(`SPATIAL FOCUS: ${landmark.name.toUpperCase()}`);
   }, []);
 
-  // Natural Language Command Execution
-  const handleExecuteCommand = useCallback((rawQuery: string) => {
+  const handleSelectEvent = useCallback((event: UAEIntelligenceEvent) => {
+    setSelectedEvent(event);
+    setSelectedLandmark(null);
+    setSelectedAgentId(null);
+    setTargetCoords(event.coordinates);
+    setAgentStatusMessage(`EVIDENCE FOCUS: ${event.entityName.toUpperCase()}`);
+  }, []);
+
+  const handleSelectBranch = useCallback((branch: SimulationBranch) => {
+    setSelectedBranchId(branch.id);
+    setAgentStatusMessage(`SIMULATION SCENARIO: ${branch.name.toUpperCase()}`);
+  }, []);
+
+  const handleBranchCreated = useCallback((branch: SimulationBranch) => {
+    setBranches(simulationAndAgentService.getBranches());
+    setSelectedBranchId(branch.id);
+    setAgentStatusMessage(`SPAWNED EPHEMERAL BRANCH: ${branch.id}`);
+  }, []);
+
+  const handleSelectAgent = useCallback((agent: AutonomousAgentProcess) => {
+    setSelectedAgentId(agent.id);
+    setAgentStatusMessage(`AUDITING AGENT: ${agent.name.toUpperCase()}`);
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedLandmark(null);
+    setSelectedEvent(null);
+    setSelectedAgentId(null);
+    setAgentStatusMessage('CONTEXT RESET: NATIONAL SOVEREIGN OVERVIEW');
+  }, []);
+
+  // Universal Intent Execution
+  const handleExecuteIntent = useCallback((rawQuery: string) => {
     const q = rawQuery.toLowerCase().trim();
     if (!q) return;
 
     setIsProcessing(true);
-    setAgentStatusMessage('AIOS AGENTS CORRELATING SPATIAL INTENT...');
+    setAgentStatusMessage('AIOS INTENT PARSER ROUTING SEMANTIC QUERY...');
 
     setTimeout(() => {
       setIsProcessing(false);
 
-      if (q.includes('dubai') && (q.includes('today') || q.includes('develop'))) {
-        setSelectedEmirate('Dubai');
-        setTemporalWindow('LIVE');
-        const dxbEvt = events.find(e => e.emirate === 'Dubai');
-        if (dxbEvt) {
-          setSelectedEvent(dxbEvt);
-          setTargetCoords(dxbEvt.coordinates);
-        }
-        setAgentStatusMessage('FILTERED: DUBAI CONTINUOUS INTELLIGENCE');
-      } else if (q.includes('abu dhabi') || q.includes('six hours')) {
-        setSelectedEmirate('Abu Dhabi');
-        setTemporalWindow('MINUS_6_HOURS');
-        const auhEvt = events.find(e => e.emirate === 'Abu Dhabi');
-        if (auhEvt) {
-          setSelectedEvent(auhEvt);
-          setTargetCoords(auhEvt.coordinates);
-        }
-        setAgentStatusMessage('FILTERED: ABU DHABI (PAST 6 HOURS)');
-      } else if (q.includes('conflict') || q.includes('discrep')) {
-        const conflictEvt = events.find(e => e.verificationState === 'CONFLICTING');
-        if (conflictEvt) {
-          setSelectedEvent(conflictEvt);
-          setTargetCoords(conflictEvt.coordinates);
-          setAgentStatusMessage('ISOLATED MULTI-SOURCE CONFLICT: AL MAKTOUM DWC');
-        }
-      } else if (q.includes('barakah') || q.includes('nuclear') || q.includes('energy')) {
-        const barakahEvt = events.find(e => e.id === 'evt-auh-barakah-surge');
-        if (barakahEvt) {
-          setSelectedEvent(barakahEvt);
-          setTargetCoords(barakahEvt.coordinates);
-          setAgentStatusMessage('FOCUSED: BARAKAH CLEAN ENERGY COMPLEX');
-        }
-      } else if (q.includes('jebel ali') || q.includes('port') || q.includes('boxbay')) {
-        const jebelEvt = events.find(e => e.id === 'evt-dxb-jebel-ali-boxbay');
-        if (jebelEvt) {
-          setSelectedEvent(jebelEvt);
-          setTargetCoords(jebelEvt.coordinates);
-          setAgentStatusMessage('FOCUSED: DP WORLD JEBEL ALI PORT');
-        }
-      } else if (q.includes('simulat') || q.includes('2035') || q.includes('corridor')) {
-        setOperatingMode('SIMULATION');
-        setAgentStatusMessage('SIMULATION ACTIVE: 2035 MULTIMODAL CORRIDOR PROJECTION');
-      } else if (q.includes('yesterday') || q.includes('last session')) {
-        setTemporalWindow('SINCE_LAST_SESSION');
-        setAgentStatusMessage('APPLIED: SINCE LAST SESSION AGGREGATED DELTA');
-      } else if (q.includes('90') || q.includes('verified')) {
-        setVerifiedOnly(true);
-        setAgentStatusMessage('FILTERED: HIGH CONFIDENCE (VERIFIED ONLY)');
-      } else {
-        // Fallback: search query filter
-        setSearchQuery(rawQuery);
-        setAgentStatusMessage(`QUERY APPLIED: "${rawQuery}"`);
+      // 1. Simulation Intent
+      if (q.includes('simulat') || q.includes('what if') || q.includes('what happens') || q.includes('2035')) {
+        setActiveMode('SIMULATE');
+        const created = simulationAndAgentService.createBranch({
+          name: rawQuery.length > 50 ? `${rawQuery.slice(0, 47)}...` : rawQuery,
+          variableName: 'Autonomous Infrastructure Variable',
+          deltaValue: '+30% Target Capacity Shift',
+          horizonYear: 2035
+        });
+        setBranches(simulationAndAgentService.getBranches());
+        setSelectedBranchId(created.id);
+        setAgentStatusMessage(`SIMULATION BRANCH CREATED: ${created.id}`);
       }
-    }, 600);
-  }, [events]);
-
-  // Simulate Event Impact Action
-  const handleSimulateEventImpact = useCallback((event: UAEIntelligenceEvent) => {
-    setOperatingMode('SIMULATION');
-    setAgentStatusMessage(`SIMULATING INFRASTRUCTURE IMPACT ON ${event.entityName.toUpperCase()}`);
-  }, []);
+      // 2. 3D Spatial Landmark Intent
+      else if (q.includes('barakah') || q.includes('nuclear')) {
+        setActiveMode('WORLD');
+        const barakahPOI = UAE_LANDMARKS.find(l => l.id === 'poi-barakah');
+        if (barakahPOI) handleSelectLandmark(barakahPOI);
+      } else if (q.includes('burj') || q.includes('khalifa') || q.includes('downtown')) {
+        setActiveMode('WORLD');
+        const burjPOI = UAE_LANDMARKS.find(l => l.id === 'poi-burj-khalifa');
+        if (burjPOI) handleSelectLandmark(burjPOI);
+      } else if (q.includes('jebel ali') || q.includes('port')) {
+        setActiveMode('WORLD');
+        const portPOI = UAE_LANDMARKS.find(l => l.id === 'poi-jebel-ali');
+        if (portPOI) handleSelectLandmark(portPOI);
+      }
+      // 3. Intelligence / Info Query Intent
+      else if (q.includes('what changed') || q.includes('analyse') || q.includes('correlate') || q.includes('news') || q.includes('conflict')) {
+        setActiveMode('INFO');
+        setAgentStatusMessage('INFO MODE: CONTINUOUS EVIDENCE STREAM FILTERED');
+      }
+      // 4. Agent Orchestration Intent
+      else if (q.includes('agent') || q.includes('sentinel') || q.includes('orchestrat') || q.includes('rebalance')) {
+        setActiveMode('AGENTS');
+        const agent = agents[0];
+        if (agent) setSelectedAgentId(agent.id);
+        setAgentStatusMessage('AGENT FABRIC: EXECUTING REBALANCING OBJECTIVE');
+      }
+      // 5. Default General Routing
+      else {
+        setActiveMode('INFO');
+        setAgentStatusMessage(`INTERROGATION EXECUTED: "${rawQuery}"`);
+      }
+    }, 500);
+  }, [agents, handleSelectLandmark]);
 
   return (
-    <div id="archos-viewport" className="relative w-screen h-screen bg-[#000000] overflow-hidden select-none font-sans text-white">
-      {/* Top Header Telemetry Bar */}
+    <div
+      id="archos-viewport"
+      className="relative w-screen h-screen bg-[#000000] overflow-hidden select-none font-sans text-white"
+    >
+      {/* 1. Top Header Telemetry Bar */}
       <ArchOSTopHeader
         stats={stats}
-        operatingMode={operatingMode}
-        onChangeOperatingMode={setOperatingMode}
-        activeAgentsCount={stats.activeAgentsCount}
+        activeMode={activeMode}
+        onSelectMode={setActiveMode}
+        onOpenSystemOverlay={setActiveSystemModal}
+        activeAgentsCount={agents.length}
       />
 
-      {/* Temporal Navigation Toolbar (Top Right) */}
-      <TemporalNavigationToolbar
-        currentWindow={temporalWindow}
-        onSelectWindow={setTemporalWindow}
-        sinceLastSessionReport={sinceLastSessionReport}
+      {/* 2. System Navigation Rail (Left) */}
+      <SystemNavRail
+        activeMode={activeMode}
+        onSelectMode={setActiveMode}
+        onOpenSystemOverlay={setActiveSystemModal}
+        activeAgentsCount={agents.length}
       />
 
-      {/* 3D UAE Digital Twin World Model Viewport */}
-      <div className="absolute inset-0 z-0">
-        <UAE3DWorldModel
-          events={events}
-          selectedEventId={selectedEvent?.id || null}
-          onSelectEvent={handleSelectEvent}
-          selectedLandmarkId={selectedLandmark?.id || null}
-          onSelectLandmark={handleSelectLandmark}
-          operatingMode={operatingMode}
-          targetCoords={targetCoords}
-        />
-      </div>
-
-      {/* Floating 24/7 Automated Feedback Log (Left Side) */}
-      <AutomatedFeedbackLog
+      {/* 3. Center Reality Canvas (WORLD / INFO / SIMULATE / AGENTS) */}
+      <RealityCanvas
+        activeMode={activeMode}
         events={events}
         selectedEventId={selectedEvent?.id || null}
         onSelectEvent={handleSelectEvent}
-        temporalWindow={temporalWindow}
-        onTemporalChange={setTemporalWindow}
-        activeDomain={activeDomain}
-        onDomainChange={setActiveDomain}
-        selectedEmirate={selectedEmirate}
-        onEmirateChange={setSelectedEmirate}
-        verifiedOnly={verifiedOnly}
-        onToggleVerifiedOnly={() => setVerifiedOnly(!verifiedOnly)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        selectedLandmarkId={selectedLandmark?.id || null}
+        onSelectLandmark={handleSelectLandmark}
+        targetCoords={targetCoords}
+        branches={branches}
+        selectedBranchId={selectedBranchId}
+        onSelectBranch={handleSelectBranch}
+        onBranchCreated={handleBranchCreated}
+        agents={agents}
+        selectedAgentId={selectedAgentId}
+        onSelectAgent={handleSelectAgent}
+        onExecutePrompt={handleExecuteIntent}
       />
 
-      {/* Anchored Spatial Event Inspection Card (Bottom Right) */}
-      {selectedEvent && (
-        <SpatialEventInspectionCard
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-          onSimulateScenario={handleSimulateEventImpact}
-        />
-      )}
+      {/* 4. Dynamic Context Inspector (Right Rail) */}
+      <ContextPanel
+        selection={currentContextSelection}
+        onClearSelection={handleClearSelection}
+        onSelectMode={setActiveMode}
+        onTriggerSimulationWithEntity={(entityName) => {
+          handleExecuteIntent(`Simulate infrastructure impact on ${entityName}`);
+        }}
+        onSelectEvent={handleSelectEvent}
+      />
 
-      {/* J.A.R.V.I.S. Command Bar Dock (Bottom Center) */}
-      <ArchOSCommandDock
-        onExecuteCommand={handleExecuteCommand}
+      {/* 5. Universal Command & Intent Composer (Bottom Center) */}
+      <UniversalCommandComposer
+        activeMode={activeMode}
+        onSelectMode={setActiveMode}
+        onExecuteIntent={handleExecuteIntent}
         isProcessing={isProcessing}
         agentStatusMessage={agentStatusMessage}
+      />
+
+      {/* 6. Supporting System Overlays Modal (VERIFY, SECURITY, MEMORY, DATA_FLOW) */}
+      <SystemOverlaysModal
+        activeModal={activeSystemModal}
+        onClose={() => setActiveSystemModal(null)}
+        dataFlowStats={dataFlowStats}
       />
     </div>
   );
