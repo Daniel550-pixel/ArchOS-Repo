@@ -1,0 +1,287 @@
+/* ULTRON ECHOID SYSTEM UI
+ * Visual language adapted from the ECHOID reference:
+ * cinematic full-viewport composition, severe black/white restraint,
+ * mono operational telemetry, sharp controls, minimal chrome.
+ * The UAE World Model / 3D scene remains the actual experience substrate.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --echo-bg: #000;
+  --echo-text: #fff;
+  --echo-dim: rgba(255,255,255,.62);
+  --echo-dimmer: rgba(255,255,255,.42);
+  --echo-line: rgba(255,255,255,.14);
+  --echo-line-strong: rgba(255,255,255,.26);
+  --echo-fill: rgba(255,255,255,.05);
+  --echo-font-display: 'Sora', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --echo-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html, body, #root { background:#000 !important; color:#fff; }
+body { font-family:var(--echo-font-display); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+button, input, textarea, select { font-family:inherit; }
+
+/* The 3D World Model is the cinematic media layer. Remove dashboard-wall chrome. */
+.archos-app-shell,
+.archos-spatial-system {
+  background:#000 !important;
+  color:#fff !important;
+}
+.archos-spatial-canvas-layer {
+  background:#000 !important;
+  filter:saturate(.72) contrast(1.04);
+}
+.archos-spatial-system::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  background:
+    linear-gradient(to right, transparent 0%, transparent 48%, rgba(0,0,0,.28) 72%, rgba(0,0,0,.62) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,.42) 0%, transparent 20%, transparent 78%, rgba(0,0,0,.62) 100%);
+}
+
+/* Top navigation: ECHOID-style, not a rounded dashboard bar. */
+.archos-spatial-header {
+  top:0 !important;
+  left:0 !important;
+  right:0 !important;
+  height:82px !important;
+  padding:0 clamp(20px,5vw,100px) !important;
+  display:grid !important;
+  grid-template-columns:1fr auto 1fr !important;
+  gap:32px !important;
+  background:transparent !important;
+  border:0 !important;
+  border-bottom:1px solid var(--echo-line) !important;
+  border-radius:0 !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  box-shadow:none !important;
+  z-index:60 !important;
+}
+.archos-header-left { gap:12px !important; }
+.archos-logo-mark {
+  width:30px !important;
+  height:30px !important;
+  border:1px solid rgba(255,255,255,.7) !important;
+  border-radius:50% !important;
+  transform:none !important;
+  box-shadow:none !important;
+}
+.archos-logo-mark::after { width:5px !important; height:5px !important; border-radius:50% !important; }
+.archos-brand-info { gap:4px !important; }
+.archos-brand-title {
+  font-family:var(--echo-font-display) !important;
+  font-size:15px !important;
+  font-weight:200 !important;
+  letter-spacing:.18em !important;
+}
+.archos-brand-sub {
+  font-family:var(--echo-font-mono) !important;
+  font-size:7px !important;
+  font-weight:300 !important;
+  letter-spacing:.16em !important;
+  color:var(--echo-dimmer) !important;
+}
+.archos-header-center {
+  gap:clamp(18px,2.8vw,46px) !important;
+}
+.archos-mode-pill {
+  height:36px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  color:var(--echo-dim) !important;
+  font-family:var(--echo-font-mono) !important;
+  font-size:10px !important;
+  font-weight:400 !important;
+  letter-spacing:.16em !important;
+  position:relative !important;
+  box-shadow:none !important;
+}
+.archos-mode-pill svg { display:none !important; }
+.archos-mode-pill:hover { color:#fff !important; background:transparent !important; border-color:transparent !important; }
+.archos-mode-pill.is-active { color:#fff !important; background:transparent !important; border:0 !important; box-shadow:none !important; }
+.archos-mode-pill.is-active::after {
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:4px;
+  width:3px;
+  height:3px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:-5px 0 #fff, 5px 0 #fff;
+}
+.archos-header-right {
+  justify-content:flex-end !important;
+  gap:18px !important;
+  font-family:var(--echo-font-mono) !important;
+  font-size:8px !important;
+  font-weight:300 !important;
+  letter-spacing:.14em !important;
+}
+.archos-telemetry-badge {
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  color:var(--echo-dim) !important;
+}
+.archos-telemetry-badge:first-child { color:#fff !important; }
+
+/* Side rails become precise operational readouts, not floating cards. */
+.archos-spatial-rail,
+.archos-spatial-inspector {
+  background:rgba(0,0,0,.48) !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  backdrop-filter:blur(18px) !important;
+  -webkit-backdrop-filter:blur(18px) !important;
+}
+.archos-spatial-rail {
+  top:82px !important;
+  left:0 !important;
+  bottom:72px !important;
+  width:260px !important;
+  padding:24px clamp(20px,3vw,42px) !important;
+  border-right:1px solid var(--echo-line) !important;
+  z-index:40 !important;
+}
+.archos-spatial-inspector {
+  top:82px !important;
+  right:0 !important;
+  width:min(340px,28vw) !important;
+  max-height:calc(100vh - 154px) !important;
+  padding:26px clamp(20px,3vw,42px) !important;
+  border-left:1px solid var(--echo-line) !important;
+  z-index:40 !important;
+}
+.archos-rail-section { gap:10px !important; }
+.archos-eyebrow {
+  font-family:var(--echo-font-mono) !important;
+  font-size:8px !important;
+  font-weight:400 !important;
+  letter-spacing:.2em !important;
+  color:var(--echo-dimmer) !important;
+}
+.archos-rail-btn,
+.archos-rail-grid-btn {
+  border-radius:0 !important;
+  background:transparent !important;
+  border:0 !important;
+  border-bottom:1px solid rgba(255,255,255,.07) !important;
+  color:var(--echo-dim) !important;
+  font-family:var(--echo-font-mono) !important;
+  font-size:8px !important;
+  letter-spacing:.14em !important;
+}
+.archos-rail-btn { padding:9px 0 !important; }
+.archos-rail-grid-btn { padding:9px 2px !important; }
+.archos-rail-btn:hover,
+.archos-rail-grid-btn:hover,
+.archos-rail-grid-btn.is-active {
+  background:rgba(255,255,255,.04) !important;
+  border-color:var(--echo-line-strong) !important;
+  color:#fff !important;
+}
+.archos-rail-btn.is-active {
+  background:rgba(255,255,255,.04) !important;
+  border-color:var(--echo-line-strong) !important;
+  box-shadow:none !important;
+  color:#fff !important;
+}
+.archos-control-slider input[type=range] { accent-color:#fff !important; border-radius:0 !important; }
+
+/* Right inspector and metric surfaces: flat, line-led information architecture. */
+.archos-inspector-title { font-weight:200 !important; letter-spacing:.04em !important; }
+.archos-inspector-meta,
+.archos-inspector-desc,
+.archos-metric-card span { color:var(--echo-dim) !important; font-family:var(--echo-font-mono) !important; }
+.archos-inspector-metrics-grid { gap:0 !important; }
+.archos-metric-card {
+  padding:12px 0 !important;
+  background:transparent !important;
+  border:0 !important;
+  border-top:1px solid var(--echo-line) !important;
+  border-radius:0 !important;
+}
+.archos-metric-card strong { font-family:var(--echo-font-mono) !important; font-weight:400 !important; }
+.archos-verification-badge {
+  border-radius:0 !important;
+  border:1px solid var(--echo-line-strong) !important;
+  background:var(--echo-fill) !important;
+  color:#fff !important;
+}
+
+/* Command bar: terminal-style, no pill or glow. */
+.archos-command-dock {
+  bottom:20px !important;
+  width:min(720px,calc(100vw - 40px)) !important;
+  z-index:55 !important;
+}
+.archos-command-surface {
+  border-radius:0 !important;
+  background:rgba(0,0,0,.64) !important;
+  border:1px solid var(--echo-line-strong) !important;
+  box-shadow:none !important;
+  backdrop-filter:blur(18px) !important;
+  -webkit-backdrop-filter:blur(18px) !important;
+}
+.archos-command-surface:focus-within { border-color:rgba(255,255,255,.72) !important; box-shadow:none !important; }
+.archos-command-input { font-family:var(--echo-font-mono) !important; font-size:11px !important; letter-spacing:.08em !important; }
+.archos-command-btn-mic { border-radius:0 !important; background:transparent !important; box-shadow:none !important; }
+.archos-command-btn-mic:hover,
+.archos-command-btn-mic.is-listening { background:rgba(255,255,255,.08) !important; border-color:rgba(255,255,255,.5) !important; color:#fff !important; box-shadow:none !important; }
+.archos-command-status-bar { font-family:var(--echo-font-mono) !important; }
+
+/* Modal/overlay panels follow the same terminal-sheet language. */
+.archos-gods-eye-panel,
+.archos-simulation-panel,
+.archos-intelligence-overlay,
+.archos-mission-control,
+.archos-mission-replay {
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+.archos-gods-eye-card { border-radius:0 !important; background:rgba(0,0,0,.55) !important; }
+
+/* Suppress legacy cyan/green/amber chrome where it leaks through utility classes. */
+.text-cyan-300,.text-cyan-400,.text-emerald-300,.text-emerald-400,.text-amber-300,.text-amber-400,
+.text-emerald-400,.text-cyan-300 { color:#fff !important; }
+
+/* Accessibility / reduced motion */
+:focus-visible { outline:1px solid rgba(255,255,255,.75) !important; outline-offset:3px !important; }
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
+}
+
+@media (max-width:1100px) {
+  .archos-header-center { gap:18px !important; }
+  .archos-spatial-rail { width:220px !important; }
+  .archos-spatial-inspector { width:260px !important; }
+}
+
+@media (max-width:900px) {
+  .archos-spatial-header {
+    height:70px !important;
+    grid-template-columns:1fr auto !important;
+    padding:0 20px !important;
+  }
+  .archos-header-center { display:none !important; }
+  .archos-header-right { display:none !important; }
+  .archos-spatial-rail { display:none !important; }
+  .archos-spatial-inspector { width:min(86vw,360px) !important; top:70px !important; bottom:80px !important; }
+  .archos-command-dock { bottom:14px !important; }
+}
+
+@media (max-width:600px) {
+  .archos-brand-sub { display:none !important; }
+  .archos-spatial-inspector { width:100% !important; max-height:42vh !important; border-left:0 !important; border-top:1px solid var(--echo-line) !important; }
+  .archos-command-input { font-size:10px !important; }
+}
