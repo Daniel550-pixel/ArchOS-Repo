@@ -121,9 +121,17 @@ class ConsensusReasoningAgent(Agent):
             high_impact=task.risk_level.value in {"CONSEQUENTIAL", "HIGH_IMPACT"},
         )
 
-        successful = [result for result in results if str(result.status).upper() == "SUCCESS"]
-        best = max(successful, key=lambda result: result.confidence, default=results[0])
-        output = dict(best.output or {})
+        successful_pairs = [
+            (result, lane)
+            for result, lane in zip(results, lane_results)
+            if lane.successful
+        ]
+        best_result = max(
+            (result for result, _ in successful_pairs),
+            key=lambda result: result.confidence,
+            default=results[0],
+        )
+        output = dict(best_result.output or {})
         output["model_consensus"] = artifact.to_dict()
         output["reasoning_lanes"] = ["baseline_reasoning", "claude_reasoning", "ox_alpha_reasoning"]
         output["lane_results"] = {
@@ -139,11 +147,11 @@ class ConsensusReasoningAgent(Agent):
         return AgentResult(
             agent_id=self.id,
             task_id=task.task_id,
-            status="SUCCESS" if successful else "FAILED",
+            status="SUCCESS" if successful_pairs else "FAILED",
             output=output,
-            reality=best.reality,
-            confidence=best.confidence if successful else 0.0,
+            reality=best_result.reality,
+            confidence=best_result.confidence if successful_pairs else 0.0,
             provenance="reasoning:tri_lane_consensus",
-            evidence=[f"lane:{result.agent_id}" for result in successful],
-            error=None if successful else "All reasoning lanes failed or produced no canonical position",
+            evidence=[f"lane:{lane.lane_id}" for _, lane in successful_pairs],
+            error=None if successful_pairs else "All reasoning lanes failed or produced no canonical position",
         )
