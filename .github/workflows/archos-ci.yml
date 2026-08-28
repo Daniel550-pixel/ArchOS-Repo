@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -34,6 +37,17 @@ jobs:
         run: npm run test:world-simulation
       - name: Governance verification
         run: npm run test:governance
+      - name: Start application for acceptance tests
+        run: |
+          npm run dev > /tmp/archos-server.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/archos-server.log
+          exit 1
       - name: A3 engine verification
         run: npm run test:a3
       - name: A4 fabric verification
@@ -54,8 +68,8 @@ jobs:
           python-version: "3.12"
       - name: Compile Python sources
         run: python -m compileall -q backend tests
-      - name: Install Python test runner
-        run: python -m pip install --upgrade pip pytest pytest-asyncio
+      - name: Install Python backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt
       - name: Run promoted intelligence tests
         run: python -m pytest -q tests/test_multimodal_archos_integration.py tests/test_finsight_jarvis_integration.py
 

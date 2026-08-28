@@ -35,6 +35,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+asyncpg://archos:archos_ci@localhost:5432/archos_test
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
 
     steps:
       - uses: actions/checkout@v4
@@ -44,11 +45,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install sqlalchemy asyncpg
+      - name: Install backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r backend/requirements.txt
 
       - name: Apply evidence migrations
         run: |
@@ -71,9 +69,4 @@ jobs:
         run: python -m compileall -q backend/agents backend/migrations
 
       - name: Evidence integrity test gate
-        run: |
-          if [ -d tests ]; then
-            python -m pytest -q tests -k 'evidence or verification or chain' || exit $?
-          else
-            echo 'No test suite present; migration/schema gate completed.'
-          fi
+        run: python -m pytest -q tests -k 'evidence or verification or chain'

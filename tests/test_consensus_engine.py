@@ -1,0 +1,85 @@
+from backend.agents.consensus_contracts import CanonicalPosition, LaneResult, LaneStatus
+from backend.agents.consensus_engine import build_consensus
+
+
+def lane(name: str, position: CanonicalPosition | None, *, status=LaneStatus.SUCCESS, evidence=False) -> LaneResult:
+    from backend.agents.consensus_contracts import EvidenceRef
+
+    return LaneResult(
+        lane_id=name,
+        position=position,
+        status=status,
+        confidence=0.9 if status is LaneStatus.SUCCESS else 0.0,
+        evidence=(EvidenceRef(source=f"{name}:test", claim="supporting evidence"),) if evidence else (),
+    )
+
+
+def test_unanimous_full_panel_with_evidence():
+    result = build_consensus("t1", "d1", (
+        lane("baseline", CanonicalPosition.AFFIRM, evidence=True),
+        lane("claude", CanonicalPosition.AFFIRM, evidence=True),
+        lane("ox_alpha", CanonicalPosition.AFFIRM, evidence=True),
+    ))
+    assert result.panel_state.value == "full"
+    assert result.agreement.value == "unanimous"
+    assert result.resolution.value == "consensus"
+    assert result.selected_position is CanonicalPosition.AFFIRM
+    assert result.agreement_score == 1.0
+
+
+def test_two_of_three_is_majority():
+    result = build_consensus("t2", "d2", (
+        lane("baseline", CanonicalPosition.AFFIRM),
+        lane("claude", CanonicalPosition.AFFIRM),
+        lane("ox_alpha", CanonicalPosition.NEGATE),
+    ))
+    assert result.agreement.value == "majority"
+    assert result.resolution.value == "verification_required"
+    assert result.selected_position is CanonicalPosition.AFFIRM
+    assert result.agreement_score == 2 / 3
+
+
+def test_degraded_disagreement_is_not_majority():
+    result = build_consensus("t3", "d3", (
+        lane("baseline", CanonicalPosition.AFFIRM),
+        lane("claude", CanonicalPosition.NEGATE),
+        lane("ox_alpha", None, status=LaneStatus.TIMEOUT),
+    ))
+    assert result.panel_state.value == "degraded"
+    assert result.agreement.value == "split"
+    assert result.resolution.value == "verification_required"
+    assert "degraded" in result.resolution_reason.lower()
+
+
+def test_single_success_is_insufficient_and_requires_verification():
+    result = build_consensus("t4", "d4", (
+        lane("baseline", CanonicalPosition.AFFIRM),
+        lane("claude", None, status=LaneStatus.ERROR),
+        lane("ox_alpha", None, status=LaneStatus.TIMEOUT),
+    ))
+    assert result.panel_state.value == "insufficient"
+    assert result.agreement.value == "unanimous"
+    assert result.resolution.value == "verification_required"
+    assert result.selected_position is CanonicalPosition.AFFIRM
+
+
+def test_three_way_disagreement_is_split():
+    result = build_consensus("t5", "d5", (
+        lane("baseline", CanonicalPosition.AFFIRM),
+        lane("claude", CanonicalPosition.UNCERTAIN),
+        lane("ox_alpha", CanonicalPosition.NEGATE),
+    ))
+    assert result.agreement.value == "split"
+    assert result.resolution.value == "verification_required"
+    assert len(result.conflicts) == 3
+
+
+def test_high_impact_never_selects_model_position():
+    result = build_consensus("t6", "d6", (
+        lane("baseline", CanonicalPosition.AFFIRM, evidence=True),
+        lane("claude", CanonicalPosition.AFFIRM, evidence=True),
+        lane("ox_alpha", CanonicalPosition.NEGATE, evidence=True),
+    ), high_impact=True)
+    assert result.resolution.value == "human_review_required"
+    assert result.selected_position is None
+    assert result.proposed_position is CanonicalPosition.AFFIRM

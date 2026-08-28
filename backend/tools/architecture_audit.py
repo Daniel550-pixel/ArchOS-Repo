@@ -10,35 +10,24 @@ REPO = ROOT.parent
 PYTHON_ROOTS = [ROOT]
 
 FORBIDDEN_IMPORTS = {
-    "backend.core.event_fabric",
-    "backend.core.observability",
-    "backend.agents.night_shift",
-    "core.event_fabric",
-    "core.observability",
+    "backend.core.event_fabric", "backend.core.observability", "backend.agents.night_shift",
+    "core.event_fabric", "core.observability",
 }
 FORBIDDEN_FILES = {
-    "backend/core/event_fabric.py",
-    "backend/core/observability.py",
-    "backend/agents/night_shift.py",
-    "backend/jarvis_real.py",
-    "backend/dubai_pulse.py",
-    "backend/modbus_gateway.py",
+    "backend/core/event_fabric.py", "backend/core/observability.py", "backend/agents/night_shift.py",
+    "backend/jarvis_real.py", "backend/dubai_pulse.py", "backend/modbus_gateway.py",
 }
 BLOCKING_CALLS = {"time.sleep", "requests.get", "requests.post", "requests.put", "requests.delete"}
 FABRICATED_MARKERS = {
-    "89.4": "certificate health fallback",
-    "31.4": "Dubai climate fallback",
-    "14.2": "Dubai wind fallback",
-    "142": "fabricated city count candidate",
+    "89.4": "certificate health fallback", "31.4": "Dubai climate fallback",
+    "14.2": "Dubai wind fallback", "142": "fabricated city count candidate",
     "828.0": "fabricated building height candidate",
 }
 
 
 def python_files():
-    return sorted(
-        p for root in PYTHON_ROOTS for p in root.rglob("*.py")
-        if ".venv" not in p.parts and "__pycache__" not in p.parts
-    )
+    return sorted(p for root in PYTHON_ROOTS for p in root.rglob("*.py")
+                  if ".venv" not in p.parts and "__pycache__" not in p.parts)
 
 
 def dotted_name(node: ast.AST) -> str | None:
@@ -48,6 +37,16 @@ def dotted_name(node: ast.AST) -> str | None:
         left = dotted_name(node.value)
         return f"{left}.{node.attr}" if left else node.attr
     return None
+
+
+def has_cooperative_wait(loop: ast.While) -> bool:
+    """A literal async infinite loop is safe when its own body cooperatively waits."""
+    for child in ast.walk(loop):
+        if isinstance(child, ast.Call):
+            called = dotted_name(child.func)
+            if called in {"asyncio.sleep", "asyncio.wait_for", "anyio.sleep", "trio.sleep"}:
+                return True
+    return False
 
 
 def main() -> int:
@@ -74,29 +73,25 @@ def main() -> int:
                 names = [node.module] if node.module else []
             else:
                 names = []
-
             for name in names:
                 if name in FORBIDDEN_IMPORTS or any(name.startswith(x + ".") for x in FORBIDDEN_IMPORTS):
                     errors.append(f"legacy import: {rel} -> {name}")
-
             if isinstance(node, ast.AsyncFunctionDef):
                 for child in ast.walk(node):
-                    if isinstance(child, ast.Call):
-                        called = dotted_name(child.func)
-                        if called in BLOCKING_CALLS:
-                            errors.append(f"blocking call in async function: {rel}:{child.lineno}: {called}")
+                    if isinstance(child, ast.Call) and dotted_name(child.func) in BLOCKING_CALLS:
+                        errors.append(f"blocking call in async function: {rel}:{child.lineno}: {dotted_name(child.func)}")
 
         text = path.read_text(encoding="utf-8")
         if str(path).startswith(str(ROOT / "app")):
             for marker, reason in FABRICATED_MARKERS.items():
                 if re.search(rf"(?<![\w.]){re.escape(marker)}(?![\w.])", text):
                     errors.append(f"fabricated telemetry literal: {rel}: {marker} ({reason})")
-
         if path.name != "main.py" and re.search(r"(?:from|import)\s+app\.main\b", text):
             errors.append(f"service/module imports authoritative app entrypoint: {rel}")
 
-        if "while True:" in text and "asyncio.sleep" not in text and "for True" not in text:
-            errors.append(f"unbounded loop without visible async sleep: {rel}")
+        for loop in (node for node in ast.walk(tree) if isinstance(node, ast.While)):
+            if isinstance(loop.test, ast.Constant) and loop.test.value is True and not has_cooperative_wait(loop):
+                errors.append(f"unbounded loop without cooperative wait: {rel}:{loop.lineno}")
 
         if re.search(r"^\s*[A-Z][A-Z0-9_]*\s*=\s*\[\]\s*$", text, re.MULTILINE):
             warnings.append(f"process-global list requires bounded-state review: {rel}")
@@ -119,7 +114,6 @@ def main() -> int:
         print(f"ERROR: {item}")
     for item in warnings:
         print(f"WARNING: {item}")
-
     return 1 if errors else 0
 
 

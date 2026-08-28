@@ -3,6 +3,7 @@ import asyncio
 from typing import Any
 
 from .runtime_adapter import AgentRuntimeAdapter, InProcessRuntimeAdapter
+from .ox_alpha_runtime_adapter import OxAlphaRuntimeAdapter
 
 
 class RuntimeAdapterRegistry:
@@ -51,6 +52,9 @@ runtime_registry = RuntimeAdapterRegistry()
 
 
 async def bind_canonical_swarm(swarm: Any) -> None:
-    """Bind every canonical agent to an adapter at runtime startup."""
+    """Bind canonical agents to runtime adapters at application startup."""
     for agent_id, agent in swarm.agents.items():
-        await runtime_registry.bind_if_missing(agent_id, InProcessRuntimeAdapter(agent))
+        if agent_id == "ox_alpha_reasoning":
+            await runtime_registry.bind_if_missing(agent_id, OxAlphaRuntimeAdapter(agent))
+        else:
+            await runtime_registry.bind_if_missing(agent_id, InProcessRuntimeAdapter(agent))
