@@ -8,6 +8,7 @@ import { aiosRuntime } from './aios/runtime';
 import { initializeGestureRuntime } from './services/spatial/GestureRuntime';
 import './index.css';
 import './styles/one-world.css';
+import './styles/archos-design-system.css';
 
 // Initialize observers before the runtime so no early AIOS event can escape tracing.
 executionTrace.initialize();
