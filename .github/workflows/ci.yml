@@ -68,6 +68,13 @@ jobs:
         run: cd backend && python -c "from app.main import app; print(app.title)"
       - name: Architecture audit (authority, imports, blocking paths, state, security boundaries)
         run: cd backend && python tools/architecture_audit.py
+      - name: Phase A architecture census
+        run: python scripts/architecture_inventory.py > architecture-inventory.json
+      - name: Upload Phase A architecture census
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-inventory
+          path: architecture-inventory.json
       - name: Legacy entrypoint delegation test
         run: cd backend && python -c "from backend.main import app as legacy_app; from app.main import app as authoritative_app; assert legacy_app is authoritative_app; print('legacy entrypoint delegates to authoritative app')"
       - name: Legacy authority guard
