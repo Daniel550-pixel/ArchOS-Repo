@@ -67,3 +67,4 @@ report={
  "state_like_literals":[{"value":k,"count":v} for k,v in sorted(literals.items()) if k.upper() in {"PENDING","RUNNING","SUCCESS","FAILED","ERROR","TIMEOUT","ABORTED","APPROVED","DENIED","REJECTED","VERIFIED","UNVERIFIED","INCONCLUSIVE","ABSTAIN","ABSTAINED","SPLIT","DEGRADED","FULL","INSUFFICIENT","HUMAN_REVIEW_REQUIRED","VERIFICATION_REQUIRED"}],
 }
 print(json.dumps(report,indent=2,sort_keys=True))
+# Phase-A census is intentionally deterministic so CI output can be compared across commits.
