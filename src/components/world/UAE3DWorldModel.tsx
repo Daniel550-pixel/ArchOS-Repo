@@ -1,22 +1,21 @@
-import React, { useRef, useState, useMemo } from 'react';
+// ArchOS UAE 3D World Model
+// Continuous digital twin environment with obsidian architecture,
+// real-time spatial intelligence beacons, correlation vectors, and dynamic camera control.
+
+import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
   PerspectiveCamera,
-  Float,
-  Text,
   Html,
-  Sphere,
-  Box,
-  Cylinder,
-  Torus,
-  Ring,
   Line
 } from '@react-three/drei';
 import * as THREE from 'three';
+import { UAEIntelligenceEvent } from '../../types/continuousIntelligence';
 
 export type LightingMode = 'CYBER' | 'TWILIGHT' | 'THERMAL' | 'LIDAR';
 export type ActiveLayer = 'ALL' | 'SKYLINE' | 'MOBILITY' | 'SENSORS' | 'SUBSURFACE';
+export type OperatingMode = 'WORLD' | 'INTELLIGENCE' | 'SIMULATION' | 'GOD_EYE';
 
 export interface LandmarkPOI {
   id: string;
@@ -46,7 +45,7 @@ export const UAE_LANDMARKS: LandmarkPOI[] = [
     height: 828,
     emirate: 'Dubai',
     district: 'Downtown Dubai',
-    description: 'The world’s tallest skyscraper (828m, 163 floors). Monitored live via structural health deflection sensors and dynamic wind damping telemetry.',
+    description: 'Autonomous structural monitoring with dynamic wind damping and building telemetry.',
     stats: {
       heightM: 828,
       gfaSqm: '334,000 m²',
@@ -60,72 +59,18 @@ export const UAE_LANDMARKS: LandmarkPOI[] = [
     id: 'museum-of-future',
     name: 'Museum of the Future',
     category: 'CULTURAL',
-    position: [8, 0, -6],
+    position: [7, 0, -5],
     height: 77,
     emirate: 'Dubai',
     district: 'Trade Centre / SZR',
-    description: 'Torus architectural icon engineered with stainless steel facade panels and cursive Arabic calligraphy windows. 100% parametric BIM integration.',
+    description: 'Parametric BIM stainless steel torus architecture with integrated solar energy.',
     stats: {
       heightM: 77,
       gfaSqm: '30,548 m²',
       energyRating: 'LEED Platinum',
-      trafficDelay: '-0.8 min',
+      trafficDelay: 'Nominal',
       aqi: 22,
       occupancy: 98
-    }
-  },
-  {
-    id: 'dubai-frame',
-    name: 'Dubai Frame',
-    category: 'CULTURAL',
-    position: [14, 0, -12],
-    height: 150,
-    emirate: 'Dubai',
-    district: 'Zabeel Park',
-    description: '150m architectural portal connecting historic Deira with modern Dubai skyline. Features glass skybridge and photovoltaic gold clad facade.',
-    stats: {
-      heightM: 150,
-      gfaSqm: '7,145 m²',
-      energyRating: 'Class A',
-      trafficDelay: 'Nominal',
-      aqi: 26,
-      occupancy: 88
-    }
-  },
-  {
-    id: 'palm-jumeirah',
-    name: 'Palm Jumeirah & Atlantis',
-    category: 'RESIDENTIAL',
-    position: [-16, 0, 10],
-    height: 93,
-    emirate: 'Dubai',
-    district: 'Palm Jumeirah',
-    description: 'World-famous artificial archipelago with crescent breakwater, luxury residences, and marine environmental sensors.',
-    stats: {
-      heightM: 93,
-      gfaSqm: '560,000 m²',
-      energyRating: 'Green Star 4',
-      trafficDelay: '+2.4 min',
-      aqi: 19,
-      occupancy: 92
-    }
-  },
-  {
-    id: 'business-bay-hub',
-    name: 'Business Bay Financial Hub',
-    category: 'COMMERCIAL',
-    position: [-4, 0, -8],
-    height: 240,
-    emirate: 'Dubai',
-    district: 'Business Bay',
-    description: 'High-density commercial canal district with automated smart district cooling and urban canal taxi waterways.',
-    stats: {
-      heightM: 240,
-      gfaSqm: '4,200,000 m²',
-      energyRating: 'LEED Silver',
-      trafficDelay: '+3.1 min',
-      aqi: 28,
-      occupancy: 89
     }
   },
   {
@@ -135,8 +80,8 @@ export const UAE_LANDMARKS: LandmarkPOI[] = [
     position: [-24, 0, 18],
     height: 65,
     emirate: 'Dubai',
-    district: 'Jebel Ali Zone',
-    description: 'The premier gateway port in the Middle East with autonomous automated electric gantry cranes and BoxBay container storage.',
+    district: 'Jebel Ali Freezone',
+    description: 'Deepwater logistics hub with autonomous BoxBay container storage.',
     stats: {
       heightM: 65,
       gfaSqm: '14,000,000 m²',
@@ -147,52 +92,99 @@ export const UAE_LANDMARKS: LandmarkPOI[] = [
     }
   },
   {
-    id: 'saadiyat-cultural',
-    name: 'Saadiyat Cultural District',
-    category: 'CULTURAL',
-    position: [-20, 0, -22],
-    height: 45,
+    id: 'barakah-energy-plant',
+    name: 'Barakah Nuclear Clean Power Complex',
+    category: 'INFRASTRUCTURE',
+    position: [-18.5, 0, -16.0],
+    height: 85,
     emirate: 'Abu Dhabi',
-    district: 'Saadiyat Island',
-    description: 'Global arts hub housing Louvre Abu Dhabi and Zayed National Museum with geodesic dome microclimate shading.',
+    district: 'Al Dhafra Region',
+    description: 'Four APR-1400 nuclear reactors supplying 5,600 MW zero-carbon baseload electricity.',
     stats: {
-      heightM: 45,
-      gfaSqm: '97,000 m²',
+      heightM: 85,
+      gfaSqm: '12,000,000 m²',
+      energyRating: 'Zero Carbon Baseload',
+      trafficDelay: 'Dedicated Corridor',
+      aqi: 14,
+      occupancy: 99
+    }
+  },
+  {
+    id: 'masdar-city-nexus',
+    name: 'Masdar City Eco-Nexus',
+    category: 'COMMERCIAL',
+    position: [-14.0, 0, -12.0],
+    height: 48,
+    emirate: 'Abu Dhabi',
+    district: 'Masdar City',
+    description: 'Net-negative carbon innovation hub with BIPV facades and autonomous transit.',
+    stats: {
+      heightM: 48,
+      gfaSqm: '72,000 m²',
       energyRating: 'Estidama 5 Pearl',
-      trafficDelay: 'Optimal',
-      aqi: 18,
-      occupancy: 85
+      trafficDelay: 'Zero-Emission',
+      aqi: 16,
+      occupancy: 97
+    }
+  },
+  {
+    id: 'fujairah-strategic-gateway',
+    name: 'Fujairah Energy Gateway',
+    category: 'PORT',
+    position: [22.0, 0, 8.0],
+    height: 55,
+    emirate: 'Fujairah',
+    district: 'Port of Fujairah',
+    description: 'Direct Indian Ocean crude oil export pipeline and global marine bunkering anchorage.',
+    stats: {
+      heightM: 55,
+      gfaSqm: '8,400,000 m²',
+      energyRating: 'Strategic Sovereign',
+      trafficDelay: 'Smooth Anchorage',
+      aqi: 20,
+      occupancy: 92
+    }
+  },
+  {
+    id: 'saqr-port-bulk',
+    name: 'Saqr Port Mineral Terminal',
+    category: 'PORT',
+    position: [18.0, 0, -18.0],
+    height: 60,
+    emirate: 'Ras Al Khaimah',
+    district: 'Saqr Port Industrial Zone',
+    description: 'Middle East largest bulk export port with 18.0m deepwater Capesize berths.',
+    stats: {
+      heightM: 60,
+      gfaSqm: '6,200,000 m²',
+      energyRating: 'Bulk ISO',
+      trafficDelay: 'Nominal',
+      aqi: 25,
+      occupancy: 91
     }
   }
 ];
 
-// --- PROCEDURAL 3D BUILDINGS & CITYSCAPE ---
-const ProceduralCityGrid: React.FC<{
-  lightingMode: LightingMode;
-  layerOffset: number;
-  layerOpacity: number;
-}> = ({ lightingMode, layerOffset, layerOpacity }) => {
-  // Generate a matrix of futuristic urban buildings
+// --- PROCEDURAL REFINED CITY GRID ---
+const ProceduralCityGrid: React.FC<{ layerOpacity: number }> = ({ layerOpacity }) => {
   const buildings = useMemo(() => {
     const list = [];
-    const rows = 12;
-    const cols = 12;
+    const rows = 14;
+    const cols = 14;
     const spacing = 2.4;
 
     for (let i = -rows / 2; i < rows / 2; i++) {
       for (let j = -cols / 2; j < cols / 2; j++) {
-        // Skip space around central landmark (Burj Khalifa at 0,0)
         const distToCenter = Math.sqrt(i * i + j * j);
         if (distToCenter < 1.8) continue;
 
-        // Deterministic pseudo-random height
         const seed = Math.abs(Math.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1;
-        const width = 0.8 + seed * 0.7;
-        const depth = 0.8 + (1 - seed) * 0.7;
-        const height = 1.2 + (seed * 5.5) * (1 / (distToCenter * 0.2 + 0.5));
+        const width = 0.75 + seed * 0.6;
+        const depth = 0.75 + (1 - seed) * 0.6;
+        const height = 1.0 + (seed * 5.0) * (1 / (distToCenter * 0.22 + 0.5));
 
-        const posX = i * spacing + (seed - 0.5) * 0.6;
-        const posZ = j * spacing + (seed - 0.5) * 0.6;
+        const posX = i * spacing + (seed - 0.5) * 0.5;
+        const posZ = j * spacing + (seed - 0.5) * 0.5;
 
         list.push({
           id: `bld-${i}-${j}`,
@@ -207,187 +199,116 @@ const ProceduralCityGrid: React.FC<{
     return list;
   }, []);
 
-  const getBuildingColors = (seed: number) => {
-    if (lightingMode === 'CYBER') {
-      const isCyan = seed > 0.4;
-      return {
-        body: isCyan ? '#071828' : '#091522',
-        wireframe: isCyan ? '#00e5ff' : '#38bdf8',
-        emissive: isCyan ? '#00e5ff' : '#0284c7',
-        emissiveIntensity: 0.35 + seed * 0.4
-      };
-    } else if (lightingMode === 'TWILIGHT') {
-      return {
-        body: '#1e293b',
-        wireframe: '#fbbf24',
-        emissive: '#f59e0b',
-        emissiveIntensity: 0.25 + seed * 0.5
-      };
-    } else if (lightingMode === 'THERMAL') {
-      const tempColor = seed > 0.6 ? '#f43f5e' : seed > 0.3 ? '#eab308' : '#06b6d4';
-      return {
-        body: '#0f172a',
-        wireframe: tempColor,
-        emissive: tempColor,
-        emissiveIntensity: 0.6
-      };
-    } else {
-      // LIDAR Mode
-      return {
-        body: '#030712',
-        wireframe: '#10b981',
-        emissive: '#10b981',
-        emissiveIntensity: 0.8
-      };
-    }
-  };
-
   return (
-    <group position={[0, layerOffset, 0]}>
-      {buildings.map((b) => {
-        const theme = getBuildingColors(b.seed);
-        return (
-          <group key={b.id} position={[b.pos[0], b.height / 2, b.pos[1]]}>
-            {/* Building Volume */}
-            <mesh>
-              <boxGeometry args={[b.width, b.height, b.depth]} />
-              <meshStandardMaterial
-                color={theme.body}
-                roughness={0.2}
-                metalness={0.8}
-                transparent
-                opacity={layerOpacity * 0.85}
-              />
-            </mesh>
+    <group position={[0, 0, 0]}>
+      {buildings.map((b) => (
+        <group key={b.id} position={[b.pos[0], b.height / 2, b.pos[1]]}>
+          {/* Main Obsidian Monolith */}
+          <mesh>
+            <boxGeometry args={[b.width, b.height, b.depth]} />
+            <meshStandardMaterial
+              color="#040608"
+              roughness={0.15}
+              metalness={0.9}
+              transparent
+              opacity={layerOpacity * 0.9}
+            />
+          </mesh>
 
-            {/* Glowing Edge Wireframe / Slices */}
-            <mesh>
-              <boxGeometry args={[b.width * 1.01, b.height * 1.01, b.depth * 1.01]} />
-              <meshBasicMaterial
-                color={theme.wireframe}
-                wireframe
-                transparent
-                opacity={layerOpacity * 0.65}
-              />
-            </mesh>
-
-            {/* Rooftop Helipad / Antenna Beacon */}
-            {b.height > 4.5 && (
-              <mesh position={[0, b.height / 2 + 0.15, 0]}>
-                <cylinderGeometry args={[0.25, 0.25, 0.05, 12]} />
-                <meshStandardMaterial
-                  color="#d4ff00"
-                  emissive="#d4ff00"
-                  emissiveIntensity={0.8}
-                />
-              </mesh>
-            )}
-          </group>
-        );
-      })}
+          {/* Minimalist Silver Wireframe */}
+          <mesh>
+            <boxGeometry args={[b.width * 1.002, b.height * 1.002, b.depth * 1.002]} />
+            <meshBasicMaterial
+              color="#ffffff"
+              wireframe
+              transparent
+              opacity={layerOpacity * 0.12}
+            />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 };
 
-// --- ICONIC 3D BURJ KHALIFA LANDMARK ---
+// --- ICONIC 3D BURJ KHALIFA ---
 const BurjKhalifa3D: React.FC<{
   position: [number, number, number];
-  lightingMode: LightingMode;
   isSelected: boolean;
   onClick: () => void;
-}> = ({ position, lightingMode, isSelected, onClick }) => {
+}> = ({ position, isSelected, onClick }) => {
   const beaconRef = useRef<THREE.PointLight>(null);
 
   useFrame(({ clock }) => {
     if (beaconRef.current) {
-      beaconRef.current.intensity = 1.5 + Math.sin(clock.getElapsedTime() * 4) * 1.2;
+      beaconRef.current.intensity = 0.8 + Math.sin(clock.getElapsedTime() * 3) * 0.4;
     }
   });
 
-  const baseColor = lightingMode === 'CYBER' ? '#00e5ff' : lightingMode === 'TWILIGHT' ? '#f59e0b' : '#10b981';
-
   return (
     <group position={position} onClick={(e) => { e.stopPropagation(); onClick(); }}>
-      {/* Tier 1: Base Podium */}
+      {/* Tier 1: Base */}
       <mesh position={[0, 1.2, 0]}>
-        <cylinderGeometry args={[1.4, 2.2, 2.4, 6]} />
+        <cylinderGeometry args={[1.3, 2.0, 2.4, 6]} />
         <meshStandardMaterial
-          color="#0a192f"
-          roughness={0.1}
-          metalness={0.9}
-          emissive={baseColor}
-          emissiveIntensity={isSelected ? 0.6 : 0.2}
-        />
-      </mesh>
-      <mesh position={[0, 1.2, 0]}>
-        <cylinderGeometry args={[1.42, 2.22, 2.42, 6]} />
-        <meshBasicMaterial color={baseColor} wireframe transparent opacity={0.6} />
-      </mesh>
-
-      {/* Tier 2: Mid Spire Stepped Section */}
-      <mesh position={[0, 4.0, 0]}>
-        <cylinderGeometry args={[0.8, 1.35, 3.2, 6]} />
-        <meshStandardMaterial
-          color="#061224"
+          color="#06090e"
           roughness={0.1}
           metalness={0.95}
-          emissive={baseColor}
-          emissiveIntensity={isSelected ? 0.7 : 0.3}
+          emissive="#dce8ff"
+          emissiveIntensity={isSelected ? 0.4 : 0.08}
+        />
+      </mesh>
+      <mesh position={[0, 1.2, 0]}>
+        <cylinderGeometry args={[1.31, 2.01, 2.41, 6]} />
+        <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.25} />
+      </mesh>
+
+      {/* Tier 2: Mid Spire */}
+      <mesh position={[0, 4.0, 0]}>
+        <cylinderGeometry args={[0.75, 1.25, 3.2, 6]} />
+        <meshStandardMaterial
+          color="#06090e"
+          roughness={0.1}
+          metalness={0.95}
+          emissive="#dce8ff"
+          emissiveIntensity={isSelected ? 0.5 : 0.1}
         />
       </mesh>
       <mesh position={[0, 4.0, 0]}>
-        <cylinderGeometry args={[0.82, 1.37, 3.22, 6]} />
-        <meshBasicMaterial color={baseColor} wireframe transparent opacity={0.7} />
+        <cylinderGeometry args={[0.76, 1.26, 3.21, 6]} />
+        <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.3} />
       </mesh>
 
-      {/* Tier 3: High Needle Tower */}
+      {/* Tier 3: Needle Tower */}
       <mesh position={[0, 7.2, 0]}>
-        <cylinderGeometry args={[0.3, 0.78, 3.2, 6]} />
+        <cylinderGeometry args={[0.25, 0.72, 3.2, 6]} />
         <meshStandardMaterial
-          color="#07182e"
+          color="#080c14"
           roughness={0.1}
           metalness={0.95}
-          emissive={baseColor}
-          emissiveIntensity={isSelected ? 0.8 : 0.4}
+          emissive="#dce8ff"
+          emissiveIntensity={isSelected ? 0.6 : 0.15}
         />
       </mesh>
-      <mesh position={[0, 7.2, 0]}>
-        <cylinderGeometry args={[0.32, 0.8, 3.22, 6]} />
-        <meshBasicMaterial color={baseColor} wireframe transparent opacity={0.8} />
-      </mesh>
 
-      {/* Tier 4: Pinnacle Spire */}
+      {/* Tier 4: Pinnacle Needle */}
       <mesh position={[0, 10.2, 0]}>
-        <coneGeometry args={[0.25, 2.8, 8]} />
+        <coneGeometry args={[0.2, 2.8, 8]} />
         <meshStandardMaterial
-          color="#00e5ff"
-          emissive="#00e5ff"
-          emissiveIntensity={1.0}
+          color="#ffffff"
+          emissive="#ffffff"
+          emissiveIntensity={isSelected ? 0.9 : 0.4}
         />
       </mesh>
 
-      {/* Flashing Aircraft Warning Beacon on Peak */}
+      {/* Spire Beacon Light */}
       <pointLight
         ref={beaconRef}
         position={[0, 11.7, 0]}
-        color="#ec4899"
+        color="#dce8ff"
         distance={8}
         decay={2}
       />
-      <mesh position={[0, 11.65, 0]}>
-        <sphereGeometry args={[0.1, 16, 16]} />
-        <meshBasicMaterial color="#ec4899" />
-      </mesh>
-
-      {/* Holographic Selection Orbit Ring */}
-      {isSelected && (
-        <group position={[0, 5, 0]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[2.5, 2.65, 32]} />
-            <meshBasicMaterial color="#00e5ff" side={THREE.DoubleSide} />
-          </mesh>
-        </group>
-      )}
     </group>
   );
 };
@@ -400,322 +321,259 @@ const MuseumOfTheFuture3D: React.FC<{
 }> = ({ position, isSelected, onClick }) => {
   return (
     <group position={position} onClick={(e) => { e.stopPropagation(); onClick(); }}>
-      {/* Torus Ring Shaped Volume */}
       <mesh position={[0, 1.4, 0]} rotation={[0, 0, Math.PI / 4]}>
         <torusGeometry args={[1.2, 0.45, 16, 32]} />
         <meshStandardMaterial
-          color="#0f2238"
-          metalness={0.9}
-          roughness={0.15}
-          emissive="#00e5ff"
-          emissiveIntensity={isSelected ? 0.8 : 0.4}
+          color="#080c14"
+          metalness={0.95}
+          roughness={0.1}
+          emissive="#dce8ff"
+          emissiveIntensity={isSelected ? 0.5 : 0.1}
         />
       </mesh>
       <mesh position={[0, 1.4, 0]} rotation={[0, 0, Math.PI / 4]}>
-        <torusGeometry args={[1.22, 0.46, 16, 32]} />
-        <meshBasicMaterial color="#00e5ff" wireframe transparent opacity={0.6} />
-      </mesh>
-
-      {/* Base Podium */}
-      <mesh position={[0, 0.15, 0]}>
-        <boxGeometry args={[3.2, 0.3, 2.2]} />
-        <meshStandardMaterial color="#0a121e" emissive="#00e5ff" emissiveIntensity={0.2} />
+        <torusGeometry args={[1.21, 0.455, 16, 32]} />
+        <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.25} />
       </mesh>
     </group>
   );
 };
 
-// --- DYNAMIC TRAFFIC & MOBILITY LIGHT TRAILS ---
-const MobilityLightTrails: React.FC<{ layerOffset: number }> = ({ layerOffset }) => {
-  const pointsSZR = useMemo(() => {
-    const pts: [number, number, number][] = [];
-    for (let i = -18; i <= 18; i += 0.8) {
-      const z = i;
-      const x = Math.sin(i * 0.18) * 4.5;
-      pts.push([x, 0.05, z]);
-    }
-    return pts;
-  }, []);
-
-  const pointsMetro = useMemo(() => {
-    const pts: [number, number, number][] = [];
-    for (let i = -18; i <= 18; i += 0.8) {
-      const z = i;
-      const x = Math.sin(i * 0.18) * 4.5 + 1.2;
-      pts.push([x, 0.4, z]); // Elevated viaduct
-    }
-    return pts;
-  }, []);
-
-  // Moving traffic pulses
-  const trafficMeshRef = useRef<THREE.InstancedMesh>(null);
-  const droneMeshRef = useRef<THREE.InstancedMesh>(null);
+// --- DYNAMIC GEOGRAPHIC INTELLIGENCE EVENT BEACON ---
+const SpatialIntelligenceEventBeacon: React.FC<{
+  event: UAEIntelligenceEvent;
+  isSelected: boolean;
+  onClick: () => void;
+}> = ({ event, isSelected, onClick }) => {
+  const ringRef = useRef<THREE.Mesh>(null);
+  const isConflict = event.verificationState === 'CONFLICTING';
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (trafficMeshRef.current) {
-      const dummy = new THREE.Object3D();
-      for (let i = 0; i < 24; i++) {
-        const offset = ((i * 1.5 + t * 4) % 36) - 18;
-        const x = Math.sin(offset * 0.18) * 4.5;
-        dummy.position.set(x, layerOffset + 0.1, offset);
-        dummy.scale.set(0.18, 0.1, 0.35);
-        dummy.updateMatrix();
-        trafficMeshRef.current.setMatrixAt(i, dummy.matrix);
+    if (ringRef.current) {
+      const s = 1.0 + ((clock.getElapsedTime() * 1.5) % 2.5);
+      ringRef.current.scale.set(s, s, s);
+      const mat = ringRef.current.material as THREE.MeshBasicMaterial;
+      if (mat) {
+        mat.opacity = Math.max(0, 0.8 - (s - 1.0) / 2.5);
       }
-      trafficMeshRef.current.instanceMatrix.needsUpdate = true;
-    }
-
-    if (droneMeshRef.current) {
-      const dummy = new THREE.Object3D();
-      for (let i = 0; i < 8; i++) {
-        const angle = (t * 0.4 + (i * Math.PI) / 4);
-        const radius = 8 + (i % 3) * 3;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        const y = layerOffset + 5 + Math.sin(t + i) * 0.5;
-        dummy.position.set(x, y, z);
-        dummy.scale.set(0.15, 0.15, 0.15);
-        dummy.updateMatrix();
-        droneMeshRef.current.setMatrixAt(i, dummy.matrix);
-      }
-      droneMeshRef.current.instanceMatrix.needsUpdate = true;
     }
   });
 
-  return (
-    <group position={[0, layerOffset, 0]}>
-      {/* Sheikh Zayed Road E11 Highway Corridor Ribbon */}
-      <Line
-        points={pointsSZR}
-        color="#f59e0b"
-        lineWidth={3.5}
-        transparent
-        opacity={0.85}
-      />
-
-      {/* Dubai Metro Red / Blue Line Elevated Viaduct */}
-      <Line
-        points={pointsMetro}
-        color="#00e5ff"
-        lineWidth={3.0}
-        transparent
-        opacity={0.9}
-      />
-
-      {/* Highway Moving Vehicles Light Pulses */}
-      <instancedMesh ref={trafficMeshRef} args={[undefined, undefined, 24]}>
-        <boxGeometry />
-        <meshBasicMaterial color="#f59e0b" />
-      </instancedMesh>
-
-      {/* Autonomous Drone Skyway Vectors */}
-      <instancedMesh ref={droneMeshRef} args={[undefined, undefined, 8]}>
-        <sphereGeometry args={[1, 8, 8]} />
-        <meshBasicMaterial color="#10b981" />
-      </instancedMesh>
-    </group>
-  );
-};
-
-// --- TIERED GEOSPATIAL STACKING SLICES (As in reference images) ---
-const GeospatialTierPlates: React.FC<{
-  activeLayer: ActiveLayer;
-  sliceSeparation: number;
-}> = ({ activeLayer, sliceSeparation }) => {
-  return (
-    <group>
-      {/* Plate 1: Subsurface Geotechnical & Infrastructure Bedrock (Lowest) */}
-      <group position={[0, -2.4 * sliceSeparation, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <mesh position={[0, -0.2, 0]}>
-          <boxGeometry args={[26, 0.2, 26]} />
-          <meshStandardMaterial
-            color="#080e1a"
-            roughness={0.9}
-            metalness={0.1}
-            transparent
-            opacity={0.8}
-          />
-        </mesh>
-        {/* Wireframe Grid */}
-        <mesh position={[0, -0.08, 0]}>
-          <boxGeometry args={[26.1, 0.05, 26.1]} />
-          <meshBasicMaterial color="#3b82f6" wireframe transparent opacity={0.3} />
-        </mesh>
-      </group>
-
-      {/* Plate 2: Environmental & Utility Sensor Network */}
-      <group position={[0, -1.2 * sliceSeparation, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <mesh position={[0, -0.1, 0]}>
-          <boxGeometry args={[26, 0.1, 26]} />
-          <meshStandardMaterial
-            color="#071a1c"
-            roughness={0.7}
-            metalness={0.3}
-            transparent
-            opacity={0.65}
-          />
-        </mesh>
-        <mesh position={[0, -0.04, 0]}>
-          <boxGeometry args={[26.1, 0.02, 26.1]} />
-          <meshBasicMaterial color="#10b981" wireframe transparent opacity={0.4} />
-        </mesh>
-      </group>
-
-      {/* Plate 3: Urban Surface & Transportation Grid */}
-      <group position={[0, 0, 0]} rotation={[0, Math.PI / 4, 0]}>
-        <mesh position={[0, -0.15, 0]}>
-          <boxGeometry args={[26, 0.15, 26]} />
-          <meshStandardMaterial
-            color="#050a14"
-            roughness={0.4}
-            metalness={0.6}
-            transparent
-            opacity={0.95}
-          />
-        </mesh>
-        <mesh position={[0, -0.05, 0]}>
-          <boxGeometry args={[26.05, 0.05, 26.05]} />
-          <meshBasicMaterial color="#00e5ff" wireframe transparent opacity={0.6} />
-        </mesh>
-      </group>
-    </group>
-  );
-};
-
-// --- INTERACTIVE 3D POI PIN BEACONS ---
-const POIPinBeacon: React.FC<{
-  poi: LandmarkPOI;
-  isSelected: boolean;
-  onClick: () => void;
-}> = ({ poi, isSelected, onClick }) => {
-  const pinColor = isSelected ? '#d4ff00' : '#00e5ff';
+  const baseColor = isConflict ? '#f59e0b' : '#38bdf8';
 
   return (
-    <group position={poi.position}>
-      {/* Vertical Laser Light Line from ground */}
-      <mesh position={[0, 1.8, 0]}>
-        <cylinderGeometry args={[0.04, 0.04, 3.6, 8]} />
-        <meshBasicMaterial color={pinColor} transparent opacity={0.8} />
+    <group position={event.coordinates}>
+      {/* Expanding Shockwave Ring for Active / Selected Events */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+        <ringGeometry args={[0.6, 0.72, 32]} />
+        <meshBasicMaterial color={baseColor} transparent opacity={0.6} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Pulsing Target Orb Icon */}
-      <mesh position={[0, 3.7, 0]} onClick={(e) => { e.stopPropagation(); onClick(); }}>
-        <sphereGeometry args={[0.3, 16, 16]} />
+      {/* Vertical Luminescence Laser Needle */}
+      <mesh position={[0, 1.8, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 3.6, 6]} />
+        <meshBasicMaterial color={baseColor} transparent opacity={isSelected ? 0.8 : 0.4} />
+      </mesh>
+
+      {/* Target Marker Sphere */}
+      <mesh
+        position={[0, 3.7, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
+        <sphereGeometry args={[0.22, 16, 16]} />
         <meshStandardMaterial
-          color={pinColor}
-          emissive={pinColor}
-          emissiveIntensity={isSelected ? 1.5 : 0.8}
+          color="#ffffff"
+          emissive={baseColor}
+          emissiveIntensity={isSelected ? 1.4 : 0.8}
         />
       </mesh>
 
-      {/* 3D Floating Name Label Tag */}
-      <Html position={[0, 4.4, 0]} center distanceFactor={24}>
-        <div
+      {/* Floating Spatial Tag */}
+      <Html position={[0, 4.3, 0]} center distanceFactor={28}>
+        <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onClick();
           }}
-          className={`cursor-pointer px-2 py-0.5 rounded-full font-mono text-[9px] font-bold whitespace-nowrap transition-all flex items-center gap-1 backdrop-blur-md shadow-xl ${
+          className={`cursor-pointer px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 font-mono text-[9px] tracking-wider uppercase backdrop-blur-md whitespace-nowrap shadow-xl ${
             isSelected
-              ? 'bg-[#d4ff00] text-black border border-white shadow-[0_0_12px_#d4ff00]'
-              : 'bg-[#070c16]/90 text-[#00e5ff] border border-[#00e5ff]/50 hover:bg-[#00e5ff] hover:text-black'
+              ? 'bg-white text-black border-white font-bold ring-2 ring-white/30'
+              : isConflict
+              ? 'bg-amber-950/80 text-amber-200 border-amber-500/50 hover:bg-amber-900'
+              : 'bg-[#0a0c10]/85 text-cyan-200 border-cyan-500/40 hover:bg-cyan-950/90'
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          <span>{poi.name}</span>
-        </div>
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              isSelected ? 'bg-black' : isConflict ? 'bg-amber-400 animate-pulse' : 'bg-cyan-400'
+            }`}
+          />
+          <span>{event.entityName}</span>
+        </button>
       </Html>
     </group>
   );
 };
 
-// --- MAIN 3D CANVAS COMPONENT ---
-interface UAE3DWorldModelProps {
-  lightingMode: LightingMode;
-  activeLayer: ActiveLayer;
-  sliceSeparation: number; // 0.0 to 1.5 (separation of geospatial tiers)
-  selectedLandmarkId: string;
-  onSelectLandmark: (landmark: LandmarkPOI) => void;
-  cameraPreset: 'COMMAND' | 'ORBIT' | 'NADIR' | 'STREET';
+// --- INTERMODAL CORRELATION 3D ARCS ---
+const IntermodalCorrelationArcs: React.FC<{
+  events: UAEIntelligenceEvent[];
+}> = ({ events }) => {
+  const arcCurves = useMemo(() => {
+    // Generate curved line vectors connecting correlated nodes
+    const curves: [number, number, number][][] = [];
+
+    for (let i = 0; i < events.length; i++) {
+      const src = events[i];
+      if (src.relatedEventIds && src.relatedEventIds.length > 0) {
+        for (const relId of src.relatedEventIds) {
+          const tgt = events.find(e => e.id === relId);
+          if (tgt) {
+            const start = new THREE.Vector3(...src.coordinates);
+            const end = new THREE.Vector3(...tgt.coordinates);
+            const mid = new THREE.Vector3()
+              .addVectors(start, end)
+              .multiplyScalar(0.5)
+              .add(new THREE.Vector3(0, 3.5, 0)); // Elevation arc
+
+            const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+            const points = curve.getPoints(24).map(p => [p.x, p.y, p.z] as [number, number, number]);
+            curves.push(points);
+          }
+        }
+      }
+    }
+
+    return curves;
+  }, [events]);
+
+  return (
+    <group>
+      {arcCurves.map((pts, idx) => (
+        <Line
+          key={`arc-${idx}`}
+          points={pts}
+          color="#38bdf8"
+          lineWidth={1.2}
+          transparent
+          opacity={0.35}
+        />
+      ))}
+    </group>
+  );
+};
+
+// --- TERRAIN / GEOSPATIAL PLATES ---
+const GeospatialTierPlates: React.FC = () => {
+  return (
+    <group>
+      {/* UAE Geographic Monolith Surface */}
+      <group position={[0, 0, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <mesh position={[0, -0.1, 0]}>
+          <boxGeometry args={[48, 0.1, 48]} />
+          <meshStandardMaterial color="#020305" roughness={0.5} metalness={0.5} />
+        </mesh>
+        <mesh position={[0, -0.04, 0]}>
+          <boxGeometry args={[48.02, 0.02, 48.02]} />
+          <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.06} />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// --- CAMERA CONTROLLER WITH TARGET INTERPOLATION ---
+const CameraTargetController: React.FC<{
+  targetCoords: [number, number, number] | null;
+}> = ({ targetCoords }) => {
+  const controlsRef = useRef<any>(null);
+
+  useFrame(() => {
+    if (controlsRef.current && targetCoords) {
+      const targetVec = new THREE.Vector3(...targetCoords);
+      controlsRef.current.target.lerp(targetVec, 0.05);
+      controlsRef.current.update();
+    }
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enableDamping
+      dampingFactor={0.05}
+      maxPolarAngle={Math.PI / 2 - 0.02}
+      minDistance={6}
+      maxDistance={90}
+      target={[0, 1, 0]}
+    />
+  );
+};
+
+// --- MAIN 3D WORLD MODEL EXPORT ---
+export interface UAE3DWorldModelProps {
+  events?: UAEIntelligenceEvent[];
+  selectedEventId?: string | null;
+  onSelectEvent?: (event: UAEIntelligenceEvent) => void;
+  selectedLandmarkId?: string | null;
+  onSelectLandmark?: (landmark: LandmarkPOI) => void;
+  operatingMode?: OperatingMode;
+  targetCoords?: [number, number, number] | null;
+  lightingMode?: LightingMode;
+  activeLayer?: ActiveLayer;
+  sliceSeparation?: number;
+  cameraPreset?: 'COMMAND' | 'ORBIT' | 'NADIR' | 'STREET';
 }
 
 export const UAE3DWorldModel: React.FC<UAE3DWorldModelProps> = ({
-  lightingMode,
-  activeLayer,
-  sliceSeparation,
-  selectedLandmarkId,
-  onSelectLandmark,
-  cameraPreset
+  events = [],
+  selectedEventId = null,
+  onSelectEvent = () => {},
+  selectedLandmarkId = null,
+  onSelectLandmark = () => {},
+  operatingMode = 'WORLD',
+  targetCoords = null
 }) => {
-  const controlsRef = useRef<any>(null);
-
-  // Camera settings based on preset
   const cameraPos: [number, number, number] = useMemo(() => {
-    switch (cameraPreset) {
-      case 'COMMAND':
-        return [22, 24, 26];
-      case 'ORBIT':
-        return [14, 12, 18];
-      case 'NADIR':
-        return [0, 36, 1]; // top down
-      case 'STREET':
-        return [6, 4, 8];
-      default:
-        return [20, 22, 24];
+    if (operatingMode === 'GOD_EYE') {
+      return [0, 48, 14];
     }
-  }, [cameraPreset]);
+    if (operatingMode === 'INTELLIGENCE') {
+      return [18, 16, 22];
+    }
+    return [24, 22, 28];
+  }, [operatingMode]);
 
   return (
-    <div className="relative w-full h-full bg-[#03060d]">
+    <div className="relative w-full h-full bg-[#000000]">
       <Canvas
-        camera={{ position: cameraPos, fov: 42 }}
-        gl={{ antialias: true, alpha: true }}
+        camera={{ position: cameraPos, fov: 40 }}
+        gl={{ antialias: true, alpha: false }}
+        onCreated={({ gl, scene }) => {
+          gl.setClearColor('#000000', 1);
+          scene.fog = new THREE.FogExp2('#000000', 0.012);
+        }}
       >
-        <PerspectiveCamera makeDefault position={cameraPos} fov={42} />
-        <OrbitControls
-          ref={controlsRef}
-          enableDamping
-          dampingFactor={0.06}
-          maxPolarAngle={Math.PI / 2 - 0.05} // don't go below ground
-          minDistance={6}
-          maxDistance={65}
-          target={[0, 1, 0]}
-        />
+        <PerspectiveCamera makeDefault position={cameraPos} fov={40} />
+        <CameraTargetController targetCoords={targetCoords} />
 
-        {/* Ambient & Directional Lighting Matrix */}
-        <ambientLight intensity={lightingMode === 'TWILIGHT' ? 0.8 : 0.4} />
-        <directionalLight
-          position={[15, 25, 15]}
-          intensity={lightingMode === 'TWILIGHT' ? 1.6 : 1.0}
-          color={lightingMode === 'TWILIGHT' ? '#fed7aa' : '#ffffff'}
-        />
-        <pointLight position={[-10, 15, -10]} intensity={0.6} color="#00e5ff" />
+        {/* Ambient & Directional Lights */}
+        <ambientLight intensity={0.3} />
+        <directionalLight position={[20, 40, 20]} intensity={1.0} color="#ffffff" />
+        <pointLight position={[-15, 25, -15]} intensity={0.4} color="#dce8ff" />
 
-        {/* Floating Tiered Diamond Slices */}
-        <GeospatialTierPlates
-          activeLayer={activeLayer}
-          sliceSeparation={sliceSeparation}
-        />
+        {/* Base Geography Plates */}
+        <GeospatialTierPlates />
 
-        {/* Procedural High-Density City Skyline */}
-        {(activeLayer === 'ALL' || activeLayer === 'SKYLINE') && (
-          <ProceduralCityGrid
-            lightingMode={lightingMode}
-            layerOffset={0}
-            layerOpacity={1.0}
-          />
-        )}
+        {/* City Skyline */}
+        <ProceduralCityGrid layerOpacity={1.0} />
 
-        {/* Dynamic Transport & Drone Mobility Grid */}
-        {(activeLayer === 'ALL' || activeLayer === 'MOBILITY') && (
-          <MobilityLightTrails layerOffset={0} />
-        )}
-
-        {/* 3D Iconic Key Landmarks */}
+        {/* Iconic Landmarks */}
         <BurjKhalifa3D
           position={[0, 0, 0]}
-          lightingMode={lightingMode}
           isSelected={selectedLandmarkId === 'burj-khalifa'}
           onClick={() => onSelectLandmark(UAE_LANDMARKS[0])}
         />
@@ -726,16 +584,21 @@ export const UAE3DWorldModel: React.FC<UAE3DWorldModelProps> = ({
           onClick={() => onSelectLandmark(UAE_LANDMARKS[1])}
         />
 
-        {/* Interactive POI Beacon Pins */}
-        {UAE_LANDMARKS.map((poi) => (
-          <POIPinBeacon
-            key={poi.id}
-            poi={poi}
-            isSelected={selectedLandmarkId === poi.id}
-            onClick={() => onSelectLandmark(poi)}
+        {/* Live Spatial Intelligence Events Beacons */}
+        {events.map((evt) => (
+          <SpatialIntelligenceEventBeacon
+            key={evt.id}
+            event={evt}
+            isSelected={selectedEventId === evt.id}
+            onClick={() => onSelectEvent(evt)}
           />
         ))}
+
+        {/* 3D Intermodal Correlation Arcs (Active in Intelligence & World modes) */}
+        <IntermodalCorrelationArcs events={events} />
       </Canvas>
     </div>
   );
 };
+
+export default UAE3DWorldModel;
