@@ -17,8 +17,14 @@ from .consensus_contracts import (
 )
 
 
-def build_consensus(task_id: str, decision_id: str, lanes: Iterable[LaneResult], *, high_impact: bool = False) -> ConsensusArtifact:
-    """Reduce independent lane results. Failures never become votes."""
+def build_consensus(
+    task_id: str,
+    decision_id: str,
+    lanes: Iterable[LaneResult],
+    *,
+    high_impact: bool = False,
+) -> ConsensusArtifact:
+    """Reduce independent lane results; failures affect panel state, never votes."""
     lane_results = tuple(lanes)
     successful = tuple(lane for lane in lane_results if lane.successful)
 
@@ -45,6 +51,9 @@ def build_consensus(task_id: str, decision_id: str, lanes: Iterable[LaneResult],
         if high_impact:
             resolution = ResolutionState.HUMAN_REVIEW_REQUIRED
             reason = "High-impact decision requires human review even with unanimous model agreement."
+        elif panel is not PanelState.FULL:
+            resolution = ResolutionState.VERIFICATION_REQUIRED
+            reason = "Panel is not full; lane failure/degradation is signal and requires independent verification."
         elif not evidence_backed:
             resolution = ResolutionState.VERIFICATION_REQUIRED
             reason = "Unanimous reasoning lacks evidence from every successful lane."
@@ -78,14 +87,16 @@ def build_consensus(task_id: str, decision_id: str, lanes: Iterable[LaneResult],
     groups = list(grouped.items())
     for i, (position_a, lanes_a) in enumerate(groups):
         for position_b, lanes_b in groups[i + 1:]:
-            conflicts.append(Conflict(
-                claim_id=task_id,
-                lanes=tuple(lanes_a + lanes_b),
-                positions=(position_a, position_b),
-                conflict_type=ConflictType.POSITION,
-                materiality=1.0,
-                reason="Independent reasoning lanes returned different canonical positions.",
-            ))
+            conflicts.append(
+                Conflict(
+                    claim_id=task_id,
+                    lanes=tuple(lanes_a + lanes_b),
+                    positions=(position_a, position_b),
+                    conflict_type=ConflictType.POSITION,
+                    materiality=1.0,
+                    reason="Independent reasoning lanes returned different canonical positions.",
+                )
+            )
 
     return ConsensusArtifact(
         task_id=task_id,
