@@ -50,14 +50,14 @@ export default function App() {
     />;
   }
 
-  return <>
+  return <div className="archos-app-shell">
     <UltronOneWorld />
     <UltronAdaptiveHud mode={mode} onModeChange={setMode} />
     <div className="fixed bottom-24 right-6 z-50 flex gap-2">
-      <button className="archos-replay-launcher" onClick={() => { setMode('agents'); setMissionControlOpen(true); }} aria-label="Open ULTRON Mission Control" title="Mission Control · Ctrl+Shift+M"><Bot/><span>MISSIONS</span></button>
-      <button className="archos-replay-launcher" onClick={() => { setMode('replay'); setReplayOpen(true); }} aria-label="Open ULTRON Mission Replay" title="Mission Replay · Ctrl+Shift+R"><RotateCcw/><span>REPLAY</span></button>
+      <button className="archos-replay-launcher" onClick={() => { setMode('agents'); setMissionControlOpen(true); }} aria-label="Open ArchOS Mission Control" title="Mission Control · Ctrl+Shift+M"><Bot/><span>MISSIONS</span></button>
+      <button className="archos-replay-launcher" onClick={() => { setMode('replay'); setReplayOpen(true); }} aria-label="Open ArchOS Mission Replay" title="Mission Replay · Ctrl+Shift+R"><RotateCcw/><span>REPLAY</span></button>
     </div>
     <UltronMissionControl open={missionControlOpen} onClose={() => { setMissionControlOpen(false); setMode('world'); }} />
     <UltronMissionReplay open={replayOpen} onClose={() => { setReplayOpen(false); setMode('world'); }} />
-  </>;
+  </div>;
 }
