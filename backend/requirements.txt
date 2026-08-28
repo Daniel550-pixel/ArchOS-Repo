@@ -11,6 +11,7 @@ apscheduler>=3.10.4
 python-dotenv>=1.0.1
 pytest>=8.1.1
 pytest-asyncio>=0.23.6
+setuptools>=83.0.0
 openai
 anthropic>=0.60.0
 paho-mqtt
