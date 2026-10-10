@@ -24,10 +24,9 @@ type Step = 'idle' | 'pending' | 'done' | 'fail';
 
 interface GateProps {
   onAuthed: (vault: SovereignVault, jwt: string) => void;
-  onBypass?: () => void;
 }
 
-export const SovereignGate: React.FC<GateProps> = ({ onAuthed, onBypass }) => {
+export const SovereignGate: React.FC<GateProps> = ({ onAuthed }) => {
   const [user, setUser] = useState('operator');
   const [bioAvail, setBioAvail] = useState<boolean | null>(null);
   const [steps, setSteps] = useState<{ bio: Step; sig: Step; vault: Step; sess: Step }>({
@@ -249,17 +248,6 @@ export const SovereignGate: React.FC<GateProps> = ({ onAuthed, onBypass }) => {
             <ArrowRight size={14} />
           </motion.button>
         </div>
-
-        {onBypass && (
-          <div className="mt-3 text-center">
-            <button
-              onClick={onBypass}
-              className="text-[10px] font-mono text-gray-400 hover:text-cyan-400 transition-colors underline decoration-dotted"
-            >
-              Continue in Operative Read-Only Mode
-            </button>
-          </div>
-        )}
 
         {err && (
           <motion.div
