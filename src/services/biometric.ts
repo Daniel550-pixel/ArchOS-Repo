@@ -85,18 +85,10 @@ export async function registerBiometric(username: string) {
     if (cred) {
       packedCred = packCredential(cred);
     }
-  } catch (err: any) {
-    // If WebAuthn was cancelled or disallowed by browser/iframe policy, provide synthetic client signature
-    console.warn('[WebAuthn] Device platform registration fallback:', err);
-    packedCred = {
-      id: `cred_enclave_${username}_${Date.now()}`,
-      rawId: bufToB64u(new Uint8Array(16).buffer),
-      type: 'public-key',
-      authenticatorAttachment: 'platform',
-      response: {
-        clientDataJSON: bufToB64u(new TextEncoder().encode(JSON.stringify({ challenge: opts.challenge, origin: window.location.origin }))),
-      },
-    };
+  } catch (err) {
+    // Never synthesize a credential when WebAuthn is cancelled or unavailable.
+    // Registration must fail closed unless the browser returns a real credential.
+    throw new Error('Passkey registration was cancelled or unavailable. Allow passkey access and try again.');
   }
 
   const verifyRes = await fetch(`${API}/register/verify`, {
@@ -132,18 +124,10 @@ export async function loginBiometric(username: string) {
     if (cred) {
       packedCred = packCredential(cred);
     }
-  } catch (err: any) {
-    // Fallback for sandboxed iframes without platform authenticator permissions
-    console.warn('[WebAuthn] Device platform authentication fallback:', err);
-    packedCred = {
-      id: opts.allowCredentials?.[0]?.id || `cred_enclave_${username}`,
-      rawId: bufToB64u(new Uint8Array(16).buffer),
-      type: 'public-key',
-      authenticatorAttachment: 'platform',
-      response: {
-        clientDataJSON: bufToB64u(new TextEncoder().encode(JSON.stringify({ challenge: opts.challenge, origin: window.location.origin }))),
-      },
-    };
+  } catch (err) {
+    // Never synthesize an assertion when WebAuthn is cancelled or unavailable.
+    // Authentication must fail closed unless the browser returns a real assertion.
+    throw new Error('Passkey authentication was cancelled or unavailable. Allow passkey access and try again.');
   }
 
   const verifyRes = await fetch(`${API}/login/verify`, {
