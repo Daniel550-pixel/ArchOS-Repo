@@ -44,7 +44,6 @@ export default function App() {
     return (
       <SovereignGate
         onAuthed={(vault, jwt) => setSession({ vault, jwt })}
-        onBypass={() => setSession({ vault: new SovereignVault(), jwt: 'operative_readonly_jwt' })}
       />
     );
   }
