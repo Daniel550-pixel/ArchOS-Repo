@@ -5,6 +5,7 @@ import { silentRestore } from './services/session';
 import { ArchOSUnifiedSpatialCanvas } from './components/spatial/ArchOSUnifiedSpatialCanvas';
 import { UltronMissionReplay } from './components/layout/UltronMissionReplay';
 import { UltronMissionControl } from './components/layout/UltronMissionControl';
+import { ArchOSCommandOverlay } from './components/layout/ArchOSCommandOverlay';
 
 export default function App() {
   const [session, setSession] = useState<{ vault: SovereignVault; jwt: string } | null>(null);
@@ -52,6 +53,7 @@ export default function App() {
     <div className="archos-app-shell">
       {/* Primary Cinematic Operating Environment */}
       <ArchOSUnifiedSpatialCanvas />
+      <ArchOSCommandOverlay />
 
       {/* Discrete Mission Panels available via hotkeys & events */}
       <UltronMissionControl
