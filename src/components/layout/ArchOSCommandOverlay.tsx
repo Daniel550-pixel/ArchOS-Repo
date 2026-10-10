@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, AudioLines, Command, Globe2, Layers3, ShieldCheck, Signal, Workflow, X } from 'lucide-react';
+import { Activity, Command, Layers3, ShieldCheck, Signal, Workflow, X } from 'lucide-react';
 
 type RuntimeSnapshot = {
   time: string;
@@ -7,7 +7,6 @@ type RuntimeSnapshot = {
 };
 
 const navItems = [
-  { label: 'World Model', icon: Globe2, event: 'archos:world-model' },
   { label: 'Mission Control', icon: Workflow, event: 'archos:mission-control' },
   { label: 'Mission Replay', icon: Layers3, event: 'archos:mission-replay' },
 ];
