@@ -147,6 +147,10 @@ God's Eye is therefore treated as a **spatial intelligence surface**, rather tha
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the detailed architectural model and boundaries.
 
+## Universal Integration Fabric
+
+The [Universal Integration Fabric design](docs/UNIVERSAL_INTEGRATION_FABRIC.md) registers the user's independent project repositories as governed capability domains. The first Windows diagnostic is available at `scripts/windows/Test-ArchOSIntegrations.ps1`; it checks local Git remotes and known loopback endpoints without modifying repositories or services. Newly registered connectors remain marked `planned` until their real API contracts and local integration tests are verified.
+
 ## Public integration surface
 
 ArchOS is being developed as a platform, not only as a standalone UI. The first public integration surface is the Python SDK under [`sdk/python`](sdk/python), which provides a thin typed client for the JARVIS and governed-action APIs.
