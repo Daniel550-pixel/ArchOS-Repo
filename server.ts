@@ -7,10 +7,11 @@ import dotenv from "dotenv";
 import { actionGateStore, ActionGateRecord } from "./server/governance/actionGateStore";
 import { signHs256Jwt, verifyHs256Jwt } from "./server/security/jwt";
 
-dotenv.config();
+dotenv.config({ path: process.env.ARCHOS_ENV_FILE || path.join(process.cwd(), ".env") });
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || "0.0.0.0";
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -1589,7 +1590,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, HOST, () => {
     console.log(`MOTION / FORM server online at http://localhost:${PORT}`);
   });
 }
