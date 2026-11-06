@@ -34,6 +34,20 @@ jobs:
         run: npm run test:world-simulation
       - name: Governance verification
         run: npm run test:governance
+      - name: Start ArchOS web server for A3 acceptance tests
+        run: |
+          nohup npm run dev > /tmp/archos-server.log 2>&1 &
+          echo $! > /tmp/archos-server.pid
+      - name: Wait for ArchOS web server
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/archos-server.log
+          exit 1
       - name: A3 engine verification
         run: npm run test:a3
       - name: A4 fabric verification
@@ -42,9 +56,21 @@ jobs:
         run: npm run test:webapp
       - name: Production build
         run: npm run build
+      - name: Stop ArchOS web server
+        if: always()
+        run: |
+          if [ -f /tmp/archos-server.pid ]; then
+            kill "$(cat /tmp/archos-server.pid)" 2>/dev/null || true
+          fi
 
   python-integrity:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}
+      ENVIRONMENT: test
+      # Import-time SQLAlchemy engine construction needs a syntactically valid URL.
+      # These unit tests do not connect to PostgreSQL; no database service or secret is required.
+      DATABASE_URL: postgresql+asyncpg://archos:archos@127.0.0.1:5432/archos_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,8 +80,11 @@ jobs:
           python-version: "3.12"
       - name: Compile Python sources
         run: python -m compileall -q backend tests
-      - name: Install Python test runner
-        run: python -m pip install --upgrade pip pytest pytest-asyncio
+      - name: Install backend and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+          python -m pip install pytest pytest-asyncio
       - name: Run promoted intelligence tests
         run: python -m pytest -q tests/test_multimodal_archos_integration.py tests/test_finsight_jarvis_integration.py
 
