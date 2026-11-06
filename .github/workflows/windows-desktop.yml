@@ -30,7 +30,7 @@ jobs:
         run: npm run build
 
       - name: Package Windows installer and portable executable
-        run: npx electron-builder --win nsis portable --x64
+        run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Verify executable outputs
         shell: pwsh
