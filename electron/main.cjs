@@ -120,6 +120,8 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0 && requestHealth()) createMainWindow();
+app.on("activate", async () => {
+  if (BrowserWindow.getAllWindows().length === 0 && await requestHealth()) {
+    await createMainWindow();
+  }
 });
