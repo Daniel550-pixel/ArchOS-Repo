@@ -5,6 +5,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw 'Git is not installed or is not available on PATH.'
+}
+
 function Normalize-Remote {
     param([string]$Value)
     if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
@@ -122,6 +126,3 @@ Write-Host "Git remotes matched: $matched / $($repositories.Count)"
 Write-Host "HTTP endpoints returning 200: $online / $($endpoints.Count)"
 Write-Host 'A missing local checkout or offline endpoint is reported, not treated as an installation failure.' -ForegroundColor DarkGray
 
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Warning 'Git is not installed or is not available on PATH.'
-}
