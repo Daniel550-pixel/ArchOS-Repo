@@ -44,10 +44,18 @@ jobs:
             Write-Host "$($_.Name) - $([math]::Round($_.Length / 1MB, 2)) MB"
           }
 
-      - name: Upload Windows executables
+      - name: Upload NSIS installer
         uses: actions/upload-artifact@v4
         with:
-          name: ArchOS-Windows-x64
-          path: release/*.exe
+          name: ArchOS-Windows-Installer-x64
+          path: release/ArchOS-*-x64.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArchOS-Windows-Portable-x64
+          path: release/ArchOS-*-Portable-x64.exe
           if-no-files-found: error
           retention-days: 30
