@@ -67,6 +67,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}
+      ENVIRONMENT: test
+      # Import-time SQLAlchemy engine construction needs a syntactically valid URL.
+      # These unit tests do not connect to PostgreSQL; no database service or secret is required.
+      DATABASE_URL: postgresql+asyncpg://archos:archos@127.0.0.1:5432/archos_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
