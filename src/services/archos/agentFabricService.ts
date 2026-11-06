@@ -33,12 +33,71 @@ class AgentFabricService {
       const res = await fetch('/api/v1/agents');
       if (res.ok) {
         const data = await res.json();
-        return data.agents || [];
+        if (data.agents && data.agents.length > 0) {
+          return data.agents;
+        }
       }
     } catch (e) {
-      console.warn('Failed to fetch specialist agents from enclave:', e);
+      console.warn('Failed to fetch specialist agents from enclave, using sovereign defaults:', e);
     }
-    return [];
+    return [
+      {
+        id: 'perception',
+        name: 'Perception & Disambiguation Specialist',
+        description: 'Interprets incoming information, normalizes queries, disambiguates entities, and tags reality provenance.',
+        capabilities: ['PERCEPTION'],
+        domain: 'GENERAL_INTELLIGENCE'
+      },
+      {
+        id: 'world_model',
+        name: 'Canonical World Model Query Specialist',
+        description: 'Queries persistent state, temporal events, geospatial geometry, and detects missing attributes.',
+        capabilities: ['WORLD_MODEL'],
+        domain: 'GEOSPATIAL_TWIN'
+      },
+      {
+        id: 'research',
+        name: 'Open Data & External Intelligence Specialist',
+        description: 'Gathers live telemetry, weather radar, macro-indicators, and municipal datasets with provenance preservation.',
+        capabilities: ['RESEARCH'],
+        domain: 'RESEARCH_TELEMETRY'
+      },
+      {
+        id: 'reasoning',
+        name: 'Model-Backed Logical Deduction Specialist',
+        description: 'Performs structured model-backed inference, evaluates evidence, isolates assumptions, and produces conclusions.',
+        capabilities: ['REASONING'],
+        domain: 'REASONING_LOGIC'
+      },
+      {
+        id: 'planning',
+        name: 'Tactical & Strategic Plan Decomposition Specialist',
+        description: 'Converts deductions into sequenced executable plans, tool requirements, and authority tags.',
+        capabilities: ['PLANNING'],
+        domain: 'PLANNING_ORCHESTRATION'
+      },
+      {
+        id: 'risk',
+        name: 'Operational Risk & Impact Assessment Specialist',
+        description: 'Evaluates operational uncertainty, blast radius, and classifies operations into risk tiers.',
+        capabilities: ['RISK_ASSESSMENT'],
+        domain: 'RISK_AUDIT'
+      },
+      {
+        id: 'verification',
+        name: 'Epistemic Verification & Policy Invariant Specialist',
+        description: 'Checks evidence, provenance, safety invariants, Dubai Building Code, and rejects unsupported claims.',
+        capabilities: ['VERIFICATION'],
+        domain: 'POLICY_GOVERNANCE'
+      },
+      {
+        id: 'execution',
+        name: 'Governed Action Gate & Execution Specialist',
+        description: 'Enforces zero-trust execution boundary, submits consequential actions to ActionGate, and executes approved operations.',
+        capabilities: ['EXECUTION'],
+        domain: 'GOVERNED_EXECUTION'
+      }
+    ];
   }
 
   public async pollActionGate(): Promise<void> {
