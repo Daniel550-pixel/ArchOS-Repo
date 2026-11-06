@@ -1,0 +1,42 @@
+configs/
+  system_config.json
+  modules.json
+  security_system.json
+  dashboards.json
+  operational_parameters.json
+  simulation_config.json
+aios_core.py
+# Use official Python 3.13 slim image
+FROM python:3.13-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy all files from repo
+COPY . .
+
+# Install dependencies
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Run AIOS continuously with unbuffered logs
+CMD ["python3.13", "-u", "aios_core.py"]
+# Web interface for HF Space
+gradio==3.42.0
+
+# JSON handling
+json5==0.9.14        # More robust JSON parsing (optional, safer than stdlib for configs)
+
+# Date/time utilities
+python-dateutil==2.9.2  # For enhanced datetime parsing and manipulation
+
+# Concurrency & threading utilities (Python 3.13 stdlib handles most, included for completeness)
+threading-extensions==0.1.0
+
+# Optional future-proofing for system monitoring/logging
+rich==13.3.3
+loguru==0.7.0
+requests==2.32.0
+pyyaml==6.0
+psutil==5.9.5
+gradio==3.42.0
