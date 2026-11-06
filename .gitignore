@@ -18,3 +18,4 @@ venv/
 # Generated OpenAPI artifacts
 openapi.json
 shared/contracts.generated.ts
+release/
