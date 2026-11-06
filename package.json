@@ -18,7 +18,8 @@
     "test:world-state": "tsx scripts/verify-world-state-temporal.ts",
     "test:world-simulation": "tsx scripts/verify-world-simulation.ts",
     "test:archos-mission-control": "tsx scripts/verify-archos-mission-control.ts",
-    "test:ultron": "vitest run frontend/src/components/experience/UltronNeuralField.test.tsx"
+    "test:ultron": "vitest run frontend/src/components/experience/UltronNeuralField.test.tsx",
+    "build:desktop": "npm run build && electron-builder --win nsis portable --x64"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -57,6 +58,65 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "tsx": "^4.21.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.archos.desktop",
+    "productName": "ArchOS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist",
+        "to": "backend/dist"
+      },
+      {
+        "from": "node_modules",
+        "to": "backend/node_modules"
+      },
+      {
+        "from": "assets",
+        "to": "backend/assets"
+      },
+      {
+        "from": "public",
+        "to": "backend/public"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable-${arch}.${ext}"
+    }
   }
 }
