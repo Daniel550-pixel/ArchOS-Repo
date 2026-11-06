@@ -30,7 +30,6 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
-          cache: npm
       - name: Install Node dependencies
         run: npm install
       - name: Audit Node dependencies
@@ -48,6 +47,7 @@ jobs:
           python -m pip install --upgrade pip
           cd backend
           pip install -r requirements.txt
+          python -m pip install --upgrade "setuptools>=84.1.0"
           pip install pip-audit
       - name: Audit Python dependencies
         run: cd backend && pip-audit
