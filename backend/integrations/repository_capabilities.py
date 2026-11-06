@@ -55,11 +55,51 @@ REPOSITORY_CAPABILITIES: tuple[RepositoryCapability, ...] = (
         "high",
         "audited",
     ),
+    RepositoryCapability(
+        "Daniel550-pixel/NetworkLab",
+        "web application health, network diagnostics, Wi-Fi profile inventory, service recovery telemetry",
+        "infrastructure_intelligence",
+        "read_only_local_health_adapter",
+        "high",
+        "planned",
+    ),
+    RepositoryCapability(
+        "Daniel550-pixel/Airpods-4-Coding-Space",
+        "Windows Bluetooth device presence, audio endpoints, AirPods connection telemetry",
+        "device_intelligence",
+        "read_only_local_device_adapter",
+        "high",
+        "planned",
+    ),
+    RepositoryCapability(
+        "Daniel550-pixel/Universal-SaaS-Solutions",
+        "customer operations, SaaS pricing, quote workflows, tax-aware commercial analytics",
+        "business_intelligence",
+        "read_only_business_data_adapter",
+        "medium",
+        "planned",
+    ),
+    RepositoryCapability(
+        "Daniel550-pixel/School-Files-Vault",
+        "document inventory, project evidence, metadata, searchable knowledge sources",
+        "knowledge_intelligence",
+        "read_only_document_index_adapter",
+        "high",
+        "planned",
+    ),
+    RepositoryCapability(
+        "Daniel550-pixel/Project-Fortress",
+        "application security posture, local service diagnostics, dependency and configuration checks",
+        "security_intelligence",
+        "read_only_security_posture_adapter",
+        "high",
+        "planned",
+    ),
 )
 
 
 def list_repository_capabilities() -> list[dict[str, Any]]:
-    """Return the audited external capability registry for observability and tooling."""
+    """Return the repository capability registry for observability and tooling."""
     return [asdict(item) for item in REPOSITORY_CAPABILITIES]
 
 
