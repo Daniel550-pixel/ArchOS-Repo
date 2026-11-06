@@ -28,7 +28,7 @@ The registry also retains previously audited sources such as AI-mainframe, FinSi
 
 ## Target architecture
 
-\`\`\`text
+```text
 Source repositories and local services
        |          |          |          |
     NetworkLab   AAF       SaaS      Vault / Fortress
@@ -44,21 +44,21 @@ Source repositories and local services
            provenance + policy + audit + approval
                          |
                  Mission Control / UI
-\`\`\`
+```
 
 ## Connector lifecycle
 
-- \`planned\`: capability identified; endpoint contract not yet verified.
-- \`contract_defined\`: endpoint, schema, auth and failure behavior documented.
-- \`implemented\`: adapter exists and has automated tests.
-- \`verified\`: adapter passed local integration tests against the real source service.
-- \`disabled\`: connector intentionally unavailable.
+- `planned`: capability identified; endpoint contract not yet verified.
+- `contract_defined`: endpoint, schema, auth and failure behavior documented.
+- `implemented`: adapter exists and has automated tests.
+- `verified`: adapter passed local integration tests against the real source service.
+- `disabled`: connector intentionally unavailable.
 
-Only \`implemented\` and \`verified\` connectors may be advertised as operational. The current five new repository entries are deliberately marked \`planned\`.
+Only `implemented` and `verified` connectors may be advertised as operational. The current five new repository entries are deliberately marked `planned`.
 
 ## First implementation sequence
 
-1. Verify local repository checkouts and their Git remotes using \`scripts/windows/Test-ArchOSIntegrations.ps1\`.
+1. Verify local repository checkouts and their Git remotes using `scripts/windows/Test-ArchOSIntegrations.ps1`.
 2. Confirm each source service's real health/read endpoints and authentication requirements.
 3. Implement NetworkLab and Project Fortress health adapters first.
 4. Add AAF read-only telemetry.
@@ -68,4 +68,4 @@ Only \`implemented\` and \`verified\` connectors may be advertised as operationa
 
 ## Current API
 
-The existing \`GET /integrations/capabilities\` endpoint exposes the repository capability registry. It is an inventory endpoint; it does not probe external repositories or imply that planned connectors are online.
+The existing `GET /integrations/capabilities` endpoint exposes the repository capability registry. It is an inventory endpoint; it does not probe external repositories or imply that planned connectors are online.
