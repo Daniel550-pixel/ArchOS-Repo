@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None)
     ARCHOS_CLAUDE_MODEL: str = Field(default="claude-sonnet-4-6")
 
+    # OmniRoute is opt-in. Existing direct-provider behavior remains the default.
+    OMNIROUTE_ENABLED: bool = False
+    OMNIROUTE_BASE_URL: str = Field(default="http://127.0.0.1:20128/v1")
+    OMNIROUTE_API_KEY: Optional[str] = Field(default=None)
+    OMNIROUTE_MODEL: str = Field(default="auto")
+    OMNIROUTE_TIMEOUT_SECONDS: float = Field(default=60.0, gt=0, le=300)
+    OMNIROUTE_FALLBACK_TO_ANTHROPIC: bool = True
+
     ADMIN_API_KEY: Optional[str] = Field(default=None)
     JWT_SECRET: Optional[str] = Field(default=None)
     CORS_ORIGINS: List[str] = Field(default_factory=list)
