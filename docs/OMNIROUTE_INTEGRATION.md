@@ -25,7 +25,7 @@ omniroute
 The dashboard listens on `http://127.0.0.1:20128`; the OpenAI-compatible
 inference API is `http://127.0.0.1:20128/v1`. Complete the OmniRoute setup
 and connect at least one provider in its dashboard. Create/copy an API key
-from Dashboard → Endpoints.
+from Dashboard → Endpoints. Then run `powershell -ExecutionPolicy Bypass -File .\\scripts\\windows\\Configure-OmniRoute.ps1` from the ArchOS checkout; the script verifies `.env` is Git-ignored, accepts the key as hidden input, and writes the local settings without printing the secret.
 
 ## ArchOS configuration
 
