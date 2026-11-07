@@ -250,3 +250,7 @@ ArchOS is licensed under the [MIT License](LICENSE).
 ## Maintainer
 
 **Daniel550-pixel** — primary project maintainer.
+
+## Central AI routing with OmniRoute
+
+ArchOS/JARVIS can optionally route its Claude Agent Fabric reasoning lane through a local OmniRoute gateway while preserving the existing direct Anthropic fallback. See [docs/OMNIROUTE_INTEGRATION.md](docs/OMNIROUTE_INTEGRATION.md) for configuration and security boundaries. On Windows, start the local gateway with `powershell -ExecutionPolicy Bypass -File .\scripts\windows\Install-Start-OmniRoute.ps1`. OmniRoute remains disabled until explicitly enabled in the local, untracked `.env` file.
