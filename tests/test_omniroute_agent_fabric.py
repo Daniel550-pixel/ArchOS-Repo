@@ -50,7 +50,7 @@ async def test_omniroute_success_uses_openai_compatible_chat_api(monkeypatch, mo
 
 
 @pytest.mark.asyncio
-async def test_omniroute_failure_uses_anthropic_fallback(monkeypatch, request):
+async def test_omniroute_failure_uses_anthropic_fallback(monkeypatch, model_request):
     class FakeAsyncOpenAI:
         def __init__(self, **kwargs):
             self.chat = SimpleNamespace(
@@ -75,7 +75,7 @@ async def test_omniroute_failure_uses_anthropic_fallback(monkeypatch, request):
     monkeypatch.setitem(__import__("sys").modules, "openai", SimpleNamespace(AsyncOpenAI=FakeAsyncOpenAI))
     monkeypatch.setitem(__import__("sys").modules, "anthropic", SimpleNamespace(AsyncAnthropic=FakeAsyncAnthropic))
 
-    result = await fabric_module.ClaudeAgentFabric().run(request)
+    result = await fabric_module.ClaudeAgentFabric().run(model_request)
 
     assert result.status == "FALLBACK_SUCCESS"
     assert result.provider == "anthropic"
@@ -87,12 +87,12 @@ async def test_omniroute_failure_uses_anthropic_fallback(monkeypatch, request):
 
 
 @pytest.mark.asyncio
-async def test_omniroute_missing_key_is_unconfigured_without_provider_call(monkeypatch, request):
+async def test_omniroute_missing_key_is_unconfigured_without_provider_call(monkeypatch, model_request):
     monkeypatch.setattr(fabric_module.settings, "OMNIROUTE_ENABLED", True)
     monkeypatch.setattr(fabric_module.settings, "OMNIROUTE_API_KEY", None)
     monkeypatch.setattr(fabric_module.settings, "OMNIROUTE_FALLBACK_TO_ANTHROPIC", False)
 
-    result = await fabric_module.ClaudeAgentFabric().run(request)
+    result = await fabric_module.ClaudeAgentFabric().run(model_request)
 
     assert result.status == "UNCONFIGURED"
     assert result.provider == "omniroute"
@@ -102,7 +102,7 @@ async def test_omniroute_missing_key_is_unconfigured_without_provider_call(monke
 
 
 @pytest.mark.asyncio
-async def test_disabled_omniroute_preserves_direct_anthropic_path(monkeypatch, request):
+async def test_disabled_omniroute_preserves_direct_anthropic_path(monkeypatch, model_request):
     class FakeAsyncAnthropic:
         def __init__(self, **kwargs):
             self.messages = SimpleNamespace(
@@ -116,7 +116,7 @@ async def test_disabled_omniroute_preserves_direct_anthropic_path(monkeypatch, r
     monkeypatch.setattr(fabric_module.settings, "ARCHOS_CLAUDE_MODEL", "claude-test-model")
     monkeypatch.setitem(__import__("sys").modules, "anthropic", SimpleNamespace(AsyncAnthropic=FakeAsyncAnthropic))
 
-    result = await fabric_module.ClaudeAgentFabric().run(request)
+    result = await fabric_module.ClaudeAgentFabric().run(model_request)
 
     assert result.status == "SUCCESS"
     assert result.provider == "anthropic"
