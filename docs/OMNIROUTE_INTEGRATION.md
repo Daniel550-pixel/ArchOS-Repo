@@ -15,8 +15,10 @@ No provider credentials are copied into source code or the frontend.
 
 ## Upstream compatibility
 
-The Windows installer targets the official OmniRoute npm package
-`omniroute@3.8.54`. Its documented Node.js engine range is
+The Windows installer resolves the requested version against the public npm
+registry at runtime (default: the latest published `omniroute` package). This
+avoids assuming that a GitHub release tag has already been published to npm.
+Its documented Node.js engine range is
 `>=22.22.2 <23 || >=24.0.0 <27`; Node.js 24.x is supported.
 
 The OpenAI-compatible API root is `http://127.0.0.1:20128/v1`.
@@ -33,16 +35,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\Install-Start-OmniRou
 
 The installer checks the Node.js engine range, installs the official npm
 package if it is not already on PATH, and waits for the local service on
-`127.0.0.1:20128`. With npm 11 or later, it uses the lifecycle-script
-allowlist documented by OmniRoute 3.8.54:
-
-```powershell
-npm install -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild omniroute@3.8.54
-```
-
-The upstream dependency allowlist can change between releases. If npm reports
-a different required package list, use the exact names in that npm warning;
-do not disable lifecycle-script protections globally.
+`127.0.0.1:20128`. It first resolves the published version through
+`https://registry.npmjs.org/`, then installs that exact version. With npm 11 or
+later, it uses the upstream-documented lifecycle-script allowlist for the
+resolved release. If npm reports a different required package list, use the
+exact names in that warning; do not disable lifecycle-script protections
+globally.
 
 Dashboard: `http://127.0.0.1:20128`
 API: `http://127.0.0.1:20128/v1`
