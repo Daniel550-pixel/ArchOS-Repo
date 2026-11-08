@@ -138,3 +138,21 @@ jobs:
           if [ -f /tmp/archos-backend.pid ]; then
             kill "$(cat /tmp/archos-backend.pid)" 2>/dev/null || true
           fi
+
+  omniroute-fabric-tests:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/backend
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install isolated fabric test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pydantic pydantic-settings openai anthropic pytest pytest-asyncio
+      - name: Run OmniRoute agent-fabric tests
+        run: python -m pytest -q tests/test_omniroute_agent_fabric.py
