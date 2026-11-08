@@ -75,7 +75,13 @@ async def test_omniroute_failure_uses_anthropic_fallback(monkeypatch, model_requ
     monkeypatch.setitem(__import__("sys").modules, "openai", SimpleNamespace(AsyncOpenAI=FakeAsyncOpenAI))
     monkeypatch.setitem(__import__("sys").modules, "anthropic", SimpleNamespace(AsyncAnthropic=FakeAsyncAnthropic))
 
-    result = await fabric_module.ClaudeAgentFabric().run(model_request)
+    routed_request = fabric_module.ClaudeAgentRequest(
+        role=model_request.role,
+        prompt=model_request.prompt,
+        model="openai/gpt-4.1",
+        max_tokens=model_request.max_tokens,
+    )
+    result = await fabric_module.ClaudeAgentFabric().run(routed_request)
 
     assert result.status == "FALLBACK_SUCCESS"
     assert result.provider == "anthropic"
