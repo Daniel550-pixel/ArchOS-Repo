@@ -67,7 +67,7 @@ if (Test-LocalTcpPort -HostName "127.0.0.1" -PortNumber $Port) {
 }
 else {
     Write-Host "Starting OmniRoute..." -ForegroundColor Yellow
-    Start-Process -FilePath $omniCommand.Source -ArgumentList @("--no-open") -WindowStyle Hidden
+    Start-Process -FilePath $env:ComSpec -ArgumentList @("/c", "omniroute --no-open") -WindowStyle Hidden
 
     $deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
     do {
