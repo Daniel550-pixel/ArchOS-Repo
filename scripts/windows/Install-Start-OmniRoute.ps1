@@ -2,7 +2,7 @@
 param(
     [int]$Port = 20128,
     [int]$StartupTimeoutSeconds = 60,
-    [string]$OmniRouteVersion = "3.8.54"
+    [string]$OmniRouteVersion = "latest"
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,6 +40,18 @@ if (-not $nodeSupported) {
 }
 Write-Host "Node.js: $nodeVersionText" -ForegroundColor DarkGray
 
+# Resolve the requested release against the public npm registry before installation.
+# GitHub release tags can appear before the corresponding npm package is published.
+$registry = "https://registry.npmjs.org/"
+$versionSelector = if ([string]::IsNullOrWhiteSpace($OmniRouteVersion) -or $OmniRouteVersion -eq "latest") { "omniroute@latest" } else { "omniroute@$OmniRouteVersion" }
+Write-Host "Resolving $versionSelector from the public npm registry..." -ForegroundColor DarkGray
+$resolvedVersion = (& npm view $versionSelector version --registry=$registry 2>&1 | Select-Object -Last 1)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace([string]$resolvedVersion)) {
+    throw "Could not resolve $versionSelector from $registry. npm returned: $resolvedVersion"
+}
+$OmniRouteVersion = ([string]$resolvedVersion).Trim() -replace "^v", ""
+Write-Host "Published npm version: $OmniRouteVersion" -ForegroundColor Green
+
 $omniCommand = Get-Command omniroute -ErrorAction SilentlyContinue
 $installedVersion = $null
 if ($omniCommand) {
@@ -56,10 +68,10 @@ if (-not $omniCommand -or $installedVersion -ne $OmniRouteVersion) {
     Write-Host "Installing official OmniRoute package v$OmniRouteVersion..." -ForegroundColor Yellow
     if ($npmMajor -ge 11) {
         Write-Host "npm 11+ detected; allowing the upstream-documented install scripts." -ForegroundColor DarkGray
-        & npm install --global "--allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild" "omniroute@$OmniRouteVersion"
+        & npm install --global "--allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild" "omniroute@$OmniRouteVersion" "--registry=$registry"
     }
     else {
-        & npm install --global "omniroute@$OmniRouteVersion"
+        & npm install --global "omniroute@$OmniRouteVersion" "--registry=$registry"
     }
     if ($LASTEXITCODE -ne 0) {
         throw "OmniRoute installation failed (npm exit code $LASTEXITCODE). If npm reports a different lifecycle-script allowlist, use the exact package names in that warning and rerun."
