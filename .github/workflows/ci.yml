@@ -69,7 +69,7 @@ jobs:
       - name: Architecture audit (authority, imports, blocking paths, state, security boundaries)
         run: cd backend && python tools/architecture_audit.py
       - name: Legacy entrypoint delegation test
-        run: cd backend && python -c "from backend.main import app as legacy_app; from app.main import app as authoritative_app; assert legacy_app is authoritative_app; print('legacy entrypoint delegates to authoritative app')"
+        run: cd backend && python -c "from backend.main import app as legacy_app; from backend.app.main import app as authoritative_app; assert legacy_app is authoritative_app; print('legacy entrypoint delegates to authoritative app')"
       - name: Legacy authority guard
         run: |
           if grep -nE 'FastAPI\\(|create_task\\(|include_router\\(|@app\\.(get|post|put|patch|delete|websocket)' backend/main.py; then
