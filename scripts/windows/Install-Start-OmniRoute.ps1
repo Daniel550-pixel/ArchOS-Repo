@@ -71,7 +71,8 @@ if (-not $omniCommand) {
     throw "OmniRoute is installed, but 'omniroute' is not on PATH. Open a new PowerShell window and rerun."
 }
 $verifiedVersion = (& omniroute --version 2>$null | Select-Object -Last 1)
-if ($LASTEXITCODE -ne 0 -or ([string]$verifiedVersion).Trim() -replace "^v", "" -ne $OmniRouteVersion) {
+$normalizedVersion = ([string]$verifiedVersion).Trim() -replace "^v", ""
+if ($LASTEXITCODE -ne 0 -or $normalizedVersion -ne $OmniRouteVersion) {
     throw "OmniRoute version verification failed. Expected $OmniRouteVersion; received '$verifiedVersion'."
 }
 Write-Host "OmniRoute version verified: $OmniRouteVersion" -ForegroundColor Green
