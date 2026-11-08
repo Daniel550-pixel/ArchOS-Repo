@@ -1,8 +1,4 @@
-"""Governed Claude Agent Fabric API.
-
-This endpoint exposes model-backed analysis without granting model execution
-authority. Action execution remains behind the existing governance layer.
-"""
+"""Governed model-fabric API for ArchOS and its JARVIS runtime."""
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -23,10 +19,23 @@ class ClaudeRequest(BaseModel):
 
 @router.get("/status")
 async def claude_status():
+    active_provider = "omniroute" if settings.OMNIROUTE_ENABLED else "anthropic"
     return {
-        "provider": "anthropic",
-        "configured": bool(settings.ANTHROPIC_API_KEY),
-        "default_model": settings.ARCHOS_CLAUDE_MODEL,
+        "provider": active_provider,
+        "configured": (
+            bool(settings.OMNIROUTE_API_KEY)
+            if settings.OMNIROUTE_ENABLED
+            else bool(settings.ANTHROPIC_API_KEY)
+        ),
+        "omniroute": {
+            "enabled": settings.OMNIROUTE_ENABLED,
+            "base_url": settings.OMNIROUTE_BASE_URL,
+            "model": settings.OMNIROUTE_MODEL,
+            "api_key_configured": bool(settings.OMNIROUTE_API_KEY),
+            "fallback_to_anthropic": settings.OMNIROUTE_FALLBACK_TO_ANTHROPIC,
+        },
+        "anthropic_fallback_configured": bool(settings.ANTHROPIC_API_KEY),
+        "default_model": settings.OMNIROUTE_MODEL if settings.OMNIROUTE_ENABLED else settings.ARCHOS_CLAUDE_MODEL,
         "execution_authority": False,
         "governance_boundary": "JARVIS_AND_GOVERNANCE",
     }

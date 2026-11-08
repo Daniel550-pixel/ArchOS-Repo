@@ -185,9 +185,7 @@ async def event_stream(request: Request):
     async def generate():
         try:
             yield ": connected\n\n"
-            while True:
-                if await request.is_disconnected():
-                    break
+            while not await request.is_disconnected():
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=15.0)
                     payload = json.dumps(event, separators=(",", ":"), default=str)
