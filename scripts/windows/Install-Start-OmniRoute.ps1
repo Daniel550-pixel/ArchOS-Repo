@@ -40,7 +40,16 @@ if (-not $nodeSupported) {
 }
 Write-Host "Node.js: $nodeVersionText" -ForegroundColor DarkGray
 
-if (-not (Get-Command omniroute -ErrorAction SilentlyContinue)) {
+$omniCommand = Get-Command omniroute -ErrorAction SilentlyContinue
+$installedVersion = $null
+if ($omniCommand) {
+    $versionOutput = (& omniroute --version 2>$null | Select-Object -Last 1)
+    if ($LASTEXITCODE -eq 0 -and $versionOutput) {
+        $installedVersion = ([string]$versionOutput).Trim() -replace "^v", ""
+    }
+}
+
+if (-not $omniCommand -or $installedVersion -ne $OmniRouteVersion) {
     $npmVersionText = (& npm --version).Trim()
     try { $npmMajor = ([version]$npmVersionText).Major } catch { throw "Could not parse npm version: $npmVersionText" }
 
@@ -61,6 +70,11 @@ $omniCommand = Get-Command omniroute -ErrorAction SilentlyContinue
 if (-not $omniCommand) {
     throw "OmniRoute is installed, but 'omniroute' is not on PATH. Open a new PowerShell window and rerun."
 }
+$verifiedVersion = (& omniroute --version 2>$null | Select-Object -Last 1)
+if ($LASTEXITCODE -ne 0 -or ([string]$verifiedVersion).Trim() -replace "^v", "" -ne $OmniRouteVersion) {
+    throw "OmniRoute version verification failed. Expected $OmniRouteVersion; received '$verifiedVersion'."
+}
+Write-Host "OmniRoute version verified: $OmniRouteVersion" -ForegroundColor Green
 
 if (Test-LocalTcpPort -HostName "127.0.0.1" -PortNumber $Port) {
     Write-Host "OmniRoute is already listening on 127.0.0.1:$Port." -ForegroundColor Green
