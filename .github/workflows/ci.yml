@@ -84,6 +84,8 @@ jobs:
         run: cd backend && python -c "from app.services.night_shift import night_shift_runtime; print(type(night_shift_runtime).__name__)"
       - name: Run backend tests
         run: cd backend && pytest -q
+      - name: Run OmniRoute agent-fabric tests
+        run: cd backend && pytest -q ../tests/test_omniroute_agent_fabric.py
       - name: Start backend
         run: |
           cd backend
