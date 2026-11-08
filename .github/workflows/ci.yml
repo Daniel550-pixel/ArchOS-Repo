@@ -2,9 +2,9 @@ name: Sovereign CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/omniroute-central-ai-gateway ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, feature/universal-integration-fabric ]
   workflow_dispatch:
 
 jobs:
