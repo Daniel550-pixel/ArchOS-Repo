@@ -7,7 +7,7 @@ from app.services import claude_agent_fabric as fabric_module
 
 
 @pytest.fixture
-def request():
+def model_request():
     return fabric_module.ClaudeAgentRequest(
         role="reasoning",
         prompt="Summarize the evidence.",
@@ -16,7 +16,7 @@ def request():
 
 
 @pytest.mark.asyncio
-async def test_omniroute_success_uses_openai_compatible_chat_api(monkeypatch, request):
+async def test_omniroute_success_uses_openai_compatible_chat_api(monkeypatch, model_request):
     captured = {}
 
     class FakeAsyncOpenAI:
@@ -38,7 +38,7 @@ async def test_omniroute_success_uses_openai_compatible_chat_api(monkeypatch, re
     monkeypatch.setattr(fabric_module.settings, "OMNIROUTE_TIMEOUT_SECONDS", 12.0)
     monkeypatch.setitem(__import__("sys").modules, "openai", SimpleNamespace(AsyncOpenAI=FakeAsyncOpenAI))
 
-    result = await fabric_module.ClaudeAgentFabric().run(request)
+    result = await fabric_module.ClaudeAgentFabric().run(model_request)
 
     assert result.status == "SUCCESS"
     assert result.provider == "omniroute"
