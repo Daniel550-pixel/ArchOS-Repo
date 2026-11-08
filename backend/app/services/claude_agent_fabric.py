@@ -80,7 +80,7 @@ class ClaudeAgentFabric:
             )
 
     async def _run_anthropic(self, request: ClaudeAgentRequest, *, fallback_error: str | None = None) -> ClaudeAgentResponse:
-        model = (request.model if request.model and request.model != "auto" else None) or settings.ARCHOS_CLAUDE_MODEL or self.DEFAULT_MODEL
+        model = (settings.ARCHOS_CLAUDE_MODEL or self.DEFAULT_MODEL) if fallback_error else ((request.model if request.model and request.model != "auto" else None) or settings.ARCHOS_CLAUDE_MODEL or self.DEFAULT_MODEL)
         if not settings.ANTHROPIC_API_KEY:
             return ClaudeAgentResponse(
                 status="UNCONFIGURED", role=request.role, content="", model=model,
